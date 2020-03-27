@@ -112,12 +112,48 @@ class planeTrackingExample:
         vwrNbPt = float(self.slt["vwrNbPt"].text())
         eqnT = np.linspace(0., prmTf, vwrNbPt)
 
-        # 3D plot.
+        # Plot solution.
+        eqnX, eqnY, eqnZ = self.updateViewerSltX(eqnT)
+        self.updateViewerSltV(eqnT, eqnX, eqnY, eqnZ)
+        self.updateViewerSltA(eqnT, eqnX, eqnY, eqnZ)
+
+    def updateViewerSltX(self, eqnT):
+        """Update viewer: displacement"""
+
+        # Plot solution: displacement.
         eqnX, eqnY, eqnZ = self.getDisplEquations(eqnT)
         vwrLnWd = float(self.slt["vwrLnWd"].text())
         vwrPtSz = float(self.slt["vwrPtSz"].text())
+        clr = (0., 0., 1.) # Blue.
         axis = self.viewer.getAxis()
-        axis.plot3D(eqnX, eqnY, eqnZ, lw=vwrLnWd, label="flight path", marker="o", ms=vwrPtSz)
+        axis.plot3D(eqnX, eqnY, eqnZ, lw=vwrLnWd, color=clr,
+                    label="flight path: x", marker="o", ms=vwrPtSz)
+
+        return eqnX, eqnY, eqnZ
+
+    def updateViewerSltV(self, eqnT, eqnX, eqnY, eqnZ):
+        """Update viewer: velocity"""
+
+        # Plot solution: velocity.
+        eqnVX, eqnVY, eqnVZ = self.getVelocEquations(eqnT)
+        clr = (0., 0.75, 1.) # Skyblue.
+        vwrVelLgh = float(self.slt["vwrVelLgh"].text())
+        vwrVelNrm = self.slt["vwrVelNrm"].isChecked()
+        axis = self.viewer.getAxis()
+        axis.quiver3D(eqnX, eqnY, eqnZ, eqnVX, eqnVY, eqnVZ, color=clr,
+                      length=vwrVelLgh, normalize=vwrVelNrm, label="flight path: v")
+
+    def updateViewerSltA(self, eqnT, eqnX, eqnY, eqnZ):
+        """Update viewer: acceleration"""
+
+        # Plot solution: acceleration.
+        eqnAX, eqnAY, eqnAZ = self.getAccelEquations(eqnT)
+        clr = (0.25, 0., 0.5) # Indigo.
+        vwrAccLgh = float(self.slt["vwrAccLgh"].text())
+        vwrAccNrm = self.slt["vwrAccNrm"].isChecked()
+        axis = self.viewer.getAxis()
+        axis.quiver3D(eqnX, eqnY, eqnZ, eqnAX, eqnAY, eqnAZ, colors=clr,
+                      length=vwrAccLgh, normalize=vwrAccNrm, label="flight path: a")
 
     def updateViewerMsr(self):
         """Update viewer: measurements"""
@@ -484,6 +520,10 @@ class planeTrackingExample:
         self.slt["vwrNbPt"] = QLineEdit("50", self.ctrGUI)
         self.slt["vwrLnWd"] = QLineEdit("1.", self.ctrGUI)
         self.slt["vwrPtSz"] = QLineEdit("5.", self.ctrGUI)
+        self.slt["vwrVelLgh"] = QLineEdit("0.01", self.ctrGUI)
+        self.slt["vwrVelNrm"] = QCheckBox("Normalize", self.ctrGUI)
+        self.slt["vwrAccLgh"] = QLineEdit("0.001", self.ctrGUI)
+        self.slt["vwrAccNrm"] = QCheckBox("Normalize", self.ctrGUI)
 
         # Fill solution GUI.
         self.fillSltGUI(sltGUI)
@@ -589,19 +629,28 @@ class planeTrackingExample:
         """Fill solution GUI : viewer parameters"""
 
         # Create analytic parameters GUI: plot parameters.
-        gdlWvr = QGridLayout(sltGUI)
-        gdlWvr.addWidget(QLabel("Nb points", sltGUI), 0, 0)
-        gdlWvr.addWidget(self.slt["vwrNbPt"], 0, 1)
-        gdlWvr.addWidget(QLabel("Line width", sltGUI), 1, 0)
-        gdlWvr.addWidget(self.slt["vwrLnWd"], 1, 1)
-        gdlWvr.addWidget(QLabel("Point size", sltGUI), 2, 0)
-        gdlWvr.addWidget(self.slt["vwrPtSz"], 2, 1)
+        gdlVwr = QGridLayout(sltGUI)
+        gdlVwr.addWidget(QLabel("Nb points", sltGUI), 0, 0)
+        gdlVwr.addWidget(self.slt["vwrNbPt"], 0, 1)
+        gdlVwr.addWidget(QLabel("Line width", sltGUI), 0, 2)
+        gdlVwr.addWidget(self.slt["vwrLnWd"], 0, 3)
+        gdlVwr.addWidget(QLabel("position:", sltGUI), 1, 0)
+        gdlVwr.addWidget(QLabel("marker size", sltGUI), 1, 1)
+        gdlVwr.addWidget(self.slt["vwrPtSz"], 1, 2)
+        gdlVwr.addWidget(QLabel("velocity:", sltGUI), 2, 0)
+        gdlVwr.addWidget(QLabel("length", sltGUI), 2, 1)
+        gdlVwr.addWidget(self.slt["vwrVelLgh"], 2, 2)
+        gdlVwr.addWidget(self.slt["vwrVelNrm"], 2, 3)
+        gdlVwr.addWidget(QLabel("acceleration:", sltGUI), 3, 0)
+        gdlVwr.addWidget(QLabel("length", sltGUI), 3, 1)
+        gdlVwr.addWidget(self.slt["vwrAccLgh"], 3, 2)
+        gdlVwr.addWidget(self.slt["vwrAccNrm"], 3, 3)
 
         # Set group box layout.
         gpbWvr = QGroupBox(sltGUI)
         gpbWvr.setTitle("3D viewer parameters")
         gpbWvr.setAlignment(Qt.AlignHCenter)
-        gpbWvr.setLayout(gdlWvr)
+        gpbWvr.setLayout(gdlVwr)
 
         return gpbWvr
 
