@@ -116,8 +116,8 @@ class planeTrackingExample:
         self.vwr2D = None
         self.vwr3D = None
         self.ctrGUI = ctrGUI
-        self.slt = {}
-        self.msr = {}
+        self.slt = {"sltId": ""}
+        self.msr = {"sltId": ""}
         self.vwr = {}
 
     @staticmethod
@@ -169,6 +169,9 @@ class planeTrackingExample:
         self.updateViewerSltV(eqnT, eqnX, eqnY, eqnZ)
         self.updateViewerSltA(eqnT, eqnX, eqnY, eqnZ)
 
+        # Track solution features.
+        self.slt["sltId"] = self.getSltId()
+
     def updateViewerSltX(self, eqnT):
         """Update viewer: displacement"""
 
@@ -207,8 +210,31 @@ class planeTrackingExample:
         axis.quiver3D(eqnX, eqnY, eqnZ, eqnAX, eqnAY, eqnAZ, colors=clr,
                       length=vwrAccLgh, normalize=vwrAccNrm, label="flight path: a")
 
+    def getSltId(self):
+        """Get solution identity (track solution features)"""
+
+        # Get solution identity.
+        sltId = self.slt["fpeAx"].text()
+        sltId += ":"+self.slt["fpeTx"].text()
+        sltId += ":"+self.slt["fpePhix"].text()
+        sltId += ":"+self.slt["fpeAy"].text()
+        sltId += ":"+self.slt["fpeTy"].text()
+        sltId += ":"+self.slt["fpePhiy"].text()
+        sltId += ":"+self.slt["fpeTiZi"].text()
+        sltId += ":"+self.slt["cdiX0"].text()
+        sltId += ":"+self.slt["cdiY0"].text()
+        sltId += ":"+self.slt["cdiZ0"].text()
+        sltId += ":"+self.slt["cdfTf"].text()
+
+        return sltId
+
     def updateViewerMsr(self):
         """Update viewer: measurements"""
+
+        # Clean all measurements if analytic solution has changed.
+        if self.msr["sltId"] != self.slt["sltId"]:
+            self.msr["sltId"] = self.slt["sltId"]
+            self.msr["datMsr"].clear()
 
         # Plot only if checked.
         if not self.vwr["ckbMsr"].isChecked():
