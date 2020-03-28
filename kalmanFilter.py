@@ -54,6 +54,7 @@ class viewer2DGUI(QMainWindow):
         super(viewer2DGUI, self).__init__(*args, **kwargs)
         self.mcvs = mpl2DCanvas(self)
         self.setCentralWidget(self.mcvs)
+        self.closed = False
 
     def getAxis(self):
         """Get viewer axis"""
@@ -66,6 +67,13 @@ class viewer2DGUI(QMainWindow):
 
         # Draw scene.
         self.mcvs.draw()
+
+    def closeEvent(self, event):
+        """Callback on closing window"""
+
+        # Mark window as closed.
+        self.closed = True
+        event.accept()
 
 class viewer3DGUI(QMainWindow):
     """Kalman filter 3D viewer"""
@@ -77,6 +85,7 @@ class viewer3DGUI(QMainWindow):
         super(viewer3DGUI, self).__init__(*args, **kwargs)
         self.mcvs = mpl3DCanvas(self)
         self.setCentralWidget(self.mcvs)
+        self.closed = False
 
     def getAxis(self):
         """Get viewer axis"""
@@ -89,6 +98,13 @@ class viewer3DGUI(QMainWindow):
 
         # Draw scene.
         self.mcvs.draw()
+
+    def closeEvent(self, event):
+        """Callback on closing window"""
+
+        # Mark window as closed.
+        self.closed = True
+        event.accept()
 
 class planeTrackingExample:
     """Plane tracking example"""
@@ -643,7 +659,7 @@ class planeTrackingExample:
         eqnZ = poly(eqnT)
 
         # Create or retrieve viewer.
-        if not self.vwr2D:
+        if not self.vwr2D or self.vwr2D.closed:
             self.vwr2D = viewer2DGUI(self.ctrGUI)
             self.vwr2D.setWindowTitle("Lagrange Z polynomial")
             self.vwr2D.show()
@@ -1026,7 +1042,7 @@ class controllerGUI(QMainWindow):
         self.examples = []
         self.examples.append(planeTrackingExample(self))
         self.comboEx, self.comboGUI = self.addExampleCombo()
-        self.updateBtn = self.addUpdateButton()
+        self.updateBtn = self.addUpdateVwrBtn()
 
         # Show controls GUI.
         self.show()
@@ -1061,20 +1077,16 @@ class controllerGUI(QMainWindow):
     def onExampleChanged(self, txt):
         """Callback on example combo change"""
 
-        # Create controls.
+        # Kill previous viewer (if any).
+        if self.viewer:
+            self.viewer.close()
+
+        # Customize controller GUI according to example.
         layCtr = QVBoxLayout()
         layCtr.addWidget(self.comboGUI)
         gdlVwr, gdlVwrRow, gdlVwrSpan = QGridLayout(), 0, 1
         for example in self.examples:
             if example.getName() == txt:
-                # Create viewer GUI.
-                if self.viewer:
-                    self.viewer.deleteLater()
-                self.viewer = example.createViewer()
-                self.viewer.setWindowTitle("Kalman filter viewer")
-                self.viewer.show()
-
-                # Customize contorller GUI.
                 sltGUI = example.createSltGUI()
                 layCtr.addWidget(sltGUI)
                 msrGUI = example.createMsrGUI()
@@ -1096,24 +1108,30 @@ class controllerGUI(QMainWindow):
         self.setCentralWidget(guiCtr)
 
         # Update the view.
-        self.onUpdateBtnClick()
+        self.onUpdateVwrBtnClick()
 
-    def addUpdateButton(self):
+    def addUpdateVwrBtn(self):
         """Add button to update the viewer"""
 
         # Add button to update the viewer.
         updateBtn = QPushButton("Update viewer", self)
         updateBtn.setToolTip("Update viewer")
-        updateBtn.clicked.connect(self.onUpdateBtnClick)
+        updateBtn.clicked.connect(self.onUpdateVwrBtnClick)
 
         return updateBtn
 
-    def onUpdateBtnClick(self):
-        """Callback on update button click"""
+    def onUpdateVwrBtnClick(self):
+        """Callback on update viewer button click"""
 
         # Update the view.
         for example in self.examples:
             if example.getName() == self.comboEx.currentText():
+                # Create viewer GUI.
+                if not self.viewer or self.viewer.closed:
+                    self.viewer = example.createViewer()
+                    self.viewer.setWindowTitle("Kalman filter viewer")
+                    self.viewer.show()
+
                 # Check validity.
                 validEx = example.checkValidity()
                 if not validEx:
