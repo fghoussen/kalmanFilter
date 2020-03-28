@@ -20,27 +20,62 @@ from PyQt5.QtCore import Qt
 
 matplotlib.use('Qt5Agg')
 
-class mplCanvas(FigureCanvasQTAgg):
-    """Matplotlib canvas to be embedded in Qt widget"""
+class mpl2DCanvas(FigureCanvasQTAgg):
+    """Matplotlib 2D canvas to be embedded in Qt widget"""
 
     def __init__(self, parent=None):
         """Initialize"""
 
         # Initialize.
         fig = plt.figure()
-        super(mplCanvas, self).__init__(fig)
+        super(mpl2DCanvas, self).__init__(fig)
+        self.setParent(parent)
+        self.axes = fig.add_subplot(111)
+
+class mpl3DCanvas(FigureCanvasQTAgg):
+    """Matplotlib 3D canvas to be embedded in Qt widget"""
+
+    def __init__(self, parent=None):
+        """Initialize"""
+
+        # Initialize.
+        fig = plt.figure()
+        super(mpl3DCanvas, self).__init__(fig)
         self.setParent(parent)
         self.axes = fig.add_subplot(111, projection=Axes3D.name)
 
+class viewer2DGUI(QMainWindow):
+    """Kalman filter 2D viewer"""
+
+    def __init__(self, *args, **kwargs):
+        """Initialize"""
+
+        # Initialize.
+        super(viewer2DGUI, self).__init__(*args, **kwargs)
+        self.mcvs = mpl2DCanvas(self)
+        self.setCentralWidget(self.mcvs)
+
+    def getAxis(self):
+        """Get viewer axis"""
+
+        # Return viewer axis.
+        return self.mcvs.axes
+
+    def draw(self):
+        """Force draw of the scene"""
+
+        # Draw scene.
+        self.mcvs.draw()
+
 class viewer3DGUI(QMainWindow):
-    """Kalman filter viewer"""
+    """Kalman filter 3D viewer"""
 
     def __init__(self, *args, **kwargs):
         """Initialize"""
 
         # Initialize.
         super(viewer3DGUI, self).__init__(*args, **kwargs)
-        self.mcvs = mplCanvas(self)
+        self.mcvs = mpl3DCanvas(self)
         self.setCentralWidget(self.mcvs)
 
     def getAxis(self):
@@ -62,7 +97,8 @@ class planeTrackingExample:
         """Initialize"""
 
         # Initialize members.
-        self.viewer = None
+        self.vwr2D = None
+        self.vwr3D = None
         self.ctrGUI = ctrGUI
         self.slt = {}
         self.msr = {}
@@ -75,18 +111,18 @@ class planeTrackingExample:
         # Return name.
         return "plane tracking"
 
-    def createViewer(self, window):
+    def createViewer(self):
         """Create viewer"""
 
         # Create viewer.
-        self.viewer = viewer3DGUI(window)
-        return self.viewer
+        self.vwr3D = viewer3DGUI(self.ctrGUI)
+        return self.vwr3D
 
     def updateViewer(self):
         """Update viewer"""
 
         # Clear the viewer.
-        axis = self.viewer.getAxis()
+        axis = self.vwr3D.getAxis()
         axis.cla()
         axis.set_xlabel('x')
         axis.set_ylabel('y')
@@ -98,7 +134,7 @@ class planeTrackingExample:
         axis.legend()
 
         # Force viewer redraw.
-        self.viewer.draw()
+        self.vwr3D.draw()
 
     def updateViewerSlt(self):
         """Update viewer: solution"""
@@ -125,7 +161,7 @@ class planeTrackingExample:
         vwrLnWd = float(self.slt["vwrLnWd"].text())
         vwrPosMks = float(self.slt["vwrPosMks"].text())
         clr = (0., 0., 1.) # Blue.
-        axis = self.viewer.getAxis()
+        axis = self.vwr3D.getAxis()
         axis.plot3D(eqnX, eqnY, eqnZ, lw=vwrLnWd, color=clr,
                     label="flight path: x", marker="o", ms=vwrPosMks)
 
@@ -139,7 +175,7 @@ class planeTrackingExample:
         clr = (0., 0.75, 1.) # Skyblue.
         vwrVelLgh = float(self.slt["vwrVelLgh"].text())
         vwrVelNrm = self.slt["vwrVelNrm"].isChecked()
-        axis = self.viewer.getAxis()
+        axis = self.vwr3D.getAxis()
         axis.quiver3D(eqnX, eqnY, eqnZ, eqnVX, eqnVY, eqnVZ, color=clr,
                       length=vwrVelLgh, normalize=vwrVelNrm, label="flight path: v")
 
@@ -151,7 +187,7 @@ class planeTrackingExample:
         clr = (0.25, 0., 0.5) # Indigo.
         vwrAccLgh = float(self.slt["vwrAccLgh"].text())
         vwrAccNrm = self.slt["vwrAccNrm"].isChecked()
-        axis = self.viewer.getAxis()
+        axis = self.vwr3D.getAxis()
         axis.quiver3D(eqnX, eqnY, eqnZ, eqnAX, eqnAY, eqnAZ, colors=clr,
                       length=vwrAccLgh, normalize=vwrAccNrm, label="flight path: a")
 
@@ -416,6 +452,15 @@ class planeTrackingExample:
         """Get Z polynomial"""
 
         # Get polynomial.
+        prmTi, prmZi = self.getZPolyPts()
+        poly = lagrange(prmTi, prmZi)
+
+        return poly
+
+    def getZPolyPts(self):
+        """Get Z polynomial lagrange points"""
+
+        # Get polynomial points.
         prmZ0 = float(self.slt["cdiZ0"].text())
         prmTiZi = self.slt["fpeTiZi"].text()
         prmTi = np.array([0.], dtype=float)
@@ -424,9 +469,8 @@ class planeTrackingExample:
             tokTi, tokZi = tokTiZi.split()
             prmTi = np.append(prmTi, float(tokTi))
             prmZi = np.append(prmZi, float(tokZi))
-        poly = lagrange(prmTi, prmZi)
 
-        return poly
+        return prmTi, prmZi
 
     def viewMsrData(self, msrData):
         """View measure data"""
@@ -447,7 +491,7 @@ class planeTrackingExample:
         posY = msrData["posY"]
         posZ = msrData["posZ"]
         vwrPosMks = float(self.msr["vwrPosMks"].text())
-        axis = self.viewer.getAxis()
+        axis = self.vwr3D.getAxis()
         axis.scatter3D(posX, posY, posZ, c="r", marker="^", alpha=1, s=vwrPosMks,
                        label="measure: x")
 
@@ -464,7 +508,7 @@ class planeTrackingExample:
         clr = (1., 0.65, 0.) # Orange.
         vwrVelLgh = float(self.msr["vwrVelLgh"].text())
         vwrVelNrm = self.msr["vwrVelNrm"].isChecked()
-        axis = self.viewer.getAxis()
+        axis = self.vwr3D.getAxis()
         axis.quiver3D(posX, posY, posZ, eqnVX, eqnVY, eqnVZ,
                       colors=clr, length=vwrVelLgh, normalize=vwrVelNrm,
                       label="measure: v")
@@ -482,7 +526,7 @@ class planeTrackingExample:
         clr = (0.6, 0.3, 0.) # Brown.
         vwrAccLgh = float(self.msr["vwrAccLgh"].text())
         vwrAccNrm = self.msr["vwrAccNrm"].isChecked()
-        axis = self.viewer.getAxis()
+        axis = self.vwr3D.getAxis()
         axis.quiver3D(posX, posY, posZ, eqnAX, eqnAY, eqnAZ,
                       colors=clr, length=vwrAccLgh, normalize=vwrAccNrm,
                       label="measure: a")
@@ -573,7 +617,10 @@ class planeTrackingExample:
         title += "z(t) = z<sub>1</sub>t+z<sub>2</sub>t<sup>2</sup>+z<sub>3</sub>t<sup>3</sup>+..."
         gdlXi.addWidget(QLabel(title, sltGUI), 4, 0, 1, 6)
         gdlXi.addWidget(QLabel("t<sub>i</sub> z<sub>i</sub>", sltGUI), 5, 0)
-        gdlXi.addWidget(self.slt["fpeTiZi"], 5, 1, 1, 6)
+        gdlXi.addWidget(self.slt["fpeTiZi"], 5, 1, 1, 4)
+        pltTZPBtn = QPushButton("Plot z(t)", sltGUI)
+        pltTZPBtn.clicked.connect(self.onPltTZPBtnClick)
+        gdlXi.addWidget(pltTZPBtn, 5, 5)
 
         # Set group box layout.
         gpbXi = QGroupBox(sltGUI)
@@ -582,6 +629,43 @@ class planeTrackingExample:
         gpbXi.setLayout(gdlXi)
 
         return gpbXi
+
+    def onPltTZPBtnClick(self):
+        """Callback on plotting lagrange Z polynomial"""
+
+        # Time.
+        prmTf = float(self.slt["cdfTf"].text())
+        vwrNbPt = float(self.slt["vwrNbPt"].text())
+        eqnT = np.linspace(0., prmTf, vwrNbPt)
+
+        # Compute lagrange Z polynomial.
+        poly = self.getZPoly()
+        eqnZ = poly(eqnT)
+
+        # Create or retrieve viewer.
+        if not self.vwr2D:
+            self.vwr2D = viewer2DGUI(self.ctrGUI)
+            self.vwr2D.setWindowTitle("Lagrange Z polynomial")
+            self.vwr2D.show()
+
+        # Clear viewer.
+        axis = self.vwr2D.getAxis()
+        axis.cla()
+        axis.set_xlabel('t')
+        axis.set_ylabel('z')
+
+        # Plot lagrange Z polynomial.
+        vwrLnWd = float(self.slt["vwrLnWd"].text())
+        vwrPosMks = float(self.slt["vwrPosMks"].text())
+        clr = (0., 0., 1.) # Blue.
+        axis.plot(eqnT, eqnZ, color=clr, label="z", marker="o",
+                  lw=vwrLnWd, ms=vwrPosMks)
+        prmTi, prmZi = self.getZPolyPts()
+        axis.scatter(prmTi, prmZi, c="r", marker="X", label="interpolation point")
+        axis.legend()
+
+        # Draw scene.
+        self.vwr2D.draw()
 
     def fillSltGUIX0(self, sltGUI):
         """Fill solution GUI : initial conditions"""
@@ -986,7 +1070,7 @@ class controllerGUI(QMainWindow):
                 # Create viewer GUI.
                 if self.viewer:
                     self.viewer.deleteLater()
-                self.viewer = example.createViewer(self)
+                self.viewer = example.createViewer()
                 self.viewer.setWindowTitle("Kalman filter viewer")
                 self.viewer.show()
 
