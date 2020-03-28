@@ -123,11 +123,11 @@ class planeTrackingExample:
         # Plot solution: displacement.
         eqnX, eqnY, eqnZ = self.getDisplEquations(eqnT)
         vwrLnWd = float(self.slt["vwrLnWd"].text())
-        vwrPtSz = float(self.slt["vwrPtSz"].text())
+        vwrPosMks = float(self.slt["vwrPosMks"].text())
         clr = (0., 0., 1.) # Blue.
         axis = self.viewer.getAxis()
         axis.plot3D(eqnX, eqnY, eqnZ, lw=vwrLnWd, color=clr,
-                    label="flight path: x", marker="o", ms=vwrPtSz)
+                    label="flight path: x", marker="o", ms=vwrPosMks)
 
         return eqnX, eqnY, eqnZ
 
@@ -195,7 +195,7 @@ class planeTrackingExample:
         """Get measure data"""
 
         # Get data measurements.
-        msrId = txt.split("-")[0].split()[1]
+        msrId = txt.split(";")[0].split()[1]
         msrData = {"msrId": msrId}
         if msrId == "x":
             self.getMsrDataX(txt, msrData)
@@ -210,15 +210,15 @@ class planeTrackingExample:
         """Get measure data: displacement"""
 
         # Time.
-        prmT0 = float(txt.split("-")[1].split()[1])
-        prmTf = float(txt.split("-")[2].split()[1])
-        prmDt = float(txt.split("-")[3].split()[1])
+        prmT0 = float(txt.split(";")[1].split()[1])
+        prmTf = float(txt.split(";")[2].split()[1])
+        prmDt = float(txt.split(";")[3].split()[1])
         prmNbPt = (prmTf-prmT0)/prmDt
         eqnT = np.linspace(prmT0, prmTf, prmNbPt)
 
         # Data.
         eqnX, eqnY, eqnZ = self.getDisplEquations(eqnT)
-        prmSigma = float(txt.split("-")[4].split()[1])
+        prmSigma = float(txt.split(";")[4].split()[1])
         msrData["posX"] = self.addUncertainty(eqnX, prmSigma)
         msrData["posY"] = self.addUncertainty(eqnY, prmSigma)
         msrData["posZ"] = self.addUncertainty(eqnZ, prmSigma)
@@ -227,9 +227,9 @@ class planeTrackingExample:
         """Get measure data: velocity"""
 
         # Time.
-        prmT0 = float(txt.split("-")[1].split()[1])
-        prmTf = float(txt.split("-")[2].split()[1])
-        prmDt = float(txt.split("-")[3].split()[1])
+        prmT0 = float(txt.split(";")[1].split()[1])
+        prmTf = float(txt.split(";")[2].split()[1])
+        prmDt = float(txt.split(";")[3].split()[1])
         prmNbPt = (prmTf-prmT0)/prmDt
         eqnT = np.linspace(prmT0, prmTf, prmNbPt)
 
@@ -239,7 +239,7 @@ class planeTrackingExample:
         msrData["posY"] = eqnY
         msrData["posZ"] = eqnZ
         eqnVX, eqnVY, eqnVZ = self.getVelocEquations(eqnT)
-        prmSigma = float(txt.split("-")[4].split()[1])
+        prmSigma = float(txt.split(";")[4].split()[1])
         msrData["eqnVX"] = self.addUncertainty(eqnVX, prmSigma)
         msrData["eqnVY"] = self.addUncertainty(eqnVY, prmSigma)
         msrData["eqnVZ"] = self.addUncertainty(eqnVZ, prmSigma)
@@ -248,9 +248,9 @@ class planeTrackingExample:
         """Get measure data: acceleration"""
 
         # Time.
-        prmT0 = float(txt.split("-")[1].split()[1])
-        prmTf = float(txt.split("-")[2].split()[1])
-        prmDt = float(txt.split("-")[3].split()[1])
+        prmT0 = float(txt.split(";")[1].split()[1])
+        prmTf = float(txt.split(";")[2].split()[1])
+        prmDt = float(txt.split(";")[3].split()[1])
         prmNbPt = (prmTf-prmT0)/prmDt
         eqnT = np.linspace(prmT0, prmTf, prmNbPt)
 
@@ -260,7 +260,7 @@ class planeTrackingExample:
         msrData["posY"] = eqnY
         msrData["posZ"] = eqnZ
         eqnAX, eqnAY, eqnAZ = self.getAccelEquations(eqnT)
-        prmSigma = float(txt.split("-")[4].split()[1])
+        prmSigma = float(txt.split(";")[4].split()[1])
         msrData["eqnAX"] = self.addUncertainty(eqnAX, prmSigma)
         msrData["eqnAY"] = self.addUncertainty(eqnAY, prmSigma)
         msrData["eqnAZ"] = self.addUncertainty(eqnAZ, prmSigma)
@@ -487,14 +487,14 @@ class planeTrackingExample:
                       colors=clr, length=vwrAccLgh, normalize=vwrAccNrm,
                       label="measure: a")
 
-    def throwError(self, txt):
+    def throwError(self, eId, txt):
         """Throw an error message"""
 
         # Create error message box.
         msg = QMessageBox(self.ctrGUI)
         msg.setIcon(QMessageBox.Critical)
         msg.setText("Error")
-        msg.setText("Error: "+txt)
+        msg.setText("Error"+" - "+eId+": "+txt)
         msg.exec_()
 
     def createSltGUI(self):
@@ -519,7 +519,7 @@ class planeTrackingExample:
         self.slt["cdfTf"] = QLineEdit("2.", self.ctrGUI)
         self.slt["vwrNbPt"] = QLineEdit("50", self.ctrGUI)
         self.slt["vwrLnWd"] = QLineEdit("1.", self.ctrGUI)
-        self.slt["vwrPtSz"] = QLineEdit("5.", self.ctrGUI)
+        self.slt["vwrPosMks"] = QLineEdit("5.", self.ctrGUI)
         self.slt["vwrVelLgh"] = QLineEdit("0.01", self.ctrGUI)
         self.slt["vwrVelNrm"] = QCheckBox("Normalize", self.ctrGUI)
         self.slt["vwrAccLgh"] = QLineEdit("0.001", self.ctrGUI)
@@ -634,14 +634,14 @@ class planeTrackingExample:
         gdlVwr.addWidget(self.slt["vwrNbPt"], 0, 1)
         gdlVwr.addWidget(QLabel("Line width", sltGUI), 0, 2)
         gdlVwr.addWidget(self.slt["vwrLnWd"], 0, 3)
-        gdlVwr.addWidget(QLabel("position:", sltGUI), 1, 0)
+        gdlVwr.addWidget(QLabel("Position:", sltGUI), 1, 0)
         gdlVwr.addWidget(QLabel("marker size", sltGUI), 1, 1)
-        gdlVwr.addWidget(self.slt["vwrPtSz"], 1, 2)
-        gdlVwr.addWidget(QLabel("velocity:", sltGUI), 2, 0)
+        gdlVwr.addWidget(self.slt["vwrPosMks"], 1, 2)
+        gdlVwr.addWidget(QLabel("Velocity:", sltGUI), 2, 0)
         gdlVwr.addWidget(QLabel("length", sltGUI), 2, 1)
         gdlVwr.addWidget(self.slt["vwrVelLgh"], 2, 2)
         gdlVwr.addWidget(self.slt["vwrVelNrm"], 2, 3)
-        gdlVwr.addWidget(QLabel("acceleration:", sltGUI), 3, 0)
+        gdlVwr.addWidget(QLabel("Acceleration:", sltGUI), 3, 0)
         gdlVwr.addWidget(QLabel("length", sltGUI), 3, 1)
         gdlVwr.addWidget(self.slt["vwrAccLgh"], 3, 2)
         gdlVwr.addWidget(self.slt["vwrAccNrm"], 3, 3)
@@ -748,10 +748,10 @@ class planeTrackingExample:
 
         # Create new item.
         item = "measure "+self.msr["add"].currentText()
-        item += " - T0 "+self.msr["addT0"].text()
-        item += " - Tf "+self.msr["addTf"].text()
-        item += " - Dt "+self.msr["addDt"].text()
-        item += " - sigma "+self.msr["addSigma"].text()
+        item += "; T0 "+self.msr["addT0"].text()
+        item += "; Tf "+self.msr["addTf"].text()
+        item += "; Dt "+self.msr["addDt"].text()
+        item += "; sigma "+self.msr["addSigma"].text()
 
         # Add new item.
         added = False
@@ -788,7 +788,8 @@ class planeTrackingExample:
         # Remove item.
         items = self.msr["lstMsr"].selectedItems()
         if len(items) == 0:
-            self.throwError("select a measure to remove from the list")
+            eId = "measurement list"
+            self.throwError(eId, "select a measure to remove from the list")
             return
         for item in items:
             for idx in range(self.msr["lstMsr"].count()):
@@ -802,14 +803,14 @@ class planeTrackingExample:
 
         # Create measurement parameters GUI: measurement viewer options.
         gdlVwr = QGridLayout(msrGUI)
-        gdlVwr.addWidget(QLabel("position:", msrGUI), 0, 0)
+        gdlVwr.addWidget(QLabel("Position:", msrGUI), 0, 0)
         gdlVwr.addWidget(QLabel("marker size", msrGUI), 0, 1)
         gdlVwr.addWidget(self.msr["vwrPosMks"], 0, 2)
-        gdlVwr.addWidget(QLabel("velocity:", msrGUI), 1, 0)
+        gdlVwr.addWidget(QLabel("Velocity:", msrGUI), 1, 0)
         gdlVwr.addWidget(QLabel("length", msrGUI), 1, 1)
         gdlVwr.addWidget(self.msr["vwrVelLgh"], 1, 2)
         gdlVwr.addWidget(self.msr["vwrVelNrm"], 1, 3)
-        gdlVwr.addWidget(QLabel("acceleration:", msrGUI), 2, 0)
+        gdlVwr.addWidget(QLabel("Acceleration:", msrGUI), 2, 0)
         gdlVwr.addWidget(QLabel("length", msrGUI), 2, 1)
         gdlVwr.addWidget(self.msr["vwrAccLgh"], 2, 2)
         gdlVwr.addWidget(self.msr["vwrAccNrm"], 2, 3)
@@ -840,33 +841,91 @@ class planeTrackingExample:
     def checkValidity(self):
         """Check example validity"""
 
-        # Check flight path validity.
+        # Check validity.
+        if not self.checkValiditySlt():
+            return False
+        if not self.checkValidityMsr():
+            return False
+
+        return True
+
+    def checkValiditySlt(self):
+        """Check example validity: analytic solution"""
+
+        # Check analytic solution validity.
+        eId = "analytic solution"
         prmTiZi = self.slt["fpeTiZi"].text()
         for tokTiZi in prmTiZi.split(","):
             if len(tokTiZi.split()) != 2:
-                self.throwError("each t<sub>i</sub> must match a z<sub>i</sub>")
+                self.throwError(eId, "each t<sub>i</sub> must match a z<sub>i</sub>")
                 return False
             tokTi = tokTiZi.split()[0]
             if np.abs(float(tokTi)) < 1.e-6:
-                self.throwError("t<sub>i</sub> must be superior than 0.")
+                self.throwError(eId, "t<sub>i</sub> must be superior than 0.")
                 return False
+        if float(self.slt["cdfTf"].text()) < 0.:
+            self.throwError(eId, "t<sub>f</sub> must be superior than 0.")
+            return False
+
+        return self.checkValiditySltVwr()
+
+    def checkValiditySltVwr(self):
+        """Check example validity: viewer options of analytic solution"""
+
+        # Check viewer options of analytic solution validity.
+        eId = "analytic solution"
+        if float(self.slt["vwrNbPt"].text()) < 0:
+            self.throwError(eId, "number of points must be superior than 0.")
+            return False
+        if float(self.slt["vwrLnWd"].text()) < 0:
+            self.throwError(eId, "line width must be superior than 0.")
+            return False
+        if float(self.slt["vwrPosMks"].text()) < 0:
+            self.throwError(eId, "position marker size must be superior than 0.")
+            return False
+
+        return True
+
+    def checkValidityMsr(self):
+        """Check example validity: measurements"""
 
         # Check measurement validity.
+        eId = "measurements"
         for idx in range(self.msr["lstMsr"].count()):
             txt = self.msr["lstMsr"].item(idx).text()
             if txt == "":
                 continue
-            prmT0 = float(txt.split("-")[1].split()[1])
-            prmTf = float(txt.split("-")[2].split()[1])
+            prmT0 = float(txt.split(";")[1].split()[1])
+            if prmT0 < 0.:
+                msg = "t<sub>0</sub> must be superior than 0."
+                self.throwError(eId, "list item "+str(idx+1)+", "+msg)
+                return False
+            prmTf = float(txt.split(";")[2].split()[1])
             if prmT0 > prmTf:
                 msg = "t<sub>f</sub> must be superior than t<sub>0</sub>"
-                self.throwError("measurement "+str(idx)+": "+msg)
+                self.throwError(eId, "list item "+str(idx+1)+", "+msg)
                 return False
-            prmDt = float(txt.split("-")[3].split()[1])
+            prmDt = float(txt.split(";")[3].split()[1])
             if prmDt < 0.:
-                msg = "t<sub>0</sub> must be superior than 0."
-                self.throwError("measurement "+str(idx)+": "+msg)
+                msg = "<em>&Delta;t</em> must be superior than 0."
+                self.throwError(eId, "list item "+str(idx+1)+", "+msg)
                 return False
+            prmSigma = float(txt.split(";")[4].split()[1])
+            if prmSigma < 0.:
+                msg = "<em>&sigma;</em> must be superior than 0."
+                self.throwError(eId, "list item "+str(idx+1)+", "+msg)
+                return False
+
+        return self.checkValidityMsrVwr()
+
+    def checkValidityMsrVwr(self):
+        """Check example validity: viewer options of measurements"""
+
+        # Check viewer options of measurement validity.
+        eId = "measurements"
+        if float(self.msr["vwrPosMks"].text()) < 0:
+            self.throwError(eId, "position marker size must be superior than 0.")
+            return False
 
         return True
 
