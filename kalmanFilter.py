@@ -131,13 +131,22 @@ class planeTrackingExample:
         """Create viewer"""
 
         # Create viewer.
-        self.vwr3D = viewer3DGUI(self.ctrGUI)
+        if not self.vwr3D or self.vwr3D.closed:
+            self.vwr3D = viewer3DGUI(self.ctrGUI)
+        self.vwr3D.setWindowTitle("Kalman filter viewer")
+        self.vwr3D.show()
+
         return self.vwr3D
 
     def updateViewer(self):
         """Update viewer"""
 
         # Clear the viewer.
+        if self.vwr2D:
+            axis = self.vwr2D.getAxis()
+            axis.cla()
+            axis.set_xlabel('t')
+            axis.set_ylabel('z')
         axis = self.vwr3D.getAxis()
         axis.cla()
         axis.set_xlabel('x')
@@ -158,6 +167,10 @@ class planeTrackingExample:
         # Plot only if checked.
         if not self.vwr["ckbSlt"].isChecked():
             return
+
+        # Plot Z.
+        if self.vwr2D and not self.vwr2D.closed:
+            self.onPltTZPBtnClick()
 
         # Time.
         prmTf = float(self.slt["cdfTf"].text())
@@ -690,16 +703,11 @@ class planeTrackingExample:
             self.vwr2D.setWindowTitle("Lagrange Z polynomial")
             self.vwr2D.show()
 
-        # Clear viewer.
-        axis = self.vwr2D.getAxis()
-        axis.cla()
-        axis.set_xlabel('t')
-        axis.set_ylabel('z')
-
         # Plot lagrange Z polynomial.
         vwrLnWd = float(self.slt["vwrLnWd"].text())
         vwrPosMks = float(self.slt["vwrPosMks"].text())
         clr = (0., 0., 1.) # Blue.
+        axis = self.vwr2D.getAxis()
         axis.plot(eqnT, eqnZ, color=clr, label="z", marker="o",
                   lw=vwrLnWd, ms=vwrPosMks)
         prmTi, prmZi = self.getZPolyPts()
@@ -1064,7 +1072,6 @@ class controllerGUI(QMainWindow):
         # Initialize members.
         super().__init__()
         self.setWindowTitle("Kalman filter controller")
-        self.viewer = None
         self.examples = []
         self.examples.append(planeTrackingExample(self))
         self.comboEx, self.comboGUI = self.addExampleCombo()
@@ -1102,10 +1109,6 @@ class controllerGUI(QMainWindow):
 
     def onExampleChanged(self, txt):
         """Callback on example combo change"""
-
-        # Kill previous viewer (if any).
-        if self.viewer:
-            self.viewer.close()
 
         # Customize controller GUI according to example.
         layCtr = QVBoxLayout()
@@ -1153,10 +1156,7 @@ class controllerGUI(QMainWindow):
         for example in self.examples:
             if example.getName() == self.comboEx.currentText():
                 # Create viewer GUI.
-                if not self.viewer or self.viewer.closed:
-                    self.viewer = example.createViewer()
-                    self.viewer.setWindowTitle("Kalman filter viewer")
-                    self.viewer.show()
+                example.createViewer()
 
                 # Check validity.
                 validEx = example.checkValidity()
