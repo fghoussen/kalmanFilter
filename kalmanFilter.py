@@ -6,6 +6,7 @@ import sys
 import math
 import random
 import numpy as np
+import numpy.linalg as npl
 import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -109,43 +110,193 @@ class viewer3DGUI(QMainWindow):
 class kalmanFilterModel():
     """Kalman filter model"""
 
-    def __init__(self):
+    def __init__(self, example):
         """Initialize"""
 
         # Initialize members.
-        self.slt = {}
-        self.msr = {}
         self.sim = {}
+        self.msr = {}
+        self.example = example
         self.solved = False
+        self.states = {}
+        self.outputs = {}
+        self.mat = {}
         self.clear()
 
     def clear(self):
         """Clear previous results"""
 
         # Clear previous results.
-        keys = ["X", "Y", "Z", "VX", "VY", "VZ", "AX", "AY", "AZ"]
-        for k in keys:
-            self.slt[k] = None
         self.solved = False
+        self.states.clear()
+        keys = self.example.getStateKeys()
+        for key in keys:
+            self.states[key] = []
+        self.outputs.clear()
+        keys = self.example.getOutputKeys()
+        for key in keys:
+            self.outputs[key] = []
 
-    def setUp(self, msr, sim):
-        """Setup solver"""
+    def setUpSimPrm(self, sim, cdfTf):
+        """Setup solver: simulation parameters"""
 
-        # Copy data.
-        self.msr = msr.copy()
-        self.sim = sim.copy()
+        # Set up solver parameters.
+        for key in sim:
+            if key.find("prm") == 0 or key.find("cdi") == 0:
+                self.sim[key] = float(sim[key].text())
+        self.sim["cdfTf"] = float(cdfTf)
+
+    def setUpMsrPrm(self, msr):
+        """Setup solver: measurement parameters"""
+
+        # Set up solver measurements.
+        self.msr = msr
+
+    def setLTI(self, matA, matB, matC, matD):
+        """Set Linear Time Invariant matrices"""
+
+        # Set matirces.
+        self.mat["A"] = matA
+        self.mat["B"] = matB
+        self.mat["C"] = matC
+        self.mat["D"] = matD
+        if self.sim["prmVrb"] >= 2:
+            print("Linear Time Invariant system:")
+            self.printMat("A", self.mat["A"])
+            if self.mat["B"] is not None:
+                self.printMat("B", self.mat["B"])
+            self.printMat("C", self.mat["C"])
+            if self.mat["D"] is not None:
+                self.printMat("D", self.mat["D"])
 
     def solve(self):
         """Solve based on Kalman filter"""
 
         # Don't solve if we have already a solution.
         if self.solved:
-            return 0
+            return
+
+        # Initialize states.
+        states = self.example.initStates(self.sim)
+        matU = self.example.computeControlLaw()
+        outputs = self.computeOutputs(states, matU)
+        if self.sim["prmVrb"] >= 1:
+            print("Initialisation:")
+            self.printMat("Predictor - X", np.transpose(states))
+            self.printMat("Predictor - Y", np.transpose(outputs))
+
+        # Save states and outputs.
+        self.example.saveStatesOutputs(states, self.states, outputs, self.outputs)
+
+        # Time.
+        prmTf = self.sim["cdfTf"]
+        prmDt = self.sim["prmDt"]
+        eqnT = np.linspace(0., prmTf, prmTf/prmDt)
 
         # Solve.
+        for timeT in eqnT:
+            if self.sim["prmVrb"] >= 1:
+                print("Iteration: time %.3f" % timeT)
+            self.predictor()
         self.solved = True
 
-        return 0
+    def predictor(self):
+        """Solve predictor equation"""
+
+        # Compute F.
+        prmN = self.example.getLTISystemSize()
+        matF = np.identity(prmN, dtype=float)
+        taylorExpLTM = 0.
+        for idx in range(1, int(self.sim["prmExpOrd"])+1):
+            fac = np.math.factorial(idx)
+            taylorExp = npl.matrix_power(self.mat["A"]*self.sim["prmDt"], idx)/fac
+            taylorExpLTM = np.amax(np.abs(taylorExp))
+            matF = matF + taylorExp
+        if self.sim["prmVrb"] >= 2:
+            msg = "Predictor - F (last term magnitude of taylor expansion %.6f)" % taylorExpLTM
+            self.printMat(msg, matF)
+
+        # Compute G.
+        matG = None
+        if self.mat["B"] is not None:
+            matG = np.dot(self.sim["prmDt"]*matF, self.mat["B"])
+            if self.sim["prmVrb"] >= 2:
+                self.printMat("Predictor - G", matG)
+
+        # Compute process noise.
+        states = self.getLastStates()
+        matW = self.getProcessNoise(states)
+        if self.sim["prmVrb"] >= 1:
+            self.printMat("Predictor - W", np.transpose(matW))
+
+        # Compute control law.
+        matU = self.example.computeControlLaw()
+        if self.sim["prmVrb"] >= 1:
+            self.printMat("Predictor - U", np.transpose(matU))
+
+        # Predictor equation: x_{n+1} = F*x_{n} + G*u_{n} + w_{n}.
+        states = np.dot(matF, states)
+        if matG is not None:
+            states = states + np.dot(matG, matU)
+        states = states + matW
+        assert states.shape == (prmN, 1), "states: bad dimension"
+        if self.sim["prmVrb"] >= 1:
+            self.printMat("Predictor - X", np.transpose(states))
+
+        # Outputs equation: y_{n+1} = C*x_{n} + D*u_{n}.
+        outputs = self.computeOutputs(states, matU)
+        assert outputs.shape == (prmN, 1), "outputs: bad dimension"
+        if self.sim["prmVrb"] >= 1:
+            self.printMat("Predictor - Y", np.transpose(outputs))
+
+        # Save states and outputs.
+        self.example.saveStatesOutputs(states, self.states, outputs, self.outputs)
+
+    def getLastStates(self):
+        """Get last states"""
+
+        # Get last states.
+        prmN = self.example.getLTISystemSize()
+        states = np.zeros((prmN, 1), dtype=float)
+        keys = self.example.getStateKeys()
+        for idx, key in enumerate(keys):
+            lastIdx = len(self.states[key])-1
+            states[idx, 0] = self.states[key][lastIdx]
+
+        return states
+
+    def getProcessNoise(self, states):
+        """Get process noise"""
+
+        # Get random noise.
+        prmMu, prmSigma = states, self.sim["prmProNseSig"]
+        noisyStates = np.random.normal(prmMu, prmSigma)
+        matW = noisyStates-states
+
+        return matW
+
+    def computeOutputs(self, states, matU):
+        """Compute outputs"""
+
+        # Outputs equation: y_{n+1} = C*x_{n} + D*u_{n}.
+        outputs = np.dot(self.mat["C"], states)
+        if self.mat["D"] is not None:
+            outputs = outputs + np.dot(self.mat["D"], matU)
+
+        return outputs
+
+    @staticmethod
+    def printMat(msg, mat, indent=1, fmt=".6f"):
+        """Pretty print matrice"""
+
+        # Pretty print matrice.
+        print("  "*indent+msg+":")
+        colMax = [max([len(("{:"+fmt+"}").format(x)) for x in col]) for col in mat.T]
+        for row in mat:
+            print("  "*(indent+1), end="")
+            for idx, val in enumerate(row):
+                print(("{:"+str(colMax[idx])+fmt+"}").format(val), end=" ")
+            print("")
 
 class planeTrackingExample:
     """Plane tracking example"""
@@ -159,9 +310,9 @@ class planeTrackingExample:
         self.ctrGUI = ctrGUI
         self.slt = {"sltId": ""}
         self.msr = {"sltId": "", "msrId": ""}
-        self.sim = {"sltId": "", "msrId": ""}
+        self.sim = {"sltId": "", "msrId": "", "simId": ""}
         self.vwr = {}
-        self.kfm = kalmanFilterModel()
+        self.kfm = kalmanFilterModel(self)
 
     @staticmethod
     def getName():
@@ -190,11 +341,13 @@ class planeTrackingExample:
             axis.cla()
             axis.set_xlabel('t')
             axis.set_ylabel('z')
+            self.vwr2D.draw()
         axis = self.vwr3D.getAxis()
         axis.cla()
         axis.set_xlabel('x')
         axis.set_ylabel('y')
         axis.set_zlabel('z')
+        self.vwr3D.draw()
 
         # Update viewer.
         self.updateViewerSlt()
@@ -211,6 +364,14 @@ class planeTrackingExample:
 
     def updateViewerSlt(self):
         """Update viewer: solution"""
+
+        # Update V0/A0 indicators.
+        self.slt["cdiVX0"].setText("N.A.")
+        self.slt["cdiVY0"].setText("N.A.")
+        self.slt["cdiVZ0"].setText("N.A.")
+        self.slt["cdiAX0"].setText("N.A.")
+        self.slt["cdiAY0"].setText("N.A.")
+        self.slt["cdiAZ0"].setText("N.A.")
 
         # Plot only if checked.
         if not self.vwr["ckbSlt"].isChecked():
@@ -252,8 +413,13 @@ class planeTrackingExample:
     def updateViewerSltV(self, eqnT, eqnX, eqnY, eqnZ):
         """Update viewer: plot velocity of the solution"""
 
-        # Plot solution: velocity.
+        # Update V0 indicators.
         eqnVX, eqnVY, eqnVZ = self.getVelocEquations(eqnT)
+        self.slt["cdiVX0"].setText("%.3f" % eqnVX[0])
+        self.slt["cdiVY0"].setText("%.3f" % eqnVY[0])
+        self.slt["cdiVZ0"].setText("%.3f" % eqnVZ[0])
+
+        # Plot solution: velocity.
         clr = (0., 0.75, 1.) # Skyblue.
         vwrVelLgh = float(self.slt["vwrVelLgh"].text())
         if vwrVelLgh == 0.:
@@ -266,8 +432,13 @@ class planeTrackingExample:
     def updateViewerSltA(self, eqnT, eqnX, eqnY, eqnZ):
         """Update viewer: plot acceleration of the solution"""
 
-        # Plot solution: acceleration.
+        # Update A0 indicators.
         eqnAX, eqnAY, eqnAZ = self.getAccelEquations(eqnT)
+        self.slt["cdiAX0"].setText("%.3f" % eqnAX[0])
+        self.slt["cdiAY0"].setText("%.3f" % eqnAY[0])
+        self.slt["cdiAZ0"].setText("%.3f" % eqnAZ[0])
+
+        # Plot solution: acceleration.
         clr = (0.25, 0., 0.5) # Indigo.
         vwrAccLgh = float(self.slt["vwrAccLgh"].text())
         if vwrAccLgh == 0.:
@@ -281,17 +452,10 @@ class planeTrackingExample:
         """Get solution identity (track solution features)"""
 
         # Get solution identity.
-        sltId = self.slt["fpeAx"].text()
-        sltId += ":"+self.slt["fpeTx"].text()
-        sltId += ":"+self.slt["fpePhix"].text()
-        sltId += ":"+self.slt["fpeAy"].text()
-        sltId += ":"+self.slt["fpeTy"].text()
-        sltId += ":"+self.slt["fpePhiy"].text()
-        sltId += ":"+self.slt["fpeTiZi"].text()
-        sltId += ":"+self.slt["cdiX0"].text()
-        sltId += ":"+self.slt["cdiY0"].text()
-        sltId += ":"+self.slt["cdiZ0"].text()
-        sltId += ":"+self.slt["cdfTf"].text()
+        sltId = ""
+        for key in self.slt:
+            if key.find("fpe") == 0 or key.find("cd") == 0:
+                sltId += ":"+self.slt[key].text()
 
         return sltId
 
@@ -672,42 +836,42 @@ class planeTrackingExample:
         if self.sim["msrId"] != self.msr["msrId"]:
             self.sim["msrId"] = self.msr["msrId"]
             self.kfm.clear()
+        if self.sim["simId"] != self.getSimId():
+            self.sim["simId"] = self.getSimId()
+            self.kfm.clear()
 
         # Plot only if checked.
         if not self.vwr["ckbSim"].isChecked():
             return
 
         # Solve based on Kalman filter.
-        self.sim["cdfTf"] = self.slt["cdfTf"].text()
+        self.kfm.setUpSimPrm(self.sim, self.slt["cdfTf"].text())
+        self.kfm.setUpMsrPrm(self.msr["datMsr"])
+        matA, matB, matC, matD = self.getLTISystem()
+        self.kfm.setLTI(matA, matB, matC, matD)
         self.kfm.solve()
-
-        # Temporary: to be killed.
-        prmTf = float(self.slt["cdfTf"].text())
-        vwrNbPt = float(self.slt["vwrNbPt"].text())
-        eqnT = np.linspace(0., prmTf, vwrNbPt)
-        eqnX, eqnY, eqnZ = self.getDisplEquations(eqnT)
-        eqnVX, eqnVY, eqnVZ = self.getVelocEquations(eqnT)
-        eqnAX, eqnAY, eqnAZ = self.getAccelEquations(eqnT)
-        self.kfm.slt["X"] = eqnX+1
-        self.kfm.slt["Y"] = eqnY+1
-        self.kfm.slt["Z"] = eqnZ+1
-        self.kfm.slt["VX"] = eqnVX
-        self.kfm.slt["VY"] = eqnVY
-        self.kfm.slt["VZ"] = eqnVZ
-        self.kfm.slt["AX"] = eqnAX
-        self.kfm.slt["AY"] = eqnAY
-        self.kfm.slt["AZ"] = eqnAZ
 
         # Plot solver results.
         self.updateViewerSimX()
         self.updateViewerSimV()
         self.updateViewerSimA()
 
+    def getSimId(self):
+        """Get simulation identity (track simulation features)"""
+
+        # Get simulation identity.
+        simId = ""
+        for key in self.sim:
+            if key.find("prm") == 0 or key.find("cdi") == 0:
+                simId += ":"+self.sim[key].text()
+
+        return simId
+
     def updateViewerSimX(self):
         """Update viewer: plot displacement of the simulation"""
 
         # Plot simulation: displacement.
-        eqnX, eqnY, eqnZ = self.kfm.slt["X"], self.kfm.slt["Y"], self.kfm.slt["Z"]
+        eqnX, eqnY, eqnZ = self.kfm.outputs["X"], self.kfm.outputs["Y"], self.kfm.outputs["Z"]
         vwrLnWd = float(self.sim["vwrLnWd"].text())
         if vwrLnWd == 0.:
             return
@@ -721,8 +885,8 @@ class planeTrackingExample:
         """Update viewer: plot velocity of the simulation"""
 
         # Plot simulation: velocity.
-        eqnX, eqnY, eqnZ = self.kfm.slt["X"], self.kfm.slt["Y"], self.kfm.slt["Z"]
-        eqnVX, eqnVY, eqnVZ = self.kfm.slt["VX"], self.kfm.slt["VY"], self.kfm.slt["VZ"]
+        eqnX, eqnY, eqnZ = self.kfm.outputs["X"], self.kfm.outputs["Y"], self.kfm.outputs["Z"]
+        eqnVX, eqnVY, eqnVZ = self.kfm.outputs["VX"], self.kfm.outputs["VY"], self.kfm.outputs["VZ"]
         clr = (0., 1., 0.) # Lime green.
         vwrVelLgh = float(self.sim["vwrVelLgh"].text())
         if vwrVelLgh == 0.:
@@ -736,8 +900,8 @@ class planeTrackingExample:
         """Update viewer: plot acceleration of the simulation"""
 
         # Plot simulation: acceleration.
-        eqnX, eqnY, eqnZ = self.kfm.slt["X"], self.kfm.slt["Y"], self.kfm.slt["Z"]
-        eqnAX, eqnAY, eqnAZ = self.kfm.slt["AX"], self.kfm.slt["AY"], self.kfm.slt["AZ"]
+        eqnX, eqnY, eqnZ = self.kfm.outputs["X"], self.kfm.outputs["Y"], self.kfm.outputs["Z"]
+        eqnAX, eqnAY, eqnAZ = self.kfm.outputs["AX"], self.kfm.outputs["AY"], self.kfm.outputs["AZ"]
         clr = (0., 0.2, 0.) # Dark green.
         vwrAccLgh = float(self.sim["vwrAccLgh"].text())
         if vwrAccLgh == 0.:
@@ -776,6 +940,12 @@ class planeTrackingExample:
         self.slt["cdiX0"] = QLineEdit("0.", self.ctrGUI)
         self.slt["cdiY0"] = QLineEdit("0.", self.ctrGUI)
         self.slt["cdiZ0"] = QLineEdit("0.", self.ctrGUI)
+        self.slt["cdiVX0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.slt["cdiVY0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.slt["cdiVZ0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.slt["cdiAX0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.slt["cdiAY0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.slt["cdiAZ0"] = QLineEdit("N.A.", self.ctrGUI)
         self.slt["cdfTf"] = QLineEdit("2.", self.ctrGUI)
         self.slt["vwrNbPt"] = QLineEdit("50", self.ctrGUI)
         self.slt["vwrLnWd"] = QLineEdit("1.", self.ctrGUI)
@@ -784,6 +954,13 @@ class planeTrackingExample:
         self.slt["vwrVelNrm"] = QCheckBox("Normalize", self.ctrGUI)
         self.slt["vwrAccLgh"] = QLineEdit("0.001", self.ctrGUI)
         self.slt["vwrAccNrm"] = QCheckBox("Normalize", self.ctrGUI)
+
+        self.slt["cdiVX0"].setEnabled(False)
+        self.slt["cdiVY0"].setEnabled(False)
+        self.slt["cdiVZ0"].setEnabled(False)
+        self.slt["cdiAX0"].setEnabled(False)
+        self.slt["cdiAY0"].setEnabled(False)
+        self.slt["cdiAZ0"].setEnabled(False)
 
         # Fill solution GUI.
         self.fillSltGUI(sltGUI)
@@ -895,6 +1072,30 @@ class planeTrackingExample:
         gdlX0.addWidget(QLabel(title, sltGUI), 4, 0, 1, 2)
         gdlX0.addWidget(QLabel("z<sub>0</sub>", sltGUI), 5, 0)
         gdlX0.addWidget(self.slt["cdiZ0"], 5, 1)
+        title = "V<sub>x</sub>(t = 0) = V<sub>x0</sub>"
+        gdlX0.addWidget(QLabel(title, sltGUI), 0, 3, 1, 2)
+        gdlX0.addWidget(QLabel("V<sub>x0</sub>", sltGUI), 1, 3)
+        gdlX0.addWidget(self.slt["cdiVX0"], 1, 4)
+        title = "V<sub>y</sub>(t = 0) = V<sub>y0</sub>"
+        gdlX0.addWidget(QLabel(title, sltGUI), 2, 3, 1, 2)
+        gdlX0.addWidget(QLabel("V<sub>y0</sub>", sltGUI), 3, 3)
+        gdlX0.addWidget(self.slt["cdiVY0"], 3, 4)
+        title = "V<sub>z</sub>(t = 0) = V<sub>z0</sub>"
+        gdlX0.addWidget(QLabel(title, sltGUI), 4, 3, 1, 2)
+        gdlX0.addWidget(QLabel("V<sub>z0</sub>", sltGUI), 5, 3)
+        gdlX0.addWidget(self.slt["cdiVZ0"], 5, 4)
+        title = "A<sub>x</sub>(t = 0) = A<sub>x0</sub>"
+        gdlX0.addWidget(QLabel(title, sltGUI), 0, 6, 1, 2)
+        gdlX0.addWidget(QLabel("A<sub>x0</sub>", sltGUI), 1, 6)
+        gdlX0.addWidget(self.slt["cdiAX0"], 1, 7)
+        title = "A<sub>y</sub>(t = 0) = A<sub>y0</sub>"
+        gdlX0.addWidget(QLabel(title, sltGUI), 2, 6, 1, 2)
+        gdlX0.addWidget(QLabel("A<sub>y0</sub>", sltGUI), 3, 6)
+        gdlX0.addWidget(self.slt["cdiAY0"], 3, 7)
+        title = "A<sub>z</sub>(t = 0) = A<sub>z0</sub>"
+        gdlX0.addWidget(QLabel(title, sltGUI), 4, 6, 1, 2)
+        gdlX0.addWidget(QLabel("A<sub>z0</sub>", sltGUI), 5, 6)
+        gdlX0.addWidget(self.slt["cdiAZ0"], 5, 7)
 
         # Set group box layout.
         gpbX0 = QGroupBox(sltGUI)
@@ -1127,7 +1328,11 @@ class planeTrackingExample:
         simGUI.setAlignment(Qt.AlignHCenter)
 
         # Store simulation parameters.
+        self.sim["prmM"] = QLineEdit("1000.", self.ctrGUI)
+        self.sim["prmC"] = QLineEdit("1.", self.ctrGUI)
         self.sim["prmDt"] = QLineEdit("0.03", self.ctrGUI)
+        self.sim["prmExpOrd"] = QLineEdit("3", self.ctrGUI)
+        self.sim["prmProNseSig"] = QLineEdit("0.05", self.ctrGUI)
         self.sim["prmVrb"] = QLineEdit("1", self.ctrGUI)
         self.sim["cdiX0"] = QLineEdit("0.2", self.ctrGUI)
         self.sim["cdiY0"] = QLineEdit("0.2", self.ctrGUI)
@@ -1135,6 +1340,18 @@ class planeTrackingExample:
         self.sim["cdiSigX0"] = QLineEdit("0.5", self.ctrGUI)
         self.sim["cdiSigY0"] = QLineEdit("0.5", self.ctrGUI)
         self.sim["cdiSigZ0"] = QLineEdit("0.5", self.ctrGUI)
+        self.sim["cdiVX0"] = QLineEdit("0.0", self.ctrGUI)
+        self.sim["cdiVY0"] = QLineEdit("12.", self.ctrGUI)
+        self.sim["cdiVZ0"] = QLineEdit("0.5", self.ctrGUI)
+        self.sim["cdiSigVX0"] = QLineEdit("1.", self.ctrGUI)
+        self.sim["cdiSigVY0"] = QLineEdit("1.", self.ctrGUI)
+        self.sim["cdiSigVZ0"] = QLineEdit("1.", self.ctrGUI)
+        self.sim["cdiAX0"] = QLineEdit("-39.", self.ctrGUI)
+        self.sim["cdiAY0"] = QLineEdit("0.", self.ctrGUI)
+        self.sim["cdiAZ0"] = QLineEdit("19.", self.ctrGUI)
+        self.sim["cdiSigAX0"] = QLineEdit("1.", self.ctrGUI)
+        self.sim["cdiSigAY0"] = QLineEdit("1.", self.ctrGUI)
+        self.sim["cdiSigAZ0"] = QLineEdit("1.", self.ctrGUI)
         self.sim["vwrLnWd"] = QLineEdit("1.", self.ctrGUI)
         self.sim["vwrPosMks"] = QLineEdit("5", self.ctrGUI)
         self.sim["vwrVelLgh"] = QLineEdit("0.01", self.ctrGUI)
@@ -1153,12 +1370,14 @@ class planeTrackingExample:
         # Create group box.
         gpbPrm = self.fillSimGUIPrm(simGUI)
         gpbX0 = self.fillSimGUIX0(simGUI)
+        gpbFCL = self.fillSimGUIFCL(simGUI)
         gpbVwr = self.fillSimGUIVwr(simGUI)
 
         # Set group box layout.
         anlLay = QHBoxLayout(simGUI)
         anlLay.addWidget(gpbPrm)
         anlLay.addWidget(gpbX0)
+        anlLay.addWidget(gpbFCL)
         anlLay.addWidget(gpbVwr)
         simGUI.setLayout(anlLay)
 
@@ -1167,10 +1386,22 @@ class planeTrackingExample:
 
         # Create simulation GUI: simulation parameters.
         gdlPrm = QGridLayout(simGUI)
-        gdlPrm.addWidget(QLabel("<em>&Delta;t</em>:", simGUI), 0, 0)
-        gdlPrm.addWidget(self.sim["prmDt"], 0, 1)
-        gdlPrm.addWidget(QLabel("verbose level:", simGUI), 1, 0)
-        gdlPrm.addWidget(self.sim["prmVrb"], 1, 1)
+        gdlPrm.addWidget(QLabel("Coefficients:", simGUI), 0, 0)
+        gdlPrm.addWidget(QLabel("mass", simGUI), 0, 1)
+        gdlPrm.addWidget(self.sim["prmM"], 0, 2)
+        gdlPrm.addWidget(QLabel("damping", simGUI), 0, 3)
+        gdlPrm.addWidget(self.sim["prmC"], 0, 4)
+        gdlPrm.addWidget(QLabel("Time:", simGUI), 1, 0)
+        gdlPrm.addWidget(QLabel("<em>&Delta;t</em>", simGUI), 1, 1)
+        gdlPrm.addWidget(self.sim["prmDt"], 1, 2)
+        gdlPrm.addWidget(QLabel("Taylor expansion order", simGUI), 1, 3)
+        gdlPrm.addWidget(self.sim["prmExpOrd"], 1, 4)
+        gdlPrm.addWidget(QLabel("Noise:", simGUI), 2, 0)
+        gdlPrm.addWidget(QLabel("Process &sigma;<sub>pn</sub>", simGUI), 2, 1)
+        gdlPrm.addWidget(self.sim["prmProNseSig"], 2, 2)
+        gdlPrm.addWidget(QLabel("Solver:", simGUI), 3, 0)
+        gdlPrm.addWidget(QLabel("verbose level", simGUI), 3, 1)
+        gdlPrm.addWidget(self.sim["prmVrb"], 3, 2)
 
         # Set group box layout.
         gpbPrm = QGroupBox(simGUI)
@@ -1185,24 +1416,9 @@ class planeTrackingExample:
 
         # Create simulation GUI: initial conditions.
         gdlX0 = QGridLayout(simGUI)
-        title = "x(t = 0) = x<sub>0</sub> &plusmn; &sigma;<sub>x0</sub>"
-        gdlX0.addWidget(QLabel(title, simGUI), 0, 0, 1, 2)
-        gdlX0.addWidget(QLabel("x<sub>0</sub>", simGUI), 1, 0)
-        gdlX0.addWidget(self.sim["cdiX0"], 1, 1)
-        title = "y(t = 0) = y<sub>0</sub> &plusmn; &sigma;<sub>y0</sub>"
-        gdlX0.addWidget(QLabel(title, simGUI), 2, 0, 1, 2)
-        gdlX0.addWidget(QLabel("y<sub>0</sub>", simGUI), 3, 0)
-        gdlX0.addWidget(self.sim["cdiY0"], 3, 1)
-        title = "z(t = 0) = z<sub>0</sub> &plusmn; &sigma;<sub>z0</sub>"
-        gdlX0.addWidget(QLabel(title, simGUI), 4, 0, 1, 2)
-        gdlX0.addWidget(QLabel("z<sub>0</sub>", simGUI), 5, 0)
-        gdlX0.addWidget(self.sim["cdiZ0"], 5, 1)
-        gdlX0.addWidget(QLabel("&sigma;<sub>x0</sub>", simGUI), 1, 2)
-        gdlX0.addWidget(self.sim["cdiSigX0"], 1, 3)
-        gdlX0.addWidget(QLabel("&sigma;<sub>y0</sub>", simGUI), 3, 2)
-        gdlX0.addWidget(self.sim["cdiSigY0"], 3, 3)
-        gdlX0.addWidget(QLabel("&sigma;<sub>z0</sub>", simGUI), 5, 2)
-        gdlX0.addWidget(self.sim["cdiSigZ0"], 5, 3)
+        self.fillSimGUIX0Gdl(simGUI, gdlX0)
+        self.fillSimGUIV0Gdl(simGUI, gdlX0)
+        self.fillSimGUIA0Gdl(simGUI, gdlX0)
 
         # Set group box layout.
         gpbX0 = QGroupBox(simGUI)
@@ -1211,6 +1427,75 @@ class planeTrackingExample:
         gpbX0.setLayout(gdlX0)
 
         return gpbX0
+
+    def fillSimGUIX0Gdl(self, simGUI, gdlX0):
+        """Fill simulation GUI : grid layout of initial conditions (X0)"""
+
+        # Create simulation GUI: grid layout of initial conditions (X0).
+        title = "x(t = 0) = x<sub>0</sub> &plusmn; &sigma;<sub>x0</sub>"
+        gdlX0.addWidget(QLabel(title, simGUI), 0, 0, 1, 4)
+        gdlX0.addWidget(QLabel("x<sub>0</sub>", simGUI), 1, 0)
+        gdlX0.addWidget(self.sim["cdiX0"], 1, 1)
+        gdlX0.addWidget(QLabel("&sigma;<sub>x0</sub>", simGUI), 1, 2)
+        gdlX0.addWidget(self.sim["cdiSigX0"], 1, 3)
+        title = "y(t = 0) = y<sub>0</sub> &plusmn; &sigma;<sub>y0</sub>"
+        gdlX0.addWidget(QLabel(title, simGUI), 2, 0, 1, 4)
+        gdlX0.addWidget(QLabel("y<sub>0</sub>", simGUI), 3, 0)
+        gdlX0.addWidget(self.sim["cdiY0"], 3, 1)
+        gdlX0.addWidget(QLabel("&sigma;<sub>y0</sub>", simGUI), 3, 2)
+        gdlX0.addWidget(self.sim["cdiSigY0"], 3, 3)
+        title = "z(t = 0) = z<sub>0</sub> &plusmn; &sigma;<sub>z0</sub>"
+        gdlX0.addWidget(QLabel(title, simGUI), 4, 0, 1, 4)
+        gdlX0.addWidget(QLabel("z<sub>0</sub>", simGUI), 5, 0)
+        gdlX0.addWidget(self.sim["cdiZ0"], 5, 1)
+        gdlX0.addWidget(QLabel("&sigma;<sub>z0</sub>", simGUI), 5, 2)
+        gdlX0.addWidget(self.sim["cdiSigZ0"], 5, 3)
+
+    def fillSimGUIV0Gdl(self, simGUI, gdlX0):
+        """Fill simulation GUI : grid layout of initial conditions (V0)"""
+
+        # Create simulation GUI: grid layout of initial conditions (V0).
+        title = "V<sub>x</sub>(t = 0) = V<sub>x0</sub> &plusmn; &sigma;<sub>Vx0</sub>"
+        gdlX0.addWidget(QLabel(title, simGUI), 0, 6, 1, 4)
+        gdlX0.addWidget(QLabel("V<sub>x0</sub>", simGUI), 1, 6)
+        gdlX0.addWidget(self.sim["cdiVX0"], 1, 7)
+        gdlX0.addWidget(QLabel("&sigma;<sub>Vx0</sub>", simGUI), 1, 8)
+        gdlX0.addWidget(self.sim["cdiSigVX0"], 1, 9)
+        title = "V<sub>y</sub>(t = 0) = V<sub>y0</sub> &plusmn; &sigma;<sub>Vy0</sub>"
+        gdlX0.addWidget(QLabel(title, simGUI), 2, 6, 1, 4)
+        gdlX0.addWidget(QLabel("V<sub>y0</sub>", simGUI), 3, 6)
+        gdlX0.addWidget(self.sim["cdiVY0"], 3, 7)
+        gdlX0.addWidget(QLabel("&sigma;<sub>Vy0</sub>", simGUI), 3, 8)
+        gdlX0.addWidget(self.sim["cdiSigVY0"], 3, 9)
+        title = "V<sub>z</sub>(t = 0) = V<sub>z0</sub> &plusmn; &sigma;<sub>Vz0</sub>"
+        gdlX0.addWidget(QLabel(title, simGUI), 4, 6, 1, 4)
+        gdlX0.addWidget(QLabel("V<sub>z0</sub>", simGUI), 5, 6)
+        gdlX0.addWidget(self.sim["cdiVZ0"], 5, 7)
+        gdlX0.addWidget(QLabel("&sigma;<sub>Vz0</sub>", simGUI), 5, 8)
+        gdlX0.addWidget(self.sim["cdiSigVZ0"], 5, 9)
+
+    def fillSimGUIA0Gdl(self, simGUI, gdlX0):
+        """Fill simulation GUI : grid layout of initial conditions (A0)"""
+
+        # Create simulation GUI: grid layout of initial conditions (A0).
+        title = "A<sub>x</sub>(t = 0) = A<sub>x0</sub> &plusmn; &sigma;<sub>Ax0</sub>"
+        gdlX0.addWidget(QLabel(title, simGUI), 0, 10, 1, 4)
+        gdlX0.addWidget(QLabel("A<sub>x0</sub>", simGUI), 1, 10)
+        gdlX0.addWidget(self.sim["cdiAX0"], 1, 11)
+        gdlX0.addWidget(QLabel("&sigma;<sub>Ax0</sub>", simGUI), 1, 12)
+        gdlX0.addWidget(self.sim["cdiSigAX0"], 1, 13)
+        title = "A<sub>y</sub>(t = 0) = A<sub>y0</sub> &plusmn; &sigma;<sub>Ay0</sub>"
+        gdlX0.addWidget(QLabel(title, simGUI), 2, 10, 1, 4)
+        gdlX0.addWidget(QLabel("A<sub>y0</sub>", simGUI), 3, 10)
+        gdlX0.addWidget(self.sim["cdiAY0"], 3, 11)
+        gdlX0.addWidget(QLabel("&sigma;<sub>Ay0</sub>", simGUI), 3, 12)
+        gdlX0.addWidget(self.sim["cdiSigAY0"], 3, 13)
+        title = "A<sub>z</sub>(t = 0) = A<sub>z0</sub> &plusmn; &sigma;<sub>Az0</sub>"
+        gdlX0.addWidget(QLabel(title, simGUI), 4, 10, 1, 4)
+        gdlX0.addWidget(QLabel("A<sub>z0</sub>", simGUI), 5, 10)
+        gdlX0.addWidget(self.sim["cdiAZ0"], 5, 11)
+        gdlX0.addWidget(QLabel("&sigma;<sub>Az0</sub>", simGUI), 5, 12)
+        gdlX0.addWidget(self.sim["cdiSigAZ0"], 5, 13)
 
     def fillSimGUIVwr(self, simGUI):
         """Fill simulation GUI: viewer"""
@@ -1355,14 +1640,36 @@ class planeTrackingExample:
 
         # Check simulation validity.
         eId = "simulation"
-        if float(self.sim["prmDt"].text()) < 0.:
-            self.throwError(eId, "<em>&Delta;t</em> must be superior than 0.")
+        if not self.checkValiditySimPrm():
             return False
         if float(self.sim["prmVrb"].text()) < 0.:
             self.throwError(eId, "verbose level must be superior than 0.")
             return False
 
         return self.checkValiditySimVwr()
+
+    def checkValiditySimPrm(self):
+        """Check example validity: simulation parameters"""
+
+        # Check simulation parameters validity.
+        eId = "simulation"
+        if float(self.sim["prmM"].text()) < 0.:
+            self.throwError(eId, "mass must be superior than 0.")
+            return False
+        if float(self.sim["prmC"].text()) < 0.:
+            self.throwError(eId, "damping coef must be superior than 0.")
+            return False
+        if float(self.sim["prmDt"].text()) < 0.:
+            self.throwError(eId, "<em>&Delta;t</em> must be superior than 0.")
+            return False
+        if float(self.sim["prmExpOrd"].text()) < 0.:
+            self.throwError(eId, "exp. taylor expansion order must be superior than 0.")
+            return False
+        if float(self.sim["prmProNseSig"].text()) < 0.:
+            self.throwError(eId, "process noise std deviation must be superior than 0.")
+            return False
+
+        return True
 
     def checkValiditySimVwr(self):
         """Check example validity: viewer options of simulation"""
@@ -1377,6 +1684,114 @@ class planeTrackingExample:
             return False
 
         return True
+
+    @staticmethod
+    def getLTISystemSize():
+        """Get size of the Linear Time Invariant system"""
+
+        # Return system size.
+        return 9 # x, v, a in 3D.
+
+    def getLTISystem(self):
+        """Get matrices of the Linear Time Invariant system"""
+
+        # Constant acceleration moving body (damped mass).
+        #
+        # m*a = -c*v + F (https://www.kalmanfilter.net/modeling.html)
+        #
+        # F = throttle force (generated by plane motors)
+        #
+        # |.|   |             |   | |   |       |   |   |
+        # |x|   |0    1     0 |   |x|   |0  0  0|   | 0 |
+        # | |   |             |   | |   |       |   |   |
+        # |.|   |             |   | |   |       |   |   |
+        # |v| = |0  -c/m    0 | * |v| + |0  1  0| * |F/m|
+        # | |   |             |   | |   |       |   |   |
+        # |.|   |             |   | |   |       |   |.  |
+        # |a|   |0    0   -c/m|   |a|   |0  0  1|   |F/m|
+        # | |   |             |   | |   |       |   |   |
+        prmM = float(self.sim["prmM"].text())
+        prmC = float(self.sim["prmC"].text())
+        prmN = self.getLTISystemSize()
+        matA = np.zeros((prmN, prmN), dtype=float)
+        matB = np.zeros((prmN, prmN), dtype=float)
+        for idx in [0, 1, 2]: # X, Y, Z
+            matA[3*idx+0, 3*idx+1] = 1.
+            matA[3*idx+1, 3*idx+1] = -1.*prmC/prmM
+            matA[3*idx+2, 3*idx+2] = -1.*prmC/prmM
+            matB[3*idx+1, 3*idx+1] = 1.
+            matB[3*idx+2, 3*idx+2] = 1.
+
+        # Outputs.
+        #
+        # | |   |           |   | |       |   |
+        # |x|   |1    0    0|   |x|       | 0 |
+        # | |   |           |   | |       |   |
+        # | |   |           |   | |       |   |
+        # |v| = |0    1    0| * |v| + 0 * |F/m|
+        # | |   |           |   | |       |   |
+        # | |   |           |   | |       |.  |
+        # |a|   |0    0    1|   |a|       |F/m|
+        # | |   |           |   | |       |   |
+        matC = np.zeros((prmN, prmN), dtype=float)
+        matD = None
+        for idx in [0, 1, 2]: # X, Y, Z
+            matC[3*idx+0, 3*idx+0] = 1.
+            matC[3*idx+1, 3*idx+1] = 1.
+            matC[3*idx+2, 3*idx+2] = 1.
+
+        return matA, matB, matC, matD
+
+    def initStates(self, sim):
+        """Initialize states"""
+
+        # Initialize states.
+        prmN = self.getLTISystemSize()
+        states = np.zeros((prmN, 1), dtype=float)
+        states[0, 0] = sim["cdiX0"]
+        states[1, 0] = sim["cdiVX0"]
+        states[2, 0] = sim["cdiAX0"]
+        states[3, 0] = sim["cdiY0"]
+        states[4, 0] = sim["cdiVY0"]
+        states[5, 0] = sim["cdiAY0"]
+        states[6, 0] = sim["cdiZ0"]
+        states[7, 0] = sim["cdiVZ0"]
+        states[8, 0] = sim["cdiAZ0"]
+
+        return states
+
+    def computeControlLaw(self):
+        """Compute control law"""
+
+        # Compute control law: modify plane throttle to get stable velocity.
+        prmN = self.getLTISystemSize()
+        matU = np.zeros((prmN, 1), dtype=float)
+
+        return matU
+
+    @staticmethod
+    def getStateKeys():
+        """Get states keys"""
+
+        # Get states keys.
+        return ["X", "VX", "AX", "Y", "VY", "AY", "Z", "VZ", "AZ"]
+
+    def getOutputKeys(self):
+        """Get outputs keys"""
+
+        # Get outputs keys.
+        return self.getStateKeys()
+
+    def saveStatesOutputs(self, states, stateDic, outputs, outputDic):
+        """Save states and outputs"""
+
+        # Save states and outputs.
+        keys = self.getStateKeys()
+        for idx, key in enumerate(keys):
+            stateDic[key].append(states[idx, 0])
+        keys = self.getOutputKeys()
+        for idx, key in enumerate(keys):
+            outputDic[key].append(outputs[idx, 0])
 
 class controllerGUI(QMainWindow):
     """Kalman filter controller"""
