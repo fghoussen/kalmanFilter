@@ -11,6 +11,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from scipy.interpolate import lagrange
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget
 from PyQt5.QtWidgets import QLabel, QComboBox, QPushButton, QHBoxLayout, QVBoxLayout
@@ -19,7 +20,7 @@ from PyQt5.QtWidgets import QMessageBox
 from PyQt5.QtWidgets import QListWidget, QCheckBox
 from PyQt5.QtCore import Qt
 
-matplotlib.use('Qt5Agg')
+matplotlib.use("Qt5Agg")
 
 class mpl2DCanvas(FigureCanvasQTAgg):
     """Matplotlib 2D canvas to be embedded in Qt widget"""
@@ -31,7 +32,20 @@ class mpl2DCanvas(FigureCanvasQTAgg):
         fig = plt.figure()
         super(mpl2DCanvas, self).__init__(fig)
         self.setParent(parent)
-        self.axes = fig.add_subplot(111)
+        self.fig = fig
+        self.nrows = 0
+        self.ncols = 0
+        self.axes = []
+
+    def setUp(self, nrows=1, ncols=1):
+        """Set up"""
+
+        # Set up.
+        self.nrows = nrows
+        self.ncols = ncols
+        self.axes = []
+        for idx in range(nrows*ncols):
+            self.axes.append(self.fig.add_subplot(nrows, ncols, idx+1))
 
 class mpl3DCanvas(FigureCanvasQTAgg):
     """Matplotlib 3D canvas to be embedded in Qt widget"""
@@ -54,14 +68,39 @@ class viewer2DGUI(QMainWindow):
         # Initialize.
         super(viewer2DGUI, self).__init__(*args, **kwargs)
         self.mcvs = mpl2DCanvas(self)
-        self.setCentralWidget(self.mcvs)
         self.closed = False
+        self.nrows = 0
+        self.ncols = 0
+        self.toolbar = NavigationToolbar(self.mcvs, self)
 
-    def getAxis(self):
+        # Set window as non modal.
+        self.setWindowModality(Qt.NonModal)
+
+        # Set the layout
+        layout = QVBoxLayout()
+        layout.addWidget(self.toolbar)
+        layout.addWidget(self.mcvs)
+
+        # Build the GUI.
+        vwrGUI = QWidget(self)
+        vwrGUI.setLayout(layout)
+        self.setCentralWidget(vwrGUI)
+
+    def setUp(self, nrows=1, ncols=1):
+        """Set up"""
+
+        # Set up.
+        self.nrows = nrows
+        self.ncols = ncols
+        self.mcvs.setUp(nrows, ncols)
+
+    def getAxis(self, idx=0):
         """Get viewer axis"""
 
         # Return viewer axis.
-        return self.mcvs.axes
+        if idx < 0 or idx >= self.nrows*self.ncols:
+            return None
+        return self.mcvs.axes[idx]
 
     def draw(self):
         """Force draw of the scene"""
@@ -85,8 +124,21 @@ class viewer3DGUI(QMainWindow):
         # Initialize.
         super(viewer3DGUI, self).__init__(*args, **kwargs)
         self.mcvs = mpl3DCanvas(self)
-        self.setCentralWidget(self.mcvs)
         self.closed = False
+        self.toolbar = NavigationToolbar(self.mcvs, self)
+
+        # Set window as non modal.
+        self.setWindowModality(Qt.NonModal)
+
+        # Set the layout
+        layout = QVBoxLayout()
+        layout.addWidget(self.toolbar)
+        layout.addWidget(self.mcvs)
+
+        # Build the GUI.
+        vwrGUI = QWidget(self)
+        vwrGUI.setLayout(layout)
+        self.setCentralWidget(vwrGUI)
 
     def getAxis(self):
         """Get viewer axis"""
@@ -114,7 +166,7 @@ class kalmanFilterModel():
         """Initialize"""
 
         # Initialize members.
-        self.sim = {}
+        self.sim = {"ctlHV": {}, "time": []}
         self.msr = {}
         self.example = example
         self.solved = False
@@ -126,6 +178,9 @@ class kalmanFilterModel():
     def clear(self):
         """Clear previous results"""
 
+        # Clear previous time.
+        self.sim["time"] = []
+
         # Clear previous results.
         self.solved = False
         self.states.clear()
@@ -136,6 +191,19 @@ class kalmanFilterModel():
         keys = self.example.getOutputKeys()
         for key in keys:
             self.outputs[key] = []
+
+        # Clear previous control law hidden variables.
+        self.sim["ctlHV"]["FoM"] = {}
+        self.sim["ctlHV"]["FoM"]["X"] = []
+        self.sim["ctlHV"]["FoM"]["Y"] = []
+        self.sim["ctlHV"]["FoM"]["Z"] = []
+        self.sim["ctlHV"]["d(FoM)/dt"] = {}
+        self.sim["ctlHV"]["d(FoM)/dt"]["X"] = []
+        self.sim["ctlHV"]["d(FoM)/dt"]["Y"] = []
+        self.sim["ctlHV"]["d(FoM)/dt"]["Z"] = []
+        self.sim["ctlHV"]["roll"] = []
+        self.sim["ctlHV"]["pitch"] = []
+        self.sim["ctlHV"]["yaw"] = []
 
     def setUpSimPrm(self, sim, cdfTf):
         """Setup solver: simulation parameters"""
@@ -177,27 +245,34 @@ class kalmanFilterModel():
             return
 
         # Initialize states.
+        time = 0.
         states = self.example.initStates(self.sim)
-        matU = self.example.computeControlLaw()
+        matU = self.example.computeControlLaw(states, self.sim)
         outputs = self.computeOutputs(states, matU)
         if self.sim["prmVrb"] >= 1:
             print("Initialisation:")
             self.printMat("Predictor - X", np.transpose(states))
             self.printMat("Predictor - Y", np.transpose(outputs))
 
-        # Save states and outputs.
+        # Save initial states and outputs.
+        self.sim["time"].append(time)
         self.example.saveStatesOutputs(states, self.states, outputs, self.outputs)
 
-        # Time.
-        prmTf = self.sim["cdfTf"]
-        prmDt = self.sim["prmDt"]
-        eqnT = np.linspace(0., prmTf, prmTf/prmDt)
-
         # Solve.
-        for timeT in eqnT:
+        prmDt, prmTf = self.sim["prmDt"], self.sim["cdfTf"]
+        while time < prmTf:
+            # Increase time.
+            time = time+prmDt
+            if time > prmTf:
+                time = prmTf
+            self.sim["time"].append(time)
             if self.sim["prmVrb"] >= 1:
-                print("Iteration: time %.3f" % timeT)
+                print("Iteration: time %.3f" % time)
+
+            # Solve with Kalman filter.
             self.predictor()
+
+        # Mark solver as solved.
         self.solved = True
 
     def predictor(self):
@@ -230,7 +305,7 @@ class kalmanFilterModel():
             self.printMat("Predictor - W", np.transpose(matW))
 
         # Compute control law.
-        matU = self.example.computeControlLaw()
+        matU = self.example.computeControlLaw(states, self.sim)
         if self.sim["prmVrb"] >= 1:
             self.printMat("Predictor - U", np.transpose(matU))
 
@@ -305,13 +380,11 @@ class planeTrackingExample:
         """Initialize"""
 
         # Initialize members.
-        self.vwr2D = None
-        self.vwr3D = None
         self.ctrGUI = ctrGUI
-        self.slt = {"sltId": ""}
+        self.slt = {"sltId": "", "time": [], "eqn": {}}
         self.msr = {"sltId": "", "msrId": ""}
         self.sim = {"sltId": "", "msrId": "", "simId": ""}
-        self.vwr = {}
+        self.vwr = {"2D": {"tzp": None, "ctlHV": None, "simOV": None}, "3D": None}
         self.kfm = kalmanFilterModel(self)
 
     @staticmethod
@@ -325,42 +398,63 @@ class planeTrackingExample:
         """Create viewer"""
 
         # Create viewer.
-        if not self.vwr3D or self.vwr3D.closed:
-            self.vwr3D = viewer3DGUI(self.ctrGUI)
-        self.vwr3D.setWindowTitle("Kalman filter viewer")
-        self.vwr3D.show()
+        if not self.vwr["3D"] or self.vwr["3D"].closed:
+            self.vwr["3D"] = viewer3DGUI(self.ctrGUI)
+        self.vwr["3D"].setWindowTitle("Kalman filter viewer")
+        self.vwr["3D"].show()
 
-        return self.vwr3D
+        return self.vwr["3D"]
 
     def updateViewer(self):
         """Update viewer"""
 
-        # Clear the viewer.
-        if self.vwr2D:
-            axis = self.vwr2D.getAxis()
-            axis.cla()
-            axis.set_xlabel('t')
-            axis.set_ylabel('z')
-            self.vwr2D.draw()
-        axis = self.vwr3D.getAxis()
-        axis.cla()
-        axis.set_xlabel('x')
-        axis.set_ylabel('y')
-        axis.set_zlabel('z')
-        self.vwr3D.draw()
-
         # Update viewer.
+        self.clearViewer()
         self.updateViewerSlt()
         self.updateViewerMsr()
         self.updateViewerSim()
 
-        # Order and show legend.
+        # 3D viewer: order and show legend.
+        axis = self.vwr["3D"].getAxis()
         handles, labels = axis.get_legend_handles_labels()
         labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: t[0]))
         axis.legend(handles, labels)
 
         # Force viewer redraw.
-        self.vwr3D.draw()
+        self.vwr["3D"].draw()
+
+    def clearViewer(self, vwrId="all"):
+        """Clear viewer"""
+
+        # Clear the viewer.
+        if vwrId in ("all", "tzp"):
+            if self.vwr["2D"]["tzp"]:
+                axis = self.vwr["2D"]["tzp"].getAxis()
+                axis.cla()
+                axis.set_xlabel("t")
+                axis.set_ylabel("z")
+                self.vwr["2D"]["tzp"].draw()
+        if vwrId in ("all", "simOV"):
+            if self.vwr["2D"]["simOV"]:
+                for idx in [0, 1, 2, 3, 4, 5, 6, 7, 8]:
+                    axis = self.vwr["2D"]["simOV"].getAxis(idx)
+                    axis.set_xlabel("t")
+                    axis.cla()
+                self.vwr["2D"]["simOV"].draw()
+        if vwrId in ("all", "ctlHV"):
+            if self.vwr["2D"]["ctlHV"]:
+                for idx in [0, 1, 2, 3, 4, 5, 6, 7, 8]:
+                    axis = self.vwr["2D"]["ctlHV"].getAxis(idx)
+                    axis.set_xlabel("t")
+                    axis.cla()
+                self.vwr["2D"]["ctlHV"].draw()
+        if vwrId in ("all", "3D"):
+            axis = self.vwr["3D"].getAxis()
+            axis.cla()
+            axis.set_xlabel("x")
+            axis.set_ylabel("y")
+            axis.set_zlabel("z")
+            self.vwr["3D"].draw()
 
     def updateViewerSlt(self):
         """Update viewer: solution"""
@@ -378,13 +472,14 @@ class planeTrackingExample:
             return
 
         # Plot Z.
-        if self.vwr2D and not self.vwr2D.closed:
+        if self.vwr["2D"]["tzp"] and not self.vwr["2D"]["tzp"].closed:
             self.onPltTZPBtnClick()
 
         # Time.
         prmTf = float(self.slt["cdfTf"].text())
         vwrNbPt = float(self.slt["vwrNbPt"].text())
         eqnT = np.linspace(0., prmTf, vwrNbPt)
+        self.slt["time"] = eqnT # Save time.
 
         # Plot solution.
         eqnX, eqnY, eqnZ = self.updateViewerSltX(eqnT)
@@ -404,9 +499,14 @@ class planeTrackingExample:
             return eqnX, eqnY, eqnZ
         vwrPosMks = float(self.slt["vwrPosMks"].text())
         clr = (0., 0., 1.) # Blue.
-        axis = self.vwr3D.getAxis()
+        axis = self.vwr["3D"].getAxis()
         axis.plot3D(eqnX, eqnY, eqnZ, lw=vwrLnWd, color=clr,
                     label="flight path: x", marker="o", ms=vwrPosMks)
+
+        # Save equations.
+        self.slt["eqn"]["X"] = eqnX
+        self.slt["eqn"]["Y"] = eqnY
+        self.slt["eqn"]["Z"] = eqnZ
 
         return eqnX, eqnY, eqnZ
 
@@ -425,9 +525,14 @@ class planeTrackingExample:
         if vwrVelLgh == 0.:
             return
         vwrVelNrm = self.slt["vwrVelNrm"].isChecked()
-        axis = self.vwr3D.getAxis()
+        axis = self.vwr["3D"].getAxis()
         axis.quiver3D(eqnX, eqnY, eqnZ, eqnVX, eqnVY, eqnVZ, color=clr,
                       length=vwrVelLgh, normalize=vwrVelNrm, label="flight path: v")
+
+        # Save equations.
+        self.slt["eqn"]["VX"] = eqnVX
+        self.slt["eqn"]["VY"] = eqnVY
+        self.slt["eqn"]["VZ"] = eqnVZ
 
     def updateViewerSltA(self, eqnT, eqnX, eqnY, eqnZ):
         """Update viewer: plot acceleration of the solution"""
@@ -444,9 +549,14 @@ class planeTrackingExample:
         if vwrAccLgh == 0.:
             return
         vwrAccNrm = self.slt["vwrAccNrm"].isChecked()
-        axis = self.vwr3D.getAxis()
+        axis = self.vwr["3D"].getAxis()
         axis.quiver3D(eqnX, eqnY, eqnZ, eqnAX, eqnAY, eqnAZ, colors=clr,
                       length=vwrAccLgh, normalize=vwrAccNrm, label="flight path: a")
+
+        # Save equations.
+        self.slt["eqn"]["AX"] = eqnAX
+        self.slt["eqn"]["AY"] = eqnAY
+        self.slt["eqn"]["AZ"] = eqnAZ
 
     def getSltId(self):
         """Get solution identity (track solution features)"""
@@ -769,7 +879,7 @@ class planeTrackingExample:
         vwrPosMks = float(self.msr["vwrPosMks"].text())
         if vwrPosMks == 0.:
             return
-        axis = self.vwr3D.getAxis()
+        axis = self.vwr["3D"].getAxis()
         axis.scatter3D(posX, posY, posZ, c="r", marker="^", alpha=1, s=vwrPosMks,
                        label="measure: x")
 
@@ -788,7 +898,7 @@ class planeTrackingExample:
         if vwrVelLgh == 0.:
             return
         vwrVelNrm = self.msr["vwrVelNrm"].isChecked()
-        axis = self.vwr3D.getAxis()
+        axis = self.vwr["3D"].getAxis()
         axis.quiver3D(posX, posY, posZ, eqnVX, eqnVY, eqnVZ,
                       colors=clr, length=vwrVelLgh, normalize=vwrVelNrm,
                       label="measure: v")
@@ -808,7 +918,7 @@ class planeTrackingExample:
         if vwrAccLgh == 0.:
             return
         vwrAccNrm = self.msr["vwrAccNrm"].isChecked()
-        axis = self.vwr3D.getAxis()
+        axis = self.vwr["3D"].getAxis()
         axis.quiver3D(posX, posY, posZ, eqnAX, eqnAY, eqnAZ,
                       colors=clr, length=vwrAccLgh, normalize=vwrAccNrm,
                       label="measure: a")
@@ -856,6 +966,12 @@ class planeTrackingExample:
         self.updateViewerSimV()
         self.updateViewerSimA()
 
+        # Plot 2D viewers.
+        if self.vwr["2D"]["ctlHV"] and not self.vwr["2D"]["ctlHV"].closed:
+            self.onPltCHVBtnClick()
+        if self.vwr["2D"]["simOV"] and not self.vwr["2D"]["simOV"].closed:
+            self.onPltSOVBtnClick()
+
     def getSimId(self):
         """Get simulation identity (track simulation features)"""
 
@@ -877,7 +993,7 @@ class planeTrackingExample:
             return
         vwrPosMks = float(self.sim["vwrPosMks"].text())
         clr = (0., 0.5, 0.) # Green.
-        axis = self.vwr3D.getAxis()
+        axis = self.vwr["3D"].getAxis()
         axis.plot3D(eqnX, eqnY, eqnZ, lw=vwrLnWd, color=clr,
                     label="simulation: x", marker="o", ms=vwrPosMks)
 
@@ -892,7 +1008,7 @@ class planeTrackingExample:
         if vwrVelLgh == 0.:
             return
         vwrVelNrm = self.sim["vwrVelNrm"].isChecked()
-        axis = self.vwr3D.getAxis()
+        axis = self.vwr["3D"].getAxis()
         axis.quiver3D(eqnX, eqnY, eqnZ, eqnVX, eqnVY, eqnVZ, color=clr,
                       length=vwrVelLgh, normalize=vwrVelNrm, label="simulation: v")
 
@@ -907,7 +1023,7 @@ class planeTrackingExample:
         if vwrAccLgh == 0.:
             return
         vwrAccNrm = self.sim["vwrAccNrm"].isChecked()
-        axis = self.vwr3D.getAxis()
+        axis = self.vwr["3D"].getAxis()
         axis.quiver3D(eqnX, eqnY, eqnZ, eqnAX, eqnAY, eqnAZ, colors=clr,
                       length=vwrAccLgh, normalize=vwrAccNrm, label="simulation: a")
 
@@ -1024,7 +1140,17 @@ class planeTrackingExample:
         return gpbXi
 
     def onPltTZPBtnClick(self):
-        """Callback on plotting lagrange Z polynomial"""
+        """Callback on plotting lagrange T-Z polynomial"""
+
+        # Create or retrieve viewer.
+        if not self.vwr["2D"]["tzp"] or self.vwr["2D"]["tzp"].closed:
+            self.vwr["2D"]["tzp"] = viewer2DGUI(self.ctrGUI)
+            self.vwr["2D"]["tzp"].setUp()
+            self.vwr["2D"]["tzp"].setWindowTitle("Flight path equation: Lagrange T-Z polynomial")
+            self.vwr["2D"]["tzp"].show()
+
+        # Clear the viewer.
+        self.clearViewer(vwrId="tzp")
 
         # Time.
         prmTf = float(self.slt["cdfTf"].text())
@@ -1035,14 +1161,8 @@ class planeTrackingExample:
         poly = self.getZPoly()
         eqnZ = poly(eqnT)
 
-        # Create or retrieve viewer.
-        if not self.vwr2D or self.vwr2D.closed:
-            self.vwr2D = viewer2DGUI(self.ctrGUI)
-            self.vwr2D.setWindowTitle("Lagrange Z polynomial")
-            self.vwr2D.show()
-
         # Plot lagrange Z polynomial.
-        axis = self.vwr2D.getAxis()
+        axis = self.vwr["2D"]["tzp"].getAxis()
         vwrLnWd = float(self.slt["vwrLnWd"].text())
         if vwrLnWd > 0.:
             vwrPosMks = float(self.slt["vwrPosMks"].text())
@@ -1053,7 +1173,7 @@ class planeTrackingExample:
         axis.legend()
 
         # Draw scene.
-        self.vwr2D.draw()
+        self.vwr["2D"]["tzp"].draw()
 
     def fillSltGUIX0(self, sltGUI):
         """Fill solution GUI : initial conditions"""
@@ -1352,6 +1472,9 @@ class planeTrackingExample:
         self.sim["cdiSigAX0"] = QLineEdit("1.", self.ctrGUI)
         self.sim["cdiSigAY0"] = QLineEdit("1.", self.ctrGUI)
         self.sim["cdiSigAZ0"] = QLineEdit("1.", self.ctrGUI)
+        self.sim["ctlRolMax"] = QLineEdit("30.", self.ctrGUI)
+        self.sim["ctlPtcMax"] = QLineEdit("5.", self.ctrGUI)
+        self.sim["ctlYawMax"] = QLineEdit("30.", self.ctrGUI)
         self.sim["vwrLnWd"] = QLineEdit("1.", self.ctrGUI)
         self.sim["vwrPosMks"] = QLineEdit("5", self.ctrGUI)
         self.sim["vwrVelLgh"] = QLineEdit("0.01", self.ctrGUI)
@@ -1402,6 +1525,9 @@ class planeTrackingExample:
         gdlPrm.addWidget(QLabel("Solver:", simGUI), 3, 0)
         gdlPrm.addWidget(QLabel("verbose level", simGUI), 3, 1)
         gdlPrm.addWidget(self.sim["prmVrb"], 3, 2)
+        pltSOVBtn = QPushButton("Output variables", simGUI)
+        pltSOVBtn.clicked.connect(self.onPltSOVBtnClick)
+        gdlPrm.addWidget(pltSOVBtn, 3, 3, 1, 2)
 
         # Set group box layout.
         gpbPrm = QGroupBox(simGUI)
@@ -1410,6 +1536,124 @@ class planeTrackingExample:
         gpbPrm.setLayout(gdlPrm)
 
         return gpbPrm
+
+    def onPltSOVBtnClick(self):
+        """Callback on plotting output variables of simulation"""
+
+        # Create or retrieve viewer.
+        if not self.vwr["2D"]["simOV"] or self.vwr["2D"]["simOV"].closed:
+            self.vwr["2D"]["simOV"] = viewer2DGUI(self.ctrGUI)
+            self.vwr["2D"]["simOV"].setUp(nrows=3, ncols=3)
+            self.vwr["2D"]["simOV"].setWindowTitle("Simulation: outputs")
+            self.vwr["2D"]["simOV"].show()
+
+        # Clear the viewer.
+        self.clearViewer(vwrId="simOV")
+
+        # Plot simulation output variables.
+        self.plotSimulationOutputVariables()
+
+        # Draw scene.
+        self.vwr["2D"]["simOV"].draw()
+
+    def plotSimulationOutputVariables(self):
+        """Plot simulation output variables"""
+
+        # Don't plot if there's nothing to plot.
+        if not self.kfm.solved:
+            return
+
+        # Plot simulation output variables.
+        self.plotSimulationOutputVariablesX()
+        self.plotSimulationOutputVariablesV()
+        self.plotSimulationOutputVariablesA()
+
+    def plotSimulationOutputVariablesX(self):
+        """Plot simulation output variables: X"""
+
+        # Plot simulation output variables.
+        axis = self.vwr["2D"]["simOV"].getAxis(0)
+        axis.plot(self.slt["time"], self.slt["eqn"]["X"], label="slt - X",
+                  marker="o", ms=3, c="b")
+        axis.plot(self.kfm.sim["time"], self.kfm.outputs["X"], label="sim - X",
+                  marker="o", ms=3, c="g")
+        axis.set_xlabel("t")
+        axis.set_ylabel("X")
+        axis.legend()
+        axis = self.vwr["2D"]["simOV"].getAxis(1)
+        axis.plot(self.slt["time"], self.slt["eqn"]["Y"], label="slt - Y",
+                  marker="o", ms=3, c="b")
+        axis.plot(self.kfm.sim["time"], self.kfm.outputs["Y"], label="sim - Y",
+                  marker="o", ms=3, c="g")
+        axis.set_xlabel("t")
+        axis.set_ylabel("Y")
+        axis.legend()
+        axis = self.vwr["2D"]["simOV"].getAxis(2)
+        axis.plot(self.slt["time"], self.slt["eqn"]["Z"], label="slt - Z",
+                  marker="o", ms=3, c="b")
+        axis.plot(self.kfm.sim["time"], self.kfm.outputs["Z"], label="sim - Z",
+                  marker="o", ms=3, c="g")
+        axis.set_xlabel("t")
+        axis.set_ylabel("Z")
+        axis.legend()
+
+    def plotSimulationOutputVariablesV(self):
+        """Plot simulation output variables: V"""
+
+        # Plot simulation output variables.
+        axis = self.vwr["2D"]["simOV"].getAxis(3)
+        axis.plot(self.slt["time"], self.slt["eqn"]["VX"], label="slt - VX",
+                  marker="o", ms=3, c="b")
+        axis.plot(self.kfm.sim["time"], self.kfm.outputs["VX"], label="sim - VX",
+                  marker="o", ms=3, c="g")
+        axis.set_xlabel("t")
+        axis.set_ylabel("VX")
+        axis.legend()
+        axis = self.vwr["2D"]["simOV"].getAxis(4)
+        axis.plot(self.slt["time"], self.slt["eqn"]["VY"], label="slt - VY",
+                  marker="o", ms=3, c="b")
+        axis.plot(self.kfm.sim["time"], self.kfm.outputs["VY"], label="sim - VY",
+                  marker="o", ms=3, c="g")
+        axis.set_xlabel("t")
+        axis.set_ylabel("VY")
+        axis.legend()
+        axis = self.vwr["2D"]["simOV"].getAxis(5)
+        axis.plot(self.slt["time"], self.slt["eqn"]["VZ"], label="slt - VZ",
+                  marker="o", ms=3, c="b")
+        axis.plot(self.kfm.sim["time"], self.kfm.outputs["VZ"], label="sim - VZ",
+                  marker="o", ms=3, c="g")
+        axis.set_xlabel("t")
+        axis.set_ylabel("VZ")
+        axis.legend()
+
+    def plotSimulationOutputVariablesA(self):
+        """Plot simulation output variables: A"""
+
+        # Plot simulation output variables.
+        axis = self.vwr["2D"]["simOV"].getAxis(6)
+        axis.plot(self.slt["time"], self.slt["eqn"]["AX"], label="slt - AX",
+                  marker="o", ms=3, c="b")
+        axis.plot(self.kfm.sim["time"], self.kfm.outputs["AX"], label="sim - AX",
+                  marker="o", ms=3, c="g")
+        axis.set_xlabel("t")
+        axis.set_ylabel("AX")
+        axis.legend()
+        axis = self.vwr["2D"]["simOV"].getAxis(7)
+        axis.plot(self.slt["time"], self.slt["eqn"]["AY"], label="slt - AY",
+                  marker="o", ms=3, c="b")
+        axis.plot(self.kfm.sim["time"], self.kfm.outputs["AY"], label="sim - AY",
+                  marker="o", ms=3, c="g")
+        axis.set_xlabel("t")
+        axis.set_ylabel("AY")
+        axis.legend()
+        axis = self.vwr["2D"]["simOV"].getAxis(8)
+        axis.plot(self.slt["time"], self.slt["eqn"]["AZ"], label="slt - AZ",
+                  marker="o", ms=3, c="b")
+        axis.plot(self.kfm.sim["time"], self.kfm.outputs["AZ"], label="sim - AZ",
+                  marker="o", ms=3, c="g")
+        axis.set_xlabel("t")
+        axis.set_ylabel("AZ")
+        axis.legend()
 
     def fillSimGUIX0(self, simGUI):
         """Fill simulation GUI : initial conditions"""
@@ -1496,6 +1740,107 @@ class planeTrackingExample:
         gdlX0.addWidget(self.sim["cdiAZ0"], 5, 11)
         gdlX0.addWidget(QLabel("&sigma;<sub>Az0</sub>", simGUI), 5, 12)
         gdlX0.addWidget(self.sim["cdiSigAZ0"], 5, 13)
+
+    def fillSimGUIFCL(self, simGUI):
+        """Fill simulation GUI: simulation flight control law"""
+
+        # Create simulation GUI: simulation flight control law.
+        gdlFCL = QGridLayout(simGUI)
+        gdlFCL.addWidget(QLabel("Variation max:", simGUI), 0, 0, 1, 2)
+        gdlFCL.addWidget(QLabel("Roll:", simGUI), 1, 0)
+        gdlFCL.addWidget(self.sim["ctlRolMax"], 1, 1)
+        gdlFCL.addWidget(QLabel("Pitch:", simGUI), 2, 0)
+        gdlFCL.addWidget(self.sim["ctlPtcMax"], 2, 1)
+        gdlFCL.addWidget(QLabel("Yaw:", simGUI), 3, 0)
+        gdlFCL.addWidget(self.sim["ctlYawMax"], 3, 1)
+        pltCHVBtn = QPushButton("Hidden variables", simGUI)
+        pltCHVBtn.clicked.connect(self.onPltCHVBtnClick)
+        gdlFCL.addWidget(pltCHVBtn, 4, 0, 1, 2)
+
+        # Set group box layout.
+        gpbFCL = QGroupBox(simGUI)
+        gpbFCL.setTitle("Control law")
+        gpbFCL.setAlignment(Qt.AlignHCenter)
+        gpbFCL.setLayout(gdlFCL)
+
+        return gpbFCL
+
+    def onPltCHVBtnClick(self):
+        """Callback on plotting hidden variables of control law"""
+
+        # Create or retrieve viewer.
+        if not self.vwr["2D"]["ctlHV"] or self.vwr["2D"]["ctlHV"].closed:
+            self.vwr["2D"]["ctlHV"] = viewer2DGUI(self.ctrGUI)
+            self.vwr["2D"]["ctlHV"].setUp(nrows=3, ncols=3)
+            self.vwr["2D"]["ctlHV"].setWindowTitle("Simulation: control law")
+            self.vwr["2D"]["ctlHV"].show()
+
+        # Clear the viewer.
+        self.clearViewer(vwrId="ctlHV")
+
+        # Plot hidden variables.
+        self.plotControlLawHiddenVariables()
+
+        # Draw scene.
+        self.vwr["2D"]["ctlHV"].draw()
+
+    def plotControlLawHiddenVariables(self):
+        """Plot control law hidden variables"""
+
+        # Don't plot if there's nothing to plot.
+        if not self.kfm.solved:
+            return
+
+        # Plot control law hidden variables.
+        time = self.kfm.sim["time"]
+        axis = self.vwr["2D"]["ctlHV"].getAxis(0)
+        axis.plot(time, self.kfm.sim["ctlHV"]["FoM"]["X"], label="F/m - X", marker="o", ms=3)
+        axis.set_xlabel("t")
+        axis.set_ylabel("F/m")
+        axis.legend()
+        axis = self.vwr["2D"]["ctlHV"].getAxis(1)
+        axis.plot(time, self.kfm.sim["ctlHV"]["FoM"]["Y"], label="F/m - Y", marker="o", ms=3)
+        axis.set_xlabel("t")
+        axis.set_ylabel("F/m")
+        axis.legend()
+        axis = self.vwr["2D"]["ctlHV"].getAxis(2)
+        axis.plot(time, self.kfm.sim["ctlHV"]["FoM"]["Z"], label="F/m - Z", marker="o", ms=3)
+        axis.set_xlabel("t")
+        axis.set_ylabel("F/m")
+        axis.legend()
+        axis = self.vwr["2D"]["ctlHV"].getAxis(3)
+        axis.plot(time, self.kfm.sim["ctlHV"]["d(FoM)/dt"]["X"], label="d(F/m)/dt - X",
+                  marker="o", ms=3)
+        axis.set_xlabel("t")
+        axis.set_ylabel("d(F/m)/dt")
+        axis.legend()
+        axis = self.vwr["2D"]["ctlHV"].getAxis(4)
+        axis.plot(time, self.kfm.sim["ctlHV"]["d(FoM)/dt"]["Y"], label="d(F/m)/dt - Y",
+                  marker="o", ms=3)
+        axis.set_xlabel("t")
+        axis.set_ylabel("d(F/m)/dt")
+        axis.legend()
+        axis = self.vwr["2D"]["ctlHV"].getAxis(5)
+        axis.plot(time, self.kfm.sim["ctlHV"]["d(FoM)/dt"]["Z"], label="d(F/m)/dt - Z",
+                  marker="o", ms=3)
+        axis.set_xlabel("t")
+        axis.set_ylabel("d(F/m)/dt")
+        axis.legend()
+        axis = self.vwr["2D"]["ctlHV"].getAxis(6)
+        axis.plot(time, self.kfm.sim["ctlHV"]["roll"], label="roll", marker="o", ms=3)
+        axis.set_xlabel("t")
+        axis.set_ylabel("roll")
+        axis.legend()
+        axis = self.vwr["2D"]["ctlHV"].getAxis(7)
+        axis.plot(time, self.kfm.sim["ctlHV"]["pitch"], label="pitch", marker="o", ms=3)
+        axis.set_xlabel("t")
+        axis.set_ylabel("pitch")
+        axis.legend()
+        axis = self.vwr["2D"]["ctlHV"].getAxis(8)
+        axis.plot(time, self.kfm.sim["ctlHV"]["yaw"], label="yaw", marker="o", ms=3)
+        axis.set_xlabel("t")
+        axis.set_ylabel("yaw")
+        axis.legend()
 
     def fillSimGUIVwr(self, simGUI):
         """Fill simulation GUI: viewer"""
@@ -1642,6 +1987,8 @@ class planeTrackingExample:
         eId = "simulation"
         if not self.checkValiditySimPrm():
             return False
+        if not self.checkValiditySimCtl():
+            return False
         if float(self.sim["prmVrb"].text()) < 0.:
             self.throwError(eId, "verbose level must be superior than 0.")
             return False
@@ -1667,6 +2014,26 @@ class planeTrackingExample:
             return False
         if float(self.sim["prmProNseSig"].text()) < 0.:
             self.throwError(eId, "process noise std deviation must be superior than 0.")
+            return False
+
+        return True
+
+    def checkValiditySimCtl(self):
+        """Check example validity: simulation control law"""
+
+        # Check simulation control law validity.
+        eId = "simulation"
+        ctlRolMax = float(self.sim["ctlRolMax"].text())
+        if ctlRolMax < 0. or ctlRolMax > 90.:
+            self.throwError(eId, "max roll must stay between 0° and 90°.")
+            return False
+        ctlPtcMax = float(self.sim["ctlPtcMax"].text())
+        if ctlPtcMax < 0. or ctlPtcMax > 90.:
+            self.throwError(eId, "max pitch must stay between 0° and 90°.")
+            return False
+        ctlYawMax = float(self.sim["ctlYawMax"].text())
+        if ctlYawMax < 0. or ctlYawMax > 90.:
+            self.throwError(eId, "max yaw must stay between 0° and 90°.")
             return False
 
         return True
@@ -1760,14 +2127,133 @@ class planeTrackingExample:
 
         return states
 
-    def computeControlLaw(self):
+    def computeControlLaw(self, states, sim):
         """Compute control law"""
 
-        # Compute control law: modify plane throttle to get stable velocity.
-        prmN = self.getLTISystemSize()
-        matU = np.zeros((prmN, 1), dtype=float)
+        # Compute control law: get roll, pitch, yaw corrections.
+        deltaAccRolY, deltaAccRolZ = self.computeRoll(states, sim)
+        deltaAccPtcX, deltaAccPtcZ = self.computePitch(states, sim)
+        deltaAccYawX, deltaAccYawY = self.computeYaw(states, sim)
+
+        # Compute control law.
+        fomX = deltaAccPtcX+deltaAccYawX
+        fomY = deltaAccRolY+deltaAccYawY
+        fomZ = deltaAccRolZ+deltaAccPtcZ
+        matU = self.computeControl(fomX, fomY, fomZ, sim)
+
+        # Save F/m to compute d(F/m)/dt next time.
+        sim["ctlOldFoMX"] = fomX
+        sim["ctlOldFoMY"] = fomY
+        sim["ctlOldFoMZ"] = fomZ
 
         return matU
+
+    def computeControl(self, fomX, fomY, fomZ, sim):
+        """Compute control"""
+
+        # Compute control law: modify plane throttle (F/m == acceleration).
+        prmN = self.getLTISystemSize()
+        matU = np.zeros((prmN, 1), dtype=float)
+        matU[1, 0] = fomX
+        matU[4, 0] = fomY
+        matU[7, 0] = fomZ
+
+        # Compute control law: modify plane acceleration (d(F/m)/dt).
+        oldFoMX = self.sim["ctlOldFoMX"] if "ctlOldFoMX" in self.sim else 0.
+        oldFoMY = self.sim["ctlOldFoMY"] if "ctlOldFoMY" in self.sim else 0.
+        oldFoMZ = self.sim["ctlOldFoMZ"] if "ctlOldFoMZ" in self.sim else 0.
+        prmDt = float(self.sim["prmDt"].text())
+        matU[2, 0] = (fomX-oldFoMX)/prmDt
+        matU[5, 0] = (fomY-oldFoMY)/prmDt
+        matU[8, 0] = (fomZ-oldFoMZ)/prmDt
+
+        # Save control law hidden variables.
+        sim["ctlHV"]["FoM"]["X"].append(matU[1, 0])
+        sim["ctlHV"]["FoM"]["Y"].append(matU[4, 0])
+        sim["ctlHV"]["FoM"]["Z"].append(matU[7, 0])
+        sim["ctlHV"]["d(FoM)/dt"]["X"].append(matU[2, 0])
+        sim["ctlHV"]["d(FoM)/dt"]["Y"].append(matU[5, 0])
+        sim["ctlHV"]["d(FoM)/dt"]["Z"].append(matU[8, 0])
+
+        return matU
+
+    def computeRoll(self, states, sim):
+        """Compute control law: roll"""
+
+        # Compute roll around X axis.
+        velNow = np.array([0., states[4, 0], states[7, 0]]) # Velocity in YZ plane.
+        accNow = np.array([0., states[5, 0], states[8, 0]]) # Acceleration in YZ plane.
+        prmDt = float(self.sim["prmDt"].text())
+        velNxt = velNow+accNow*prmDt # New velocity in YZ plane.
+        roll = np.arccos(np.dot(velNow, velNxt)/(npl.norm(velNow)*npl.norm(velNxt)))
+        roll = roll*(180./np.pi) # Roll angle in degrees.
+
+        # Control roll.
+        accTgt = accNow # Target acceleration.
+        ctlRolMax = float(self.sim["ctlRolMax"].text())
+        while np.abs(roll) > ctlRolMax:
+            accTgt = accTgt*0.95 # Decrease acceleration by 5%.
+            velNxt = velNow+accTgt*prmDt # New velocity in YZ plane.
+            roll = np.arccos(np.dot(velNow, velNxt)/(npl.norm(velNow)*npl.norm(velNxt)))
+            roll = roll*(180./np.pi) # Roll angle in degrees.
+        deltaAcc = accTgt-accNow
+
+        # Save control law hidden variables.
+        sim["ctlHV"]["roll"].append(roll)
+
+        return deltaAcc[1], deltaAcc[2]
+
+    def computePitch(self, states, sim):
+        """Compute control law: pitch"""
+
+        # Compute pitch around Y axis.
+        velNow = np.array([states[1, 0], 0., states[7, 0]]) # Velocity in XZ plane.
+        accNow = np.array([states[2, 0], 0., states[8, 0]]) # Acceleration in XZ plane.
+        prmDt = float(self.sim["prmDt"].text())
+        velNxt = velNow+accNow*prmDt # New velocity in XZ plane.
+        pitch = np.arccos(np.dot(velNow, velNxt)/(npl.norm(velNow)*npl.norm(velNxt)))
+        pitch = pitch*(180./np.pi) # Pitch angle in degrees.
+
+        # Control pitch.
+        accTgt = accNow # Target acceleration.
+        ctlPtcMax = float(self.sim["ctlPtcMax"].text())
+        while np.abs(pitch) > ctlPtcMax:
+            accTgt = accTgt*0.95 # Decrease acceleration by 5%.
+            velNxt = velNow+accTgt*prmDt # New velocity in XZ plane.
+            pitch = np.arccos(np.dot(velNow, velNxt)/(npl.norm(velNow)*npl.norm(velNxt)))
+            pitch = pitch*(180./np.pi) # Pitch angle in degrees.
+        deltaAcc = accTgt-accNow
+
+        # Save control law hidden variables.
+        sim["ctlHV"]["pitch"].append(pitch)
+
+        return deltaAcc[0], deltaAcc[2]
+
+    def computeYaw(self, states, sim):
+        """Compute control law: yaw"""
+
+        # Compute yaw around Z axis.
+        velNow = np.array([states[1, 0], states[4, 0], 0.]) # Velocity in XY plane.
+        accNow = np.array([states[2, 0], states[5, 0], 0.]) # Acceleration in XY plane.
+        prmDt = float(self.sim["prmDt"].text())
+        velNxt = velNow+accNow*prmDt # New velocity in XY plane.
+        yaw = np.arccos(np.dot(velNow, velNxt)/(npl.norm(velNow)*npl.norm(velNxt)))
+        yaw = yaw*(180./np.pi) # Yaw angle in degrees.
+
+        # Control yaw.
+        accTgt = accNow # Target acceleration.
+        ctlYawMax = float(self.sim["ctlYawMax"].text())
+        while np.abs(yaw) > ctlYawMax:
+            accTgt = accTgt*0.95 # Decrease acceleration by 5%.
+            velNxt = velNow+accTgt*prmDt # New velocity in XY plane.
+            yaw = np.arccos(np.dot(velNow, velNxt)/(npl.norm(velNow)*npl.norm(velNxt)))
+            yaw = yaw*(180./np.pi) # Yaw angle in degrees.
+        deltaAcc = accTgt-accNow
+
+        # Save control law hidden variables.
+        sim["ctlHV"]["yaw"].append(yaw)
+
+        return deltaAcc[0], deltaAcc[1]
 
     @staticmethod
     def getStateKeys():
@@ -1806,6 +2292,9 @@ class controllerGUI(QMainWindow):
         self.examples.append(planeTrackingExample(self))
         self.comboEx, self.comboGUI = self.addExampleCombo()
         self.updateBtn = self.addUpdateVwrBtn()
+
+        # Set window as non modal.
+        self.setWindowModality(Qt.NonModal)
 
         # Show controls GUI.
         self.show()
