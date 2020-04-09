@@ -228,8 +228,8 @@ class kalmanFilterModel():
         self.mat["B"] = matB
         self.mat["C"] = matC
         self.mat["D"] = matD
-        if self.sim["prmVrb"] >= 2:
-            print("Linear Time Invariant system:")
+        if self.sim["prmVrb"] >= 3:
+            print("  "*2+"Linear Time Invariant system:")
             self.printMat("A", self.mat["A"])
             if self.mat["B"] is not None:
                 self.printMat("B", self.mat["B"])
@@ -250,7 +250,8 @@ class kalmanFilterModel():
         matU = self.example.computeControlLaw(states, self.sim)
         outputs = self.computeOutputs(states, matU)
         if self.sim["prmVrb"] >= 1:
-            print("Initialisation:")
+            print("  "*2+"Initialisation:")
+        if self.sim["prmVrb"] >= 2:
             self.printMat("Predictor - X", np.transpose(states))
             self.printMat("Predictor - Y", np.transpose(outputs))
 
@@ -267,7 +268,7 @@ class kalmanFilterModel():
                 time = prmTf
             self.sim["time"].append(time)
             if self.sim["prmVrb"] >= 1:
-                print("Iteration: time %.3f" % time)
+                print("  "*2+"Iteration: time %.3f" % time)
 
             # Solve with Kalman filter.
             self.predictor()
@@ -287,7 +288,7 @@ class kalmanFilterModel():
             taylorExp = npl.matrix_power(self.mat["A"]*self.sim["prmDt"], idx)/fac
             taylorExpLTM = np.amax(np.abs(taylorExp))
             matF = matF + taylorExp
-        if self.sim["prmVrb"] >= 2:
+        if self.sim["prmVrb"] >= 3:
             msg = "Predictor - F (last term magnitude of taylor expansion %.6f)" % taylorExpLTM
             self.printMat(msg, matF)
 
@@ -295,18 +296,18 @@ class kalmanFilterModel():
         matG = None
         if self.mat["B"] is not None:
             matG = np.dot(self.sim["prmDt"]*matF, self.mat["B"])
-            if self.sim["prmVrb"] >= 2:
+            if self.sim["prmVrb"] >= 3:
                 self.printMat("Predictor - G", matG)
 
         # Compute process noise.
         states = self.getLastStates()
         matW = self.getProcessNoise(states)
-        if self.sim["prmVrb"] >= 1:
+        if self.sim["prmVrb"] >= 2:
             self.printMat("Predictor - W", np.transpose(matW))
 
         # Compute control law.
         matU = self.example.computeControlLaw(states, self.sim)
-        if self.sim["prmVrb"] >= 1:
+        if self.sim["prmVrb"] >= 2:
             self.printMat("Predictor - U", np.transpose(matU))
 
         # Predictor equation: x_{n+1} = F*x_{n} + G*u_{n} + w_{n}.
@@ -315,13 +316,13 @@ class kalmanFilterModel():
             states = states + np.dot(matG, matU)
         states = states + matW
         assert states.shape == (prmN, 1), "states: bad dimension"
-        if self.sim["prmVrb"] >= 1:
+        if self.sim["prmVrb"] >= 2:
             self.printMat("Predictor - X", np.transpose(states))
 
         # Outputs equation: y_{n+1} = C*x_{n} + D*u_{n}.
         outputs = self.computeOutputs(states, matU)
         assert outputs.shape == (prmN, 1), "outputs: bad dimension"
-        if self.sim["prmVrb"] >= 1:
+        if self.sim["prmVrb"] >= 2:
             self.printMat("Predictor - Y", np.transpose(outputs))
 
         # Save states and outputs.
@@ -361,7 +362,7 @@ class kalmanFilterModel():
         return outputs
 
     @staticmethod
-    def printMat(msg, mat, indent=1, fmt=".6f"):
+    def printMat(msg, mat, indent=3, fmt=".6f"):
         """Pretty print matrice"""
 
         # Pretty print matrice.
@@ -459,67 +460,81 @@ class planeTrackingExample:
     def updateViewerSlt(self):
         """Update viewer: solution"""
 
-        # Update V0/A0 indicators.
-        self.slt["cdiVX0"].setText("N.A.")
-        self.slt["cdiVY0"].setText("N.A.")
-        self.slt["cdiVZ0"].setText("N.A.")
-        self.slt["cdiAX0"].setText("N.A.")
-        self.slt["cdiAY0"].setText("N.A.")
-        self.slt["cdiAZ0"].setText("N.A.")
-
         # Plot only if checked.
         if not self.vwr["ckbSlt"].isChecked():
             return
+        print("Update analytic solution")
 
-        # Plot Z.
+        # Compute solution if needed.
+        okSlt = 1 if self.slt["sltId"] == self.getSltId() else 0
+        if not okSlt:
+            self.computeSlt()
+
+        # Plot solution.
+        print("  "*1+"Plot analytic solution")
+        self.updateViewerSltX()
+        self.updateViewerSltV()
+        self.updateViewerSltA()
         if self.vwr["2D"]["tzp"] and not self.vwr["2D"]["tzp"].closed:
             self.onPltTZPBtnClick()
+
+        # Track solution features.
+        self.slt["sltId"] = self.getSltId()
+
+    def computeSlt(self):
+        """Compute solution"""
 
         # Time.
         prmTf = float(self.slt["cdfTf"].text())
         vwrNbPt = float(self.slt["vwrNbPt"].text())
         eqnT = np.linspace(0., prmTf, vwrNbPt)
-        self.slt["time"] = eqnT # Save time.
 
-        # Plot solution.
-        eqnX, eqnY, eqnZ = self.updateViewerSltX(eqnT)
-        self.updateViewerSltV(eqnT, eqnX, eqnY, eqnZ)
-        self.updateViewerSltA(eqnT, eqnX, eqnY, eqnZ)
+        # Compute solution.
+        print("  "*1+"Compute analytic solution")
+        eqnX, eqnY, eqnZ = self.getDisplEquations(eqnT)
+        eqnVX, eqnVY, eqnVZ = self.getVelocEquations(eqnT)
+        eqnAX, eqnAY, eqnAZ = self.getAccelEquations(eqnT)
 
-        # Track solution features.
-        self.slt["sltId"] = self.getSltId()
+        # Update V0/A0 indicators.
+        self.slt["indVX0"].setText("%.3f" % eqnVX[0])
+        self.slt["indVY0"].setText("%.3f" % eqnVY[0])
+        self.slt["indVZ0"].setText("%.3f" % eqnVZ[0])
+        self.slt["indAX0"].setText("%.3f" % eqnAX[0])
+        self.slt["indAY0"].setText("%.3f" % eqnAY[0])
+        self.slt["indAZ0"].setText("%.3f" % eqnAZ[0])
 
-    def updateViewerSltX(self, eqnT):
+        # Save analytic solution.
+        self.slt["time"] = eqnT
+        self.slt["eqn"]["X"] = eqnX
+        self.slt["eqn"]["Y"] = eqnY
+        self.slt["eqn"]["Z"] = eqnZ
+        self.slt["eqn"]["VX"] = eqnVX
+        self.slt["eqn"]["VY"] = eqnVY
+        self.slt["eqn"]["VZ"] = eqnVZ
+        self.slt["eqn"]["AX"] = eqnAX
+        self.slt["eqn"]["AY"] = eqnAY
+        self.slt["eqn"]["AZ"] = eqnAZ
+
+    def updateViewerSltX(self):
         """Update viewer: plot displacement of the solution"""
 
         # Plot solution: displacement.
-        eqnX, eqnY, eqnZ = self.getDisplEquations(eqnT)
+        eqnX, eqnY, eqnZ = self.slt["eqn"]["X"], self.slt["eqn"]["Y"], self.slt["eqn"]["Z"]
         vwrLnWd = float(self.slt["vwrLnWd"].text())
         if vwrLnWd == 0.:
-            return eqnX, eqnY, eqnZ
+            return
         vwrPosMks = float(self.slt["vwrPosMks"].text())
         clr = (0., 0., 1.) # Blue.
         axis = self.vwr["3D"].getAxis()
         axis.plot3D(eqnX, eqnY, eqnZ, lw=vwrLnWd, color=clr,
                     label="flight path: x", marker="o", ms=vwrPosMks)
 
-        # Save equations.
-        self.slt["eqn"]["X"] = eqnX
-        self.slt["eqn"]["Y"] = eqnY
-        self.slt["eqn"]["Z"] = eqnZ
-
-        return eqnX, eqnY, eqnZ
-
-    def updateViewerSltV(self, eqnT, eqnX, eqnY, eqnZ):
+    def updateViewerSltV(self):
         """Update viewer: plot velocity of the solution"""
 
-        # Update V0 indicators.
-        eqnVX, eqnVY, eqnVZ = self.getVelocEquations(eqnT)
-        self.slt["cdiVX0"].setText("%.3f" % eqnVX[0])
-        self.slt["cdiVY0"].setText("%.3f" % eqnVY[0])
-        self.slt["cdiVZ0"].setText("%.3f" % eqnVZ[0])
-
         # Plot solution: velocity.
+        eqnX, eqnY, eqnZ = self.slt["eqn"]["X"], self.slt["eqn"]["Y"], self.slt["eqn"]["Z"]
+        eqnVX, eqnVY, eqnVZ = self.slt["eqn"]["VX"], self.slt["eqn"]["VY"], self.slt["eqn"]["VZ"]
         clr = (0., 0.75, 1.) # Skyblue.
         vwrVelLgh = float(self.slt["vwrVelLgh"].text())
         if vwrVelLgh == 0.:
@@ -529,21 +544,12 @@ class planeTrackingExample:
         axis.quiver3D(eqnX, eqnY, eqnZ, eqnVX, eqnVY, eqnVZ, color=clr,
                       length=vwrVelLgh, normalize=vwrVelNrm, label="flight path: v")
 
-        # Save equations.
-        self.slt["eqn"]["VX"] = eqnVX
-        self.slt["eqn"]["VY"] = eqnVY
-        self.slt["eqn"]["VZ"] = eqnVZ
-
-    def updateViewerSltA(self, eqnT, eqnX, eqnY, eqnZ):
+    def updateViewerSltA(self):
         """Update viewer: plot acceleration of the solution"""
 
-        # Update A0 indicators.
-        eqnAX, eqnAY, eqnAZ = self.getAccelEquations(eqnT)
-        self.slt["cdiAX0"].setText("%.3f" % eqnAX[0])
-        self.slt["cdiAY0"].setText("%.3f" % eqnAY[0])
-        self.slt["cdiAZ0"].setText("%.3f" % eqnAZ[0])
-
         # Plot solution: acceleration.
+        eqnX, eqnY, eqnZ = self.slt["eqn"]["X"], self.slt["eqn"]["Y"], self.slt["eqn"]["Z"]
+        eqnAX, eqnAY, eqnAZ = self.slt["eqn"]["AX"], self.slt["eqn"]["AY"], self.slt["eqn"]["AZ"]
         clr = (0.25, 0., 0.5) # Indigo.
         vwrAccLgh = float(self.slt["vwrAccLgh"].text())
         if vwrAccLgh == 0.:
@@ -553,18 +559,16 @@ class planeTrackingExample:
         axis.quiver3D(eqnX, eqnY, eqnZ, eqnAX, eqnAY, eqnAZ, colors=clr,
                       length=vwrAccLgh, normalize=vwrAccNrm, label="flight path: a")
 
-        # Save equations.
-        self.slt["eqn"]["AX"] = eqnAX
-        self.slt["eqn"]["AY"] = eqnAY
-        self.slt["eqn"]["AZ"] = eqnAZ
-
     def getSltId(self):
         """Get solution identity (track solution features)"""
 
         # Get solution identity.
         sltId = ""
         for key in self.slt:
-            if key.find("fpe") == 0 or key.find("cd") == 0:
+            fpeFound = 1 if key.find("fpe") == 0 else 0
+            cdiFound = 1 if key.find("cdi") == 0 else 0
+            cdfFound = 1 if key.find("cdf") == 0 else 0
+            if fpeFound or cdiFound or cdfFound:
                 sltId += ":"+self.slt[key].text()
 
         return sltId
@@ -572,46 +576,44 @@ class planeTrackingExample:
     def updateViewerMsr(self):
         """Update viewer: measurements"""
 
-        # Clean all measurements if analytic solution has changed.
-        if self.msr["sltId"] != self.slt["sltId"]:
-            self.msr["sltId"] = self.slt["sltId"]
-            self.msr["datMsr"].clear()
-
         # Plot only if checked.
         if not self.vwr["ckbMsr"].isChecked():
             return
+        print("Update measurements")
 
-        # Clean removed measurement data.
-        delKeys = []
-        for key in self.msr["datMsr"]:
-            delKey = True
-            for idx in range(self.msr["lstMsr"].count()):
-                txt = self.msr["lstMsr"].item(idx).text()
-                if txt == key:
-                    delKey = False
-            if delKey:
-                delKeys.append(key)
-        for key in delKeys:
-            del self.msr["datMsr"][key]
+        # Compute measurements if needed.
+        okSlt = 1 if self.msr["sltId"] == self.slt["sltId"] else 0
+        okMsr = 1 if self.msr["msrId"] == self.getMsrId() else 0
+        if not okSlt or not okMsr:
+            if not okSlt:
+                self.msr["datMsr"].clear()
+            self.computeMsr()
+        self.msr["sltId"] = self.slt["sltId"]
 
-        # Update viewer.
+        # Plot measurements.
+        print("  "*1+"Plot measurements")
+        for txt in self.msr["datMsr"]:
+            msrData = self.msr["datMsr"][txt]
+            self.viewMsrData(msrData)
+
+        # Track measurement features.
+        self.msr["msrId"] = self.getMsrId()
+
+    def computeMsr(self):
+        """Compute measurements"""
+
+        # Compute measurements.
+        print("  "*1+"Compute measurements from analytic solution")
         for idx in range(self.msr["lstMsr"].count()):
             # Skip unused items.
             txt = self.msr["lstMsr"].item(idx).text()
             if txt == "":
                 continue
 
-            # Create or retrieve measure data.
-            msrData = None
+            # Create measure data if needed.
             if txt not in self.msr["datMsr"]:
+                print("  "*2+"Measurement: "+txt)
                 self.msr["datMsr"][txt] = self.getMsrData(txt)
-            msrData = self.msr["datMsr"][txt]
-
-            # View measurement.
-            self.viewMsrData(msrData)
-
-        # Track measurement features.
-        self.msr["msrId"] = self.getMsrId()
 
     def getMsrData(self, txt):
         """Get measure data"""
@@ -939,38 +941,44 @@ class planeTrackingExample:
     def updateViewerSim(self):
         """Update viewer: simulation"""
 
-        # Clean solver results if analytic solution or measurements have changed.
-        if self.sim["sltId"] != self.slt["sltId"]:
-            self.sim["sltId"] = self.slt["sltId"]
-            self.kfm.clear()
-        if self.sim["msrId"] != self.msr["msrId"]:
-            self.sim["msrId"] = self.msr["msrId"]
-            self.kfm.clear()
-        if self.sim["simId"] != self.getSimId():
-            self.sim["simId"] = self.getSimId()
-            self.kfm.clear()
-
         # Plot only if checked.
         if not self.vwr["ckbSim"].isChecked():
             return
+        print("Update simulation")
+
+        # Clean solver results if analytic solution or measurements have changed.
+        okSlt = 1 if self.sim["sltId"] == self.slt["sltId"] else 0
+        okMsr = 1 if self.sim["msrId"] == self.msr["msrId"] else 0
+        okSim = 1 if self.sim["simId"] == self.getSimId() else 0
+        if not okSlt or not okMsr or not okSim:
+            self.computeSim()
+        self.sim["sltId"] = self.slt["sltId"]
+        self.sim["msrId"] = self.msr["msrId"]
+
+        # Plot solver results.
+        print("  "*1+"Plot simulation results")
+        self.updateViewerSimX()
+        self.updateViewerSimV()
+        self.updateViewerSimA()
+        if self.vwr["2D"]["ctlHV"] and not self.vwr["2D"]["ctlHV"].closed:
+            self.onPltCHVBtnClick()
+        if self.vwr["2D"]["simOV"] and not self.vwr["2D"]["simOV"].closed:
+            self.onPltSOVBtnClick()
+
+        # Track simulation features.
+        self.sim["simId"] = self.getSimId()
+
+    def computeSim(self):
+        """Compute simulation"""
 
         # Solve based on Kalman filter.
+        print("  "*1+"Run simulation based on Kalman filter")
+        self.kfm.clear()
         self.kfm.setUpSimPrm(self.sim, self.slt["cdfTf"].text())
         self.kfm.setUpMsrPrm(self.msr["datMsr"])
         matA, matB, matC, matD = self.getLTISystem()
         self.kfm.setLTI(matA, matB, matC, matD)
         self.kfm.solve()
-
-        # Plot solver results.
-        self.updateViewerSimX()
-        self.updateViewerSimV()
-        self.updateViewerSimA()
-
-        # Plot 2D viewers.
-        if self.vwr["2D"]["ctlHV"] and not self.vwr["2D"]["ctlHV"].closed:
-            self.onPltCHVBtnClick()
-        if self.vwr["2D"]["simOV"] and not self.vwr["2D"]["simOV"].closed:
-            self.onPltSOVBtnClick()
 
     def getSimId(self):
         """Get simulation identity (track simulation features)"""
@@ -978,7 +986,12 @@ class planeTrackingExample:
         # Get simulation identity.
         simId = ""
         for key in self.sim:
-            if key.find("prm") == 0 or key.find("cdi") == 0:
+            if key == "prmVrb":
+                continue
+            prmFound = 1 if key.find("prm") == 0 else 0
+            cdiFound = 1 if key.find("cdi") == 0 else 0
+            ctlFound = 1 if key.find("ctl") == 0 else 0
+            if prmFound or cdiFound or ctlFound:
                 simId += ":"+self.sim[key].text()
 
         return simId
@@ -1056,12 +1069,12 @@ class planeTrackingExample:
         self.slt["cdiX0"] = QLineEdit("0.", self.ctrGUI)
         self.slt["cdiY0"] = QLineEdit("0.", self.ctrGUI)
         self.slt["cdiZ0"] = QLineEdit("0.", self.ctrGUI)
-        self.slt["cdiVX0"] = QLineEdit("N.A.", self.ctrGUI)
-        self.slt["cdiVY0"] = QLineEdit("N.A.", self.ctrGUI)
-        self.slt["cdiVZ0"] = QLineEdit("N.A.", self.ctrGUI)
-        self.slt["cdiAX0"] = QLineEdit("N.A.", self.ctrGUI)
-        self.slt["cdiAY0"] = QLineEdit("N.A.", self.ctrGUI)
-        self.slt["cdiAZ0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.slt["indVX0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.slt["indVY0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.slt["indVZ0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.slt["indAX0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.slt["indAY0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.slt["indAZ0"] = QLineEdit("N.A.", self.ctrGUI)
         self.slt["cdfTf"] = QLineEdit("2.", self.ctrGUI)
         self.slt["vwrNbPt"] = QLineEdit("50", self.ctrGUI)
         self.slt["vwrLnWd"] = QLineEdit("1.", self.ctrGUI)
@@ -1071,12 +1084,12 @@ class planeTrackingExample:
         self.slt["vwrAccLgh"] = QLineEdit("0.001", self.ctrGUI)
         self.slt["vwrAccNrm"] = QCheckBox("Normalize", self.ctrGUI)
 
-        self.slt["cdiVX0"].setEnabled(False)
-        self.slt["cdiVY0"].setEnabled(False)
-        self.slt["cdiVZ0"].setEnabled(False)
-        self.slt["cdiAX0"].setEnabled(False)
-        self.slt["cdiAY0"].setEnabled(False)
-        self.slt["cdiAZ0"].setEnabled(False)
+        self.slt["indVX0"].setEnabled(False)
+        self.slt["indVY0"].setEnabled(False)
+        self.slt["indVZ0"].setEnabled(False)
+        self.slt["indAX0"].setEnabled(False)
+        self.slt["indAY0"].setEnabled(False)
+        self.slt["indAZ0"].setEnabled(False)
 
         # Fill solution GUI.
         self.fillSltGUI(sltGUI)
@@ -1195,27 +1208,27 @@ class planeTrackingExample:
         title = "V<sub>x</sub>(t = 0) = V<sub>x0</sub>"
         gdlX0.addWidget(QLabel(title, sltGUI), 0, 3, 1, 2)
         gdlX0.addWidget(QLabel("V<sub>x0</sub>", sltGUI), 1, 3)
-        gdlX0.addWidget(self.slt["cdiVX0"], 1, 4)
+        gdlX0.addWidget(self.slt["indVX0"], 1, 4)
         title = "V<sub>y</sub>(t = 0) = V<sub>y0</sub>"
         gdlX0.addWidget(QLabel(title, sltGUI), 2, 3, 1, 2)
         gdlX0.addWidget(QLabel("V<sub>y0</sub>", sltGUI), 3, 3)
-        gdlX0.addWidget(self.slt["cdiVY0"], 3, 4)
+        gdlX0.addWidget(self.slt["indVY0"], 3, 4)
         title = "V<sub>z</sub>(t = 0) = V<sub>z0</sub>"
         gdlX0.addWidget(QLabel(title, sltGUI), 4, 3, 1, 2)
         gdlX0.addWidget(QLabel("V<sub>z0</sub>", sltGUI), 5, 3)
-        gdlX0.addWidget(self.slt["cdiVZ0"], 5, 4)
+        gdlX0.addWidget(self.slt["indVZ0"], 5, 4)
         title = "A<sub>x</sub>(t = 0) = A<sub>x0</sub>"
         gdlX0.addWidget(QLabel(title, sltGUI), 0, 6, 1, 2)
         gdlX0.addWidget(QLabel("A<sub>x0</sub>", sltGUI), 1, 6)
-        gdlX0.addWidget(self.slt["cdiAX0"], 1, 7)
+        gdlX0.addWidget(self.slt["indAX0"], 1, 7)
         title = "A<sub>y</sub>(t = 0) = A<sub>y0</sub>"
         gdlX0.addWidget(QLabel(title, sltGUI), 2, 6, 1, 2)
         gdlX0.addWidget(QLabel("A<sub>y0</sub>", sltGUI), 3, 6)
-        gdlX0.addWidget(self.slt["cdiAY0"], 3, 7)
+        gdlX0.addWidget(self.slt["indAY0"], 3, 7)
         title = "A<sub>z</sub>(t = 0) = A<sub>z0</sub>"
         gdlX0.addWidget(QLabel(title, sltGUI), 4, 6, 1, 2)
         gdlX0.addWidget(QLabel("A<sub>z0</sub>", sltGUI), 5, 6)
-        gdlX0.addWidget(self.slt["cdiAZ0"], 5, 7)
+        gdlX0.addWidget(self.slt["indAZ0"], 5, 7)
 
         # Set group box layout.
         gpbX0 = QGroupBox(sltGUI)
@@ -1279,9 +1292,9 @@ class planeTrackingExample:
         msrGUI.setAlignment(Qt.AlignHCenter)
 
         # Store measurement parameters.
-        self.msr["add"] = QComboBox(self.ctrGUI)
+        self.msr["addType"] = QComboBox(self.ctrGUI)
         for msr in ["x", "v", "a"]:
-            self.msr["add"].addItem(msr)
+            self.msr["addType"].addItem(msr)
         self.msr["addT0"] = QLineEdit("0.1", self.ctrGUI)
         finalTime = self.slt["cdfTf"].text()
         self.msr["addTf"] = QLineEdit(str(float(finalTime)*0.9), self.ctrGUI)
@@ -1300,17 +1313,17 @@ class planeTrackingExample:
 
         # Initialize the measurement list.
         self.onAddMsrBtnClick() # Adding "x" measurement.
-        self.msr["add"].setCurrentIndex(1) # Set combo to "v" after adding "x" measurement.
+        self.msr["addType"].setCurrentIndex(1) # Set combo to "v" after adding "x" measurement.
         self.msr["addDt"].setText("0.15")
         self.msr["addSigma"].setText("0.2")
         self.onAddMsrBtnClick() # Adding "v" measurement.
-        self.msr["add"].setCurrentIndex(2) # Set combo to "a" after adding "v" measurement.
+        self.msr["addType"].setCurrentIndex(2) # Set combo to "a" after adding "v" measurement.
         self.msr["addDt"].setText("0.2")
         self.msr["addSigma"].setText("0.2")
         self.onAddMsrBtnClick() # Adding "a" measurement.
 
         # Reset measurement list options.
-        self.msr["add"].setCurrentIndex(0)
+        self.msr["addType"].setCurrentIndex(0)
         self.msr["addDt"].setText("0.1")
         self.msr["addSigma"].setText("0.1")
 
@@ -1336,8 +1349,8 @@ class planeTrackingExample:
 
         # Create measurement parameters GUI: add measurements.
         gdlAdd = QGridLayout(msrGUI)
-        gdlAdd.addWidget(QLabel("Measure:", msrGUI), 0, 0)
-        gdlAdd.addWidget(self.msr["add"], 0, 1)
+        gdlAdd.addWidget(QLabel("Type:", msrGUI), 0, 0)
+        gdlAdd.addWidget(self.msr["addType"], 0, 1)
         gdlAdd.addWidget(QLabel("t<sub>0</sub>:", msrGUI), 0, 2)
         gdlAdd.addWidget(self.msr["addT0"], 0, 3)
         gdlAdd.addWidget(QLabel("t<sub>f</sub>:", msrGUI), 0, 4)
@@ -1363,7 +1376,7 @@ class planeTrackingExample:
         """Callback on adding measure in list"""
 
         # Create new item.
-        item = "measure "+self.msr["add"].currentText()
+        item = "type "+self.msr["addType"].currentText()
         item += "; T0 "+self.msr["addT0"].text()
         item += "; Tf "+self.msr["addTf"].text()
         item += "; Dt "+self.msr["addDt"].text()
@@ -2374,6 +2387,7 @@ class controllerGUI(QMainWindow):
         """Callback on update viewer button click"""
 
         # Update the view.
+        print("********** Update viewer **********")
         for example in self.examples:
             if example.getName() == self.comboEx.currentText():
                 # Create viewer GUI.
@@ -2387,6 +2401,7 @@ class controllerGUI(QMainWindow):
                 # Update the view.
                 example.updateViewer()
                 break
+        print("End of update")
 
 # Main program.
 if __name__ == "__main__":
