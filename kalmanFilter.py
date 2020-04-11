@@ -4,9 +4,9 @@
 
 import sys
 import math
-import random
 import numpy as np
 import numpy.linalg as npl
+import scipy.linalg as spl
 import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -167,7 +167,7 @@ class kalmanFilterModel():
 
         # Initialize members.
         self.sim = {"ctlHV": {}, "time": []}
-        self.msr = {}
+        self.msr = []
         self.example = example
         self.solved = False
         self.states = {}
@@ -177,6 +177,9 @@ class kalmanFilterModel():
 
     def clear(self):
         """Clear previous results"""
+
+        # Clear previous measurements.
+        self.msr = []
 
         # Clear previous time.
         self.sim["time"] = []
@@ -214,16 +217,72 @@ class kalmanFilterModel():
                 self.sim[key] = float(sim[key].text())
         self.sim["cdfTf"] = float(cdfTf)
 
+        # Compute default measurement covariance matrix (needed to avoid singular K matrix).
+        self.computeDefaultMeasurementCovariance()
+
     def setUpMsrPrm(self, msr):
         """Setup solver: measurement parameters"""
 
-        # Set up solver measurements.
-        self.msr = msr
+        # Organise solver measurements.
+        msrDic = {}
+        for txt in msr:
+            msrData = msr[txt]
+            prmSigma = float(txt.split(";")[4].split()[1])
+            self.organiseMsrPrm(msrData, prmSigma, msrDic)
+
+        # Order solver measurements.
+        self.msr = []
+        for time in sorted(msrDic, reverse=True): # Reverse: get data poped in order (corrector).
+            self.msr.append((time, msrDic[time]))
+
+    @staticmethod
+    def organiseMsrPrm(msrData, prmSigma, msrDic):
+        """Organise measurements"""
+
+        # Get measurement.
+        posX, posY, posZ = None, None, None
+        if msrData["msrType"] == "x":
+            posX, posY, posZ = msrData["posX"], msrData["posY"], msrData["posZ"]
+        eqnVX, eqnVY, eqnVZ = None, None, None
+        if msrData["msrType"] == "v":
+            eqnVX, eqnVY, eqnVZ = msrData["eqnVX"], msrData["eqnVY"], msrData["eqnVZ"]
+        eqnAX, eqnAY, eqnAZ = None, None, None
+        if msrData["msrType"] == "a":
+            eqnAX, eqnAY, eqnAZ = msrData["eqnAX"], msrData["eqnAY"], msrData["eqnAZ"]
+
+        # Append measurement.
+        for idx, time in enumerate(msrData["time"]):
+            if time not in msrDic:
+                msrDic[time] = []
+            prmSig = "sigma "+str(prmSigma)
+            if msrData["msrType"] == "x":
+                msrDic[time].append(("x", posX[idx], posY[idx], posZ[idx], prmSig))
+            if msrData["msrType"] == "v":
+                msrDic[time].append(("v", eqnVX[idx], eqnVY[idx], eqnVZ[idx], prmSig))
+            if msrData["msrType"] == "a":
+                msrDic[time].append(("a", eqnAX[idx], eqnAY[idx], eqnAZ[idx], prmSig))
+
+    def computeDefaultMeasurementCovariance(self):
+        """Compute default measurement covariance matrix"""
+
+        # Compute default measurement covariance matrix.
+        prmN = self.example.getLTISystemSize()
+        matR = np.zeros((prmN, prmN), dtype=float)
+        matR[0, 0] = np.power(self.sim["cdiSigX0"], 2)
+        matR[1, 1] = np.power(self.sim["cdiSigVX0"], 2)
+        matR[2, 2] = np.power(self.sim["cdiSigAX0"], 2)
+        matR[3, 3] = np.power(self.sim["cdiSigY0"], 2)
+        matR[4, 4] = np.power(self.sim["cdiSigVY0"], 2)
+        matR[5, 5] = np.power(self.sim["cdiSigAY0"], 2)
+        matR[6, 6] = np.power(self.sim["cdiSigZ0"], 2)
+        matR[7, 7] = np.power(self.sim["cdiSigVZ0"], 2)
+        matR[8, 8] = np.power(self.sim["cdiSigAZ0"], 2)
+        self.mat["R"] = matR # Save for later use: restart from it to avoid singular matrix.
 
     def setLTI(self, matA, matB, matC, matD):
         """Set Linear Time Invariant matrices"""
 
-        # Set matirces.
+        # Set matrices.
         self.mat["A"] = matA
         self.mat["B"] = matB
         self.mat["C"] = matC
@@ -252,94 +311,269 @@ class kalmanFilterModel():
         if self.sim["prmVrb"] >= 1:
             print("  "*2+"Initialisation:")
         if self.sim["prmVrb"] >= 2:
-            self.printMat("Predictor - X", np.transpose(states))
-            self.printMat("Predictor - Y", np.transpose(outputs))
+            self.printMat("Initialisation - X", np.transpose(states))
+            self.printMat("Initialisation - Y", np.transpose(outputs))
+        self.save(time, states, outputs)
 
-        # Save initial states and outputs.
-        self.sim["time"].append(time)
-        self.example.saveStatesOutputs(states, self.states, outputs, self.outputs)
-
-        # Solve.
+        # Solve: https://www.kalmanfilter.net/multiSummary.html.
+        matP = self.example.initStateCovariance(self.sim)
         prmDt, prmTf = self.sim["prmDt"], self.sim["cdfTf"]
         while time < prmTf:
-            # Increase time.
-            time = time+prmDt
-            if time > prmTf:
-                time = prmTf
-            self.sim["time"].append(time)
-            if self.sim["prmVrb"] >= 1:
-                print("  "*2+"Iteration: time %.3f" % time)
+            # Cut off time.
+            if time+prmDt > prmTf:
+                prmDt = prmTf-time
 
-            # Solve with Kalman filter.
-            self.predictor()
+            # Solve (= corrector + predictor) with Kalman filter.
+            newTime, timeDt, states, matP = self.corrector(time, prmDt, matP, states)
+            states, matP = self.predictor(newTime, timeDt, states, matP)
+
+            # Increase time.
+            time = time+timeDt
 
         # Mark solver as solved.
         self.solved = True
 
-    def predictor(self):
-        """Solve predictor equation"""
+    def corrector(self, time, prmDt, matP, states):
+        """Solve corrector step"""
 
-        # Compute F.
+        # Check if no more measurement: nothing to do.
+        newTime = time+prmDt
+        newStates = states
+        newMatP = matP
+        nbMsr = len(self.msr)
+        if nbMsr == 0:
+            return newTime, newTime-time, newStates, newMatP
+
+        # Look for measurement.
+        timeMsr = self.msr[nbMsr-1][0]
+        if time <= timeMsr <= newTime:
+            msrData = self.msr.pop() # Get measurement out of the list.
+            newTime, newStates, newMatP = self.computeCorrection(msrData, matP, states)
+
+        return newTime, newTime-time, newStates, newMatP
+
+    def computeCorrection(self, msrData, matP, states):
+        """Compute correction"""
+
+        newTime = msrData[0] # Cut off time to measurement time.
+        msrLst = msrData[1]
+        if self.sim["prmVrb"] >= 1:
+            print("  "*2+"Corrector: time %.3f" % newTime)
+
+        # Get measurement z_{n}.
+        matZ, matH = self.getMeasurement(msrLst)
+        if self.sim["prmVrb"] >= 2:
+            self.printMat("Corrector - Z", np.transpose(matZ))
+        if self.sim["prmVrb"] >= 3:
+            self.printMat("Corrector - H", matH)
+
+        # Compute Kalman gain K_{n}.
+        matK = self.computeKalmanGain(msrLst, matP, matH)
+        if self.sim["prmVrb"] >= 3:
+            self.printMat("Corrector - K", matK)
+
+        # Update estimate with measurement: x_{n,n} = x_{n,n-1} + K_{n}*(z_{n} - H*x_{n,n-1}).
+        matI = matZ-np.dot(matH, states) # Innovation.
+        newStates = states+np.dot(matK, matI) # States correction = K_{n}*Innovation.
+        if self.sim["prmVrb"] >= 2:
+            self.printMat("Corrector - X", np.transpose(newStates))
+
+        # Update covariance.
+        newMatP = self.updateCovariance(matK, matH, matP)
+        if self.sim["prmVrb"] >= 3:
+            self.printMat("Corrector - P", newMatP)
+
+        return newTime, newStates, newMatP
+
+    def getMeasurement(self, msrLst):
+        """Get measurement"""
+
+        # Get measurement: z_{n} = H*x_{n} + v_{n}.
+        prmN = self.example.getLTISystemSize()
+        matZ = np.zeros((prmN, 1), dtype=float)
+        matH = np.zeros((prmN, prmN), dtype=float)
+        for msrItem in msrLst:
+            if self.sim["prmVrb"] >= 2:
+                print("  "*3+msrItem[0]+":", end="")
+                print(" %.6f" % msrItem[1], end="")
+                print(" %.6f" % msrItem[2], end="")
+                print(" %.6f" % msrItem[3], end="")
+                print(" %s" % msrItem[4], end="")
+                print("")
+            if msrItem[0] == "x":
+                matZ[0, 0] = msrItem[1] # X.
+                matZ[3, 0] = msrItem[2] # Y.
+                matZ[6, 0] = msrItem[3] # Z.
+                matH[0, 0] = 1.
+                matH[3, 3] = 1.
+                matH[6, 6] = 1.
+            if msrItem[0] == "v":
+                matZ[1, 0] = msrItem[1] # VX.
+                matZ[4, 0] = msrItem[2] # VY.
+                matZ[7, 0] = msrItem[3] # VZ.
+                matH[1, 1] = 1.
+                matH[4, 4] = 1.
+                matH[7, 7] = 1.
+            if msrItem[0] == "a":
+                matZ[2, 0] = msrItem[1] # AX.
+                matZ[5, 0] = msrItem[2] # AY.
+                matZ[8, 0] = msrItem[3] # AZ.
+                matH[2, 2] = 1.
+                matH[5, 5] = 1.
+                matH[8, 8] = 1.
+
+        return matZ, matH
+
+    def computeKalmanGain(self, msrLst, matP, matH):
+        """Compute Kalman gain"""
+
+        # Compute measurement covariance.
+        matR = self.computeMeasurementCovariance(msrLst)
+        if self.sim["prmVrb"] >= 3:
+            self.printMat("Corrector - R", matR)
+
+        # Compute Kalman gain: K_{n} = P_{n,n-1}*Ht*(H*P_{n,n-1}*Ht + R_{n})^-1.
+        matK = np.dot(matH, np.dot(matP, np.transpose(matH)))+matR
+        if self.sim["prmVrb"] >= 4:
+            self.printMat("Corrector - H*P*Ht+R", matK)
+        matK = np.dot(matP, np.dot(np.transpose(matH), npl.inv(matK)))
+        if self.sim["prmVrb"] >= 3:
+            self.printMat("Corrector - K", matK)
+
+        return matK # https://www.kalmanfilter.net/kalmanGain.html.
+
+    def computeMeasurementCovariance(self, msrLst):
+        """Compute measurement covariance"""
+
+        # Get measurement covariance.
+        matR = self.mat["R"] # Start from default matrix (needed to avoid singular K matrix).
+        for msrItem in msrLst:
+            msrType = msrItem[0]
+            prmSigma = float(msrItem[4].split()[1])
+            if msrType == "x":
+                matR[0, 0] = prmSigma*prmSigma
+                matR[3, 3] = prmSigma*prmSigma
+                matR[6, 6] = prmSigma*prmSigma
+            if msrType == "v":
+                matR[1, 1] = prmSigma*prmSigma
+                matR[4, 4] = prmSigma*prmSigma
+                matR[7, 7] = prmSigma*prmSigma
+            if msrType == "a":
+                matR[2, 2] = prmSigma*prmSigma
+                matR[5, 5] = prmSigma*prmSigma
+                matR[8, 8] = prmSigma*prmSigma
+
+        return matR
+
+    def updateCovariance(self, matK, matH, matP):
+        """Update covariance"""
+
+        # Update covariance: P_{n,n} = (I-K_{n}*H)*P_{n,n-1}.
+        _, matL, matU = spl.lu(matK) # K_{n} = L*U (numerically unstable: use LU for stability).
+        if self.sim["prmVrb"] >= 4:
+            self.printMat("Corrector - L such that K = L*U", matL)
+            self.printMat("Corrector - U such that K = L*U", matU)
+        newMatP = np.dot(matL, np.dot(matU, matH)) # K_{n}*H = L*U*H.
+        prmN = self.example.getLTISystemSize()
+        newMatP = np.identity(prmN, dtype=float)-newMatP # I-K_{n}*H.
+        newMatP = np.dot(newMatP, matP)
+
+        return newMatP # https://www.kalmanfilter.net/simpCovUpdate.html.
+
+    def predictor(self, newTime, timeDt, states, matP):
+        """Solve predictor step"""
+
+        # Predict states.
+        if self.sim["prmVrb"] >= 1:
+            print("  "*2+"Iteration: time %.3f" % newTime)
+        newStates, matF, matG = self.predictStates(timeDt, states)
+
+        # Outputs equation: y_{n+1,n+1} = C*x_{n+1,n+1} + D*u_{n+1,n+1}.
+        newMatU = self.example.computeControlLaw(newStates, self.sim)
+        newOutputs = self.computeOutputs(newStates, newMatU)
+        if self.sim["prmVrb"] >= 2:
+            self.printMat("Predictor - Y", np.transpose(newOutputs))
+
+        # Save simulation results.
+        self.save(newTime, newStates, newOutputs)
+
+        # Extrapolate uncertainty.
+        newMatP = self.predictCovariance(matP, matF, matG)
+
+        return newStates, newMatP
+
+    def predictStates(self, timeDt, states):
+        """Predict states"""
+
+        # Compute F_{n,n}.
         prmN = self.example.getLTISystemSize()
         matF = np.identity(prmN, dtype=float)
         taylorExpLTM = 0.
         for idx in range(1, int(self.sim["prmExpOrd"])+1):
             fac = np.math.factorial(idx)
-            taylorExp = npl.matrix_power(self.mat["A"]*self.sim["prmDt"], idx)/fac
+            taylorExp = npl.matrix_power(timeDt*self.mat["A"], idx)/fac
             taylorExpLTM = np.amax(np.abs(taylorExp))
-            matF = matF + taylorExp
+            matF = matF+taylorExp
         if self.sim["prmVrb"] >= 3:
             msg = "Predictor - F (last term magnitude of taylor expansion %.6f)" % taylorExpLTM
             self.printMat(msg, matF)
 
-        # Compute G.
+        # Compute G_{n,n}.
         matG = None
         if self.mat["B"] is not None:
-            matG = np.dot(self.sim["prmDt"]*matF, self.mat["B"])
+            matG = np.dot(timeDt*matF, self.mat["B"])
             if self.sim["prmVrb"] >= 3:
                 self.printMat("Predictor - G", matG)
 
-        # Compute process noise.
-        states = self.getLastStates()
+        # Compute process noise w_{n,n}.
         matW = self.getProcessNoise(states)
         if self.sim["prmVrb"] >= 2:
             self.printMat("Predictor - W", np.transpose(matW))
 
-        # Compute control law.
-        matU = self.example.computeControlLaw(states, self.sim)
+        # Compute control law u_{n,n}.
+        matU = self.example.computeControlLaw(states, self.sim, save=False)
         if self.sim["prmVrb"] >= 2:
             self.printMat("Predictor - U", np.transpose(matU))
 
-        # Predictor equation: x_{n+1} = F*x_{n} + G*u_{n} + w_{n}.
-        states = np.dot(matF, states)
+        # Predictor equation: x_{n+1,n} = F*x_{n,n} + G*u_{n,n} + w_{n,n}.
+        newStates = np.dot(matF, states)
         if matG is not None:
-            states = states + np.dot(matG, matU)
-        states = states + matW
-        assert states.shape == (prmN, 1), "states: bad dimension"
+            newStates = newStates+np.dot(matG, matU)
+        newStates = newStates+matW
         if self.sim["prmVrb"] >= 2:
-            self.printMat("Predictor - X", np.transpose(states))
+            self.printMat("Predictor - X", np.transpose(newStates))
 
-        # Outputs equation: y_{n+1} = C*x_{n} + D*u_{n}.
-        outputs = self.computeOutputs(states, matU)
-        assert outputs.shape == (prmN, 1), "outputs: bad dimension"
-        if self.sim["prmVrb"] >= 2:
-            self.printMat("Predictor - Y", np.transpose(outputs))
+        return newStates, matF, matG
+
+    def predictCovariance(self, matP, matF, matG):
+        """Predict covariance"""
+
+        # Compute process noise matrix: Q_{n,n} = G_{n,n}*sigma^2*G_{n,n}t.
+        varQ = self.sim["prmProNseSig"]*self.sim["prmProNseSig"]
+        matQ = matG*varQ*np.transpose(matG) # https://www.kalmanfilter.net/covextrap.html.
+        if self.sim["prmVrb"] >= 3:
+            self.printMat("Predictor - Q", matQ)
+
+        # Covariance equation: P_{n+1,n} = F_{n,n}*P_{n,n}*F_{n,n}t + Q_{n,n}.
+        newMatP = np.dot(matF, np.dot(matP, np.transpose(matF)))+matQ
+        if self.sim["prmVrb"] >= 3:
+            self.printMat("Predictor - P", newMatP)
+
+        return newMatP
+
+    def save(self, time, newStates, newOutputs):
+        """Save simulation results"""
+
+        # Save time.
+        self.sim["time"].append(time)
 
         # Save states and outputs.
-        self.example.saveStatesOutputs(states, self.states, outputs, self.outputs)
-
-    def getLastStates(self):
-        """Get last states"""
-
-        # Get last states.
-        prmN = self.example.getLTISystemSize()
-        states = np.zeros((prmN, 1), dtype=float)
         keys = self.example.getStateKeys()
         for idx, key in enumerate(keys):
-            lastIdx = len(self.states[key])-1
-            states[idx, 0] = self.states[key][lastIdx]
-
-        return states
+            self.states[key].append(newStates[idx, 0])
+        keys = self.example.getOutputKeys()
+        for idx, key in enumerate(keys):
+            self.outputs[key].append(newOutputs[idx, 0])
 
     def getProcessNoise(self, states):
         """Get process noise"""
@@ -357,7 +591,7 @@ class kalmanFilterModel():
         # Outputs equation: y_{n+1} = C*x_{n} + D*u_{n}.
         outputs = np.dot(self.mat["C"], states)
         if self.mat["D"] is not None:
-            outputs = outputs + np.dot(self.mat["D"], matU)
+            outputs = outputs+np.dot(self.mat["D"], matU)
 
         return outputs
 
@@ -639,13 +873,14 @@ class planeTrackingExample:
         prmDt = float(txt.split(";")[3].split()[1])
         prmNbPt = (prmTf-prmT0)/prmDt
         eqnT = np.linspace(prmT0, prmTf, prmNbPt)
+        msrData["time"] = eqnT
 
         # Data.
         eqnX, eqnY, eqnZ = self.getDisplEquations(eqnT)
         prmSigma = float(txt.split(";")[4].split()[1])
-        msrData["posX"] = self.addUncertainty(eqnX, prmSigma)
-        msrData["posY"] = self.addUncertainty(eqnY, prmSigma)
-        msrData["posZ"] = self.addUncertainty(eqnZ, prmSigma)
+        msrData["posX"] = self.addNoise(eqnX, prmSigma)
+        msrData["posY"] = self.addNoise(eqnY, prmSigma)
+        msrData["posZ"] = self.addNoise(eqnZ, prmSigma)
 
     def getMsrDataV(self, txt, msrData):
         """Get measure data: velocity"""
@@ -656,6 +891,7 @@ class planeTrackingExample:
         prmDt = float(txt.split(";")[3].split()[1])
         prmNbPt = (prmTf-prmT0)/prmDt
         eqnT = np.linspace(prmT0, prmTf, prmNbPt)
+        msrData["time"] = eqnT
 
         # Data.
         eqnX, eqnY, eqnZ = self.getDisplEquations(eqnT)
@@ -664,9 +900,9 @@ class planeTrackingExample:
         msrData["posZ"] = eqnZ
         eqnVX, eqnVY, eqnVZ = self.getVelocEquations(eqnT)
         prmSigma = float(txt.split(";")[4].split()[1])
-        msrData["eqnVX"] = self.addUncertainty(eqnVX, prmSigma)
-        msrData["eqnVY"] = self.addUncertainty(eqnVY, prmSigma)
-        msrData["eqnVZ"] = self.addUncertainty(eqnVZ, prmSigma)
+        msrData["eqnVX"] = self.addNoise(eqnVX, prmSigma)
+        msrData["eqnVY"] = self.addNoise(eqnVY, prmSigma)
+        msrData["eqnVZ"] = self.addNoise(eqnVZ, prmSigma)
 
     def getMsrDataA(self, txt, msrData):
         """Get measure data: acceleration"""
@@ -677,6 +913,7 @@ class planeTrackingExample:
         prmDt = float(txt.split(";")[3].split()[1])
         prmNbPt = (prmTf-prmT0)/prmDt
         eqnT = np.linspace(prmT0, prmTf, prmNbPt)
+        msrData["time"] = eqnT
 
         # Data.
         eqnX, eqnY, eqnZ = self.getDisplEquations(eqnT)
@@ -685,21 +922,19 @@ class planeTrackingExample:
         msrData["posZ"] = eqnZ
         eqnAX, eqnAY, eqnAZ = self.getAccelEquations(eqnT)
         prmSigma = float(txt.split(";")[4].split()[1])
-        msrData["eqnAX"] = self.addUncertainty(eqnAX, prmSigma)
-        msrData["eqnAY"] = self.addUncertainty(eqnAY, prmSigma)
-        msrData["eqnAZ"] = self.addUncertainty(eqnAZ, prmSigma)
+        msrData["eqnAX"] = self.addNoise(eqnAX, prmSigma)
+        msrData["eqnAY"] = self.addNoise(eqnAY, prmSigma)
+        msrData["eqnAZ"] = self.addNoise(eqnAZ, prmSigma)
 
     @staticmethod
-    def addUncertainty(eqn, prmSigma):
-        """Add uncertainty"""
+    def addNoise(eqn, prmSigma):
+        """Add (gaussian) noise"""
 
-        # Add uncertainty to data.
-        eqnSig = eqn
-        for idx, val in enumerate(eqn):
-            alpha = random.uniform(-1., 1.)
-            eqnSig[idx] = val + alpha*prmSigma
+        # Add noise to data: v_{n} such that z_{n} = H*x_{n} + v_{n}.
+        prmMu = eqn
+        noisyEqn = np.random.normal(prmMu, prmSigma)
 
-        return eqnSig
+        return noisyEqn
 
     def getDisplEquations(self, eqnT):
         """Get displacement equations"""
@@ -960,10 +1195,10 @@ class planeTrackingExample:
         self.updateViewerSimX()
         self.updateViewerSimV()
         self.updateViewerSimA()
-        if self.vwr["2D"]["ctlHV"] and not self.vwr["2D"]["ctlHV"].closed:
-            self.onPltCHVBtnClick()
         if self.vwr["2D"]["simOV"] and not self.vwr["2D"]["simOV"].closed:
             self.onPltSOVBtnClick()
+        if self.vwr["2D"]["ctlHV"] and not self.vwr["2D"]["ctlHV"].closed:
+            self.onPltCHVBtnClick()
 
         # Track simulation features.
         self.sim["simId"] = self.getSimId()
@@ -1106,12 +1341,12 @@ class planeTrackingExample:
         gpbVwr = self.fillSltGUIVwr(sltGUI)
 
         # Set group box layout.
-        anlLay = QHBoxLayout(sltGUI)
-        anlLay.addWidget(gpbXi)
-        anlLay.addWidget(gpbX0)
-        anlLay.addWidget(gpbTf)
-        anlLay.addWidget(gpbVwr)
-        sltGUI.setLayout(anlLay)
+        sltLay = QHBoxLayout(sltGUI)
+        sltLay.addWidget(gpbXi)
+        sltLay.addWidget(gpbX0)
+        sltLay.addWidget(gpbTf)
+        sltLay.addWidget(gpbVwr)
+        sltGUI.setLayout(sltLay)
 
     def fillSltGUIXi(self, sltGUI):
         """Fill solution GUI : flight path equation"""
@@ -1295,10 +1530,10 @@ class planeTrackingExample:
         self.msr["addType"] = QComboBox(self.ctrGUI)
         for msr in ["x", "v", "a"]:
             self.msr["addType"].addItem(msr)
-        self.msr["addT0"] = QLineEdit("0.1", self.ctrGUI)
+        self.msr["addT0"] = QLineEdit("0.05", self.ctrGUI)
         finalTime = self.slt["cdfTf"].text()
-        self.msr["addTf"] = QLineEdit(str(float(finalTime)*0.9), self.ctrGUI)
-        self.msr["addDt"] = QLineEdit("0.1", self.ctrGUI)
+        self.msr["addTf"] = QLineEdit(str(float(finalTime)*0.95), self.ctrGUI)
+        self.msr["addDt"] = QLineEdit("0.2", self.ctrGUI)
         self.msr["addSigma"] = QLineEdit("0.1", self.ctrGUI)
         self.msr["lstMsr"] = QListWidget(self.ctrGUI)
         self.msr["datMsr"] = {}
@@ -1311,20 +1546,21 @@ class planeTrackingExample:
         # Fill measurement GUI.
         self.fillMsrGUI(msrGUI)
 
-        # Initialize the measurement list.
+        # Initialize the measurement list with GPS measurements (x, v).
         self.onAddMsrBtnClick() # Adding "x" measurement.
         self.msr["addType"].setCurrentIndex(1) # Set combo to "v" after adding "x" measurement.
-        self.msr["addDt"].setText("0.15")
-        self.msr["addSigma"].setText("0.2")
+        self.msr["addSigma"].setText("0.2") # Better accuracy for "x" compared to "v".
         self.onAddMsrBtnClick() # Adding "v" measurement.
+
+        # Initialize the measurement list with accelerometer measurements (a).
         self.msr["addType"].setCurrentIndex(2) # Set combo to "a" after adding "v" measurement.
-        self.msr["addDt"].setText("0.2")
-        self.msr["addSigma"].setText("0.2")
+        self.msr["addDt"].setText("0.05") # Sensors (shipped on plane) provide more data than GPS.
+        self.msr["addSigma"].setText("0.1")
         self.onAddMsrBtnClick() # Adding "a" measurement.
 
         # Reset measurement list options.
         self.msr["addType"].setCurrentIndex(0)
-        self.msr["addDt"].setText("0.1")
+        self.msr["addDt"].setText("0.2")
         self.msr["addSigma"].setText("0.1")
 
         return msrGUI
@@ -1338,11 +1574,11 @@ class planeTrackingExample:
         gpbVwr = self.fillMsrGUIVwrMsr(msrGUI)
 
         # Set group box layout.
-        anlLay = QHBoxLayout(msrGUI)
-        anlLay.addWidget(gpbAdd)
-        anlLay.addWidget(gpbLst)
-        anlLay.addWidget(gpbVwr)
-        msrGUI.setLayout(anlLay)
+        msrLay = QHBoxLayout(msrGUI)
+        msrLay.addWidget(gpbAdd)
+        msrLay.addWidget(gpbLst)
+        msrLay.addWidget(gpbVwr)
+        msrGUI.setLayout(msrLay)
 
     def fillMsrGUIAddMsr(self, msrGUI):
         """Fill measurement GUI: add measurements"""
@@ -1466,25 +1702,25 @@ class planeTrackingExample:
         self.sim["prmDt"] = QLineEdit("0.03", self.ctrGUI)
         self.sim["prmExpOrd"] = QLineEdit("3", self.ctrGUI)
         self.sim["prmProNseSig"] = QLineEdit("0.05", self.ctrGUI)
-        self.sim["prmVrb"] = QLineEdit("1", self.ctrGUI)
-        self.sim["cdiX0"] = QLineEdit("0.2", self.ctrGUI)
-        self.sim["cdiY0"] = QLineEdit("0.2", self.ctrGUI)
-        self.sim["cdiZ0"] = QLineEdit("0.2", self.ctrGUI)
-        self.sim["cdiSigX0"] = QLineEdit("0.5", self.ctrGUI)
-        self.sim["cdiSigY0"] = QLineEdit("0.5", self.ctrGUI)
-        self.sim["cdiSigZ0"] = QLineEdit("0.5", self.ctrGUI)
+        self.sim["prmVrb"] = QLineEdit("4", self.ctrGUI)
+        self.sim["cdiX0"] = QLineEdit("0.1", self.ctrGUI)
+        self.sim["cdiY0"] = QLineEdit("0.1", self.ctrGUI)
+        self.sim["cdiZ0"] = QLineEdit("0.1", self.ctrGUI)
+        self.sim["cdiSigX0"] = QLineEdit("0.2", self.ctrGUI)
+        self.sim["cdiSigY0"] = QLineEdit("0.2", self.ctrGUI)
+        self.sim["cdiSigZ0"] = QLineEdit("0.2", self.ctrGUI)
         self.sim["cdiVX0"] = QLineEdit("0.0", self.ctrGUI)
-        self.sim["cdiVY0"] = QLineEdit("12.", self.ctrGUI)
-        self.sim["cdiVZ0"] = QLineEdit("0.5", self.ctrGUI)
-        self.sim["cdiSigVX0"] = QLineEdit("1.", self.ctrGUI)
-        self.sim["cdiSigVY0"] = QLineEdit("1.", self.ctrGUI)
-        self.sim["cdiSigVZ0"] = QLineEdit("1.", self.ctrGUI)
-        self.sim["cdiAX0"] = QLineEdit("-39.", self.ctrGUI)
+        self.sim["cdiVY0"] = QLineEdit("12.5", self.ctrGUI)
+        self.sim["cdiVZ0"] = QLineEdit("0.2", self.ctrGUI)
+        self.sim["cdiSigVX0"] = QLineEdit("0.2", self.ctrGUI)
+        self.sim["cdiSigVY0"] = QLineEdit("0.2", self.ctrGUI)
+        self.sim["cdiSigVZ0"] = QLineEdit("0.2", self.ctrGUI)
+        self.sim["cdiAX0"] = QLineEdit("-39.5", self.ctrGUI)
         self.sim["cdiAY0"] = QLineEdit("0.", self.ctrGUI)
-        self.sim["cdiAZ0"] = QLineEdit("19.", self.ctrGUI)
-        self.sim["cdiSigAX0"] = QLineEdit("1.", self.ctrGUI)
-        self.sim["cdiSigAY0"] = QLineEdit("1.", self.ctrGUI)
-        self.sim["cdiSigAZ0"] = QLineEdit("1.", self.ctrGUI)
+        self.sim["cdiAZ0"] = QLineEdit("19.7", self.ctrGUI)
+        self.sim["cdiSigAX0"] = QLineEdit("0.2", self.ctrGUI)
+        self.sim["cdiSigAY0"] = QLineEdit("0.2", self.ctrGUI)
+        self.sim["cdiSigAZ0"] = QLineEdit("0.2", self.ctrGUI)
         self.sim["ctlRolMax"] = QLineEdit("30.", self.ctrGUI)
         self.sim["ctlPtcMax"] = QLineEdit("5.", self.ctrGUI)
         self.sim["ctlYawMax"] = QLineEdit("30.", self.ctrGUI)
@@ -1508,14 +1744,20 @@ class planeTrackingExample:
         gpbX0 = self.fillSimGUIX0(simGUI)
         gpbFCL = self.fillSimGUIFCL(simGUI)
         gpbVwr = self.fillSimGUIVwr(simGUI)
+        gpbPpg = self.fillSimGUIPostPro(simGUI)
 
         # Set group box layout.
-        anlLay = QHBoxLayout(simGUI)
-        anlLay.addWidget(gpbPrm)
-        anlLay.addWidget(gpbX0)
-        anlLay.addWidget(gpbFCL)
-        anlLay.addWidget(gpbVwr)
-        simGUI.setLayout(anlLay)
+        simSubLay1 = QHBoxLayout()
+        simSubLay1.addWidget(gpbPrm)
+        simSubLay1.addWidget(gpbX0)
+        simSubLay1.addWidget(gpbFCL)
+        simSubLay1.addWidget(gpbVwr)
+        simSubLay2 = QHBoxLayout()
+        simSubLay2.addWidget(gpbPpg)
+        simRootLay = QVBoxLayout(simGUI)
+        simRootLay.addLayout(simSubLay1)
+        simRootLay.addLayout(simSubLay2)
+        simGUI.setLayout(simRootLay)
 
     def fillSimGUIPrm(self, simGUI):
         """Fill simulation GUI: parameters"""
@@ -1538,9 +1780,6 @@ class planeTrackingExample:
         gdlPrm.addWidget(QLabel("Solver:", simGUI), 3, 0)
         gdlPrm.addWidget(QLabel("verbose level", simGUI), 3, 1)
         gdlPrm.addWidget(self.sim["prmVrb"], 3, 2)
-        pltSOVBtn = QPushButton("Output variables", simGUI)
-        pltSOVBtn.clicked.connect(self.onPltSOVBtnClick)
-        gdlPrm.addWidget(pltSOVBtn, 3, 3, 1, 2)
 
         # Set group box layout.
         gpbPrm = QGroupBox(simGUI)
@@ -1549,124 +1788,6 @@ class planeTrackingExample:
         gpbPrm.setLayout(gdlPrm)
 
         return gpbPrm
-
-    def onPltSOVBtnClick(self):
-        """Callback on plotting output variables of simulation"""
-
-        # Create or retrieve viewer.
-        if not self.vwr["2D"]["simOV"] or self.vwr["2D"]["simOV"].closed:
-            self.vwr["2D"]["simOV"] = viewer2DGUI(self.ctrGUI)
-            self.vwr["2D"]["simOV"].setUp(nrows=3, ncols=3)
-            self.vwr["2D"]["simOV"].setWindowTitle("Simulation: outputs")
-            self.vwr["2D"]["simOV"].show()
-
-        # Clear the viewer.
-        self.clearViewer(vwrId="simOV")
-
-        # Plot simulation output variables.
-        self.plotSimulationOutputVariables()
-
-        # Draw scene.
-        self.vwr["2D"]["simOV"].draw()
-
-    def plotSimulationOutputVariables(self):
-        """Plot simulation output variables"""
-
-        # Don't plot if there's nothing to plot.
-        if not self.kfm.solved:
-            return
-
-        # Plot simulation output variables.
-        self.plotSimulationOutputVariablesX()
-        self.plotSimulationOutputVariablesV()
-        self.plotSimulationOutputVariablesA()
-
-    def plotSimulationOutputVariablesX(self):
-        """Plot simulation output variables: X"""
-
-        # Plot simulation output variables.
-        axis = self.vwr["2D"]["simOV"].getAxis(0)
-        axis.plot(self.slt["time"], self.slt["eqn"]["X"], label="slt - X",
-                  marker="o", ms=3, c="b")
-        axis.plot(self.kfm.sim["time"], self.kfm.outputs["X"], label="sim - X",
-                  marker="o", ms=3, c="g")
-        axis.set_xlabel("t")
-        axis.set_ylabel("X")
-        axis.legend()
-        axis = self.vwr["2D"]["simOV"].getAxis(1)
-        axis.plot(self.slt["time"], self.slt["eqn"]["Y"], label="slt - Y",
-                  marker="o", ms=3, c="b")
-        axis.plot(self.kfm.sim["time"], self.kfm.outputs["Y"], label="sim - Y",
-                  marker="o", ms=3, c="g")
-        axis.set_xlabel("t")
-        axis.set_ylabel("Y")
-        axis.legend()
-        axis = self.vwr["2D"]["simOV"].getAxis(2)
-        axis.plot(self.slt["time"], self.slt["eqn"]["Z"], label="slt - Z",
-                  marker="o", ms=3, c="b")
-        axis.plot(self.kfm.sim["time"], self.kfm.outputs["Z"], label="sim - Z",
-                  marker="o", ms=3, c="g")
-        axis.set_xlabel("t")
-        axis.set_ylabel("Z")
-        axis.legend()
-
-    def plotSimulationOutputVariablesV(self):
-        """Plot simulation output variables: V"""
-
-        # Plot simulation output variables.
-        axis = self.vwr["2D"]["simOV"].getAxis(3)
-        axis.plot(self.slt["time"], self.slt["eqn"]["VX"], label="slt - VX",
-                  marker="o", ms=3, c="b")
-        axis.plot(self.kfm.sim["time"], self.kfm.outputs["VX"], label="sim - VX",
-                  marker="o", ms=3, c="g")
-        axis.set_xlabel("t")
-        axis.set_ylabel("VX")
-        axis.legend()
-        axis = self.vwr["2D"]["simOV"].getAxis(4)
-        axis.plot(self.slt["time"], self.slt["eqn"]["VY"], label="slt - VY",
-                  marker="o", ms=3, c="b")
-        axis.plot(self.kfm.sim["time"], self.kfm.outputs["VY"], label="sim - VY",
-                  marker="o", ms=3, c="g")
-        axis.set_xlabel("t")
-        axis.set_ylabel("VY")
-        axis.legend()
-        axis = self.vwr["2D"]["simOV"].getAxis(5)
-        axis.plot(self.slt["time"], self.slt["eqn"]["VZ"], label="slt - VZ",
-                  marker="o", ms=3, c="b")
-        axis.plot(self.kfm.sim["time"], self.kfm.outputs["VZ"], label="sim - VZ",
-                  marker="o", ms=3, c="g")
-        axis.set_xlabel("t")
-        axis.set_ylabel("VZ")
-        axis.legend()
-
-    def plotSimulationOutputVariablesA(self):
-        """Plot simulation output variables: A"""
-
-        # Plot simulation output variables.
-        axis = self.vwr["2D"]["simOV"].getAxis(6)
-        axis.plot(self.slt["time"], self.slt["eqn"]["AX"], label="slt - AX",
-                  marker="o", ms=3, c="b")
-        axis.plot(self.kfm.sim["time"], self.kfm.outputs["AX"], label="sim - AX",
-                  marker="o", ms=3, c="g")
-        axis.set_xlabel("t")
-        axis.set_ylabel("AX")
-        axis.legend()
-        axis = self.vwr["2D"]["simOV"].getAxis(7)
-        axis.plot(self.slt["time"], self.slt["eqn"]["AY"], label="slt - AY",
-                  marker="o", ms=3, c="b")
-        axis.plot(self.kfm.sim["time"], self.kfm.outputs["AY"], label="sim - AY",
-                  marker="o", ms=3, c="g")
-        axis.set_xlabel("t")
-        axis.set_ylabel("AY")
-        axis.legend()
-        axis = self.vwr["2D"]["simOV"].getAxis(8)
-        axis.plot(self.slt["time"], self.slt["eqn"]["AZ"], label="slt - AZ",
-                  marker="o", ms=3, c="b")
-        axis.plot(self.kfm.sim["time"], self.kfm.outputs["AZ"], label="sim - AZ",
-                  marker="o", ms=3, c="g")
-        axis.set_xlabel("t")
-        axis.set_ylabel("AZ")
-        axis.legend()
 
     def fillSimGUIX0(self, simGUI):
         """Fill simulation GUI : initial conditions"""
@@ -1766,9 +1887,6 @@ class planeTrackingExample:
         gdlFCL.addWidget(self.sim["ctlPtcMax"], 2, 1)
         gdlFCL.addWidget(QLabel("Yaw:", simGUI), 3, 0)
         gdlFCL.addWidget(self.sim["ctlYawMax"], 3, 1)
-        pltCHVBtn = QPushButton("Hidden variables", simGUI)
-        pltCHVBtn.clicked.connect(self.onPltCHVBtnClick)
-        gdlFCL.addWidget(pltCHVBtn, 4, 0, 1, 2)
 
         # Set group box layout.
         gpbFCL = QGroupBox(simGUI)
@@ -1777,6 +1895,248 @@ class planeTrackingExample:
         gpbFCL.setLayout(gdlFCL)
 
         return gpbFCL
+
+    def fillSimGUIVwr(self, simGUI):
+        """Fill simulation GUI: viewer"""
+
+        # Create simulation GUI: simulation viewer options.
+        gdlVwr = QGridLayout(simGUI)
+        gdlVwr.addWidget(QLabel("Position:", simGUI), 0, 0)
+        gdlVwr.addWidget(QLabel("line width", simGUI), 0, 1)
+        gdlVwr.addWidget(self.sim["vwrLnWd"], 0, 2)
+        gdlVwr.addWidget(QLabel("marker size", simGUI), 0, 3)
+        gdlVwr.addWidget(self.sim["vwrPosMks"], 0, 4)
+        gdlVwr.addWidget(QLabel("Velocity:", simGUI), 1, 0)
+        gdlVwr.addWidget(QLabel("length", simGUI), 1, 1)
+        gdlVwr.addWidget(self.sim["vwrVelLgh"], 1, 2)
+        gdlVwr.addWidget(self.sim["vwrVelNrm"], 1, 3)
+        gdlVwr.addWidget(QLabel("Acceleration:", simGUI), 2, 0)
+        gdlVwr.addWidget(QLabel("length", simGUI), 2, 1)
+        gdlVwr.addWidget(self.sim["vwrAccLgh"], 2, 2)
+        gdlVwr.addWidget(self.sim["vwrAccNrm"], 2, 3)
+
+        # Set group box layout.
+        gpbVwr = QGroupBox(simGUI)
+        gpbVwr.setTitle("Viewer options")
+        gpbVwr.setAlignment(Qt.AlignHCenter)
+        gpbVwr.setLayout(gdlVwr)
+
+        return gpbVwr
+
+    def fillSimGUIPostPro(self, simGUI):
+        """Fill simulation GUI: post processing"""
+
+        # Create push buttons.
+        pltSOVBtn = QPushButton("Output variables", simGUI)
+        pltSOVBtn.clicked.connect(self.onPltSOVBtnClick)
+        pltCHVBtn = QPushButton("Control law variables", simGUI)
+        pltCHVBtn.clicked.connect(self.onPltCHVBtnClick)
+
+        # Create simulation GUI: simulation post processing.
+        gdlPpg = QGridLayout(simGUI)
+        gdlPpg.addWidget(pltSOVBtn, 0, 0)
+        gdlPpg.addWidget(pltCHVBtn, 0, 1)
+
+        # Set group box layout.
+        gpbPpg = QGroupBox(simGUI)
+        gpbPpg.setTitle("Post processing options")
+        gpbPpg.setAlignment(Qt.AlignHCenter)
+        gpbPpg.setLayout(gdlPpg)
+
+        return gpbPpg
+
+    def onPltSOVBtnClick(self):
+        """Callback on plotting output variables of simulation"""
+
+        # Create or retrieve viewer.
+        if not self.vwr["2D"]["simOV"] or self.vwr["2D"]["simOV"].closed:
+            self.vwr["2D"]["simOV"] = viewer2DGUI(self.ctrGUI)
+            self.vwr["2D"]["simOV"].setUp(nrows=3, ncols=3)
+            self.vwr["2D"]["simOV"].setWindowTitle("Simulation: outputs")
+            self.vwr["2D"]["simOV"].show()
+
+        # Clear the viewer.
+        self.clearViewer(vwrId="simOV")
+
+        # Plot simulation output variables.
+        self.plotSimulationOutputVariables()
+
+        # Draw scene.
+        self.vwr["2D"]["simOV"].draw()
+
+    def plotSimulationOutputVariables(self):
+        """Plot simulation output variables"""
+
+        # Don't plot if there's nothing to plot.
+        if not self.kfm.solved:
+            return
+
+        # Plot simulation output variables.
+        self.plotSimulationOutputVariablesX()
+        self.plotSimulationOutputVariablesV()
+        self.plotSimulationOutputVariablesA()
+
+    def plotSimulationOutputVariablesX(self):
+        """Plot simulation output variables: X"""
+
+        # Plot simulation output variables.
+        axis = self.vwr["2D"]["simOV"].getAxis(0)
+        axis.plot(self.slt["time"], self.slt["eqn"]["X"], label="slt: X",
+                  marker="o", ms=3, c="b")
+        axis.plot(self.kfm.sim["time"], self.kfm.outputs["X"], label="sim: X",
+                  marker="o", ms=3, c="g")
+        vwrPosMks = float(self.msr["vwrPosMks"].text())
+        if vwrPosMks > 0:
+            eqnT, posX = np.array([]), np.array([])
+            for txt in self.msr["datMsr"]:
+                msrData = self.msr["datMsr"][txt]
+                if msrData["msrType"] == "x":
+                    eqnT = np.append(eqnT, msrData["time"])
+                    posX = np.append(posX, msrData["posX"])
+            axis.scatter(eqnT, posX, c="r", marker="^", alpha=1, s=vwrPosMks, label="msr: X")
+        axis.set_xlabel("t")
+        axis.set_ylabel("X")
+        axis.legend()
+        axis = self.vwr["2D"]["simOV"].getAxis(1)
+        axis.plot(self.slt["time"], self.slt["eqn"]["Y"], label="slt: Y",
+                  marker="o", ms=3, c="b")
+        axis.plot(self.kfm.sim["time"], self.kfm.outputs["Y"], label="sim: Y",
+                  marker="o", ms=3, c="g")
+        if vwrPosMks > 0:
+            eqnT, posY = np.array([]), np.array([])
+            for txt in self.msr["datMsr"]:
+                msrData = self.msr["datMsr"][txt]
+                if msrData["msrType"] == "x":
+                    eqnT = np.append(eqnT, msrData["time"])
+                    posY = np.append(posY, msrData["posY"])
+            axis.scatter(eqnT, posY, c="r", marker="^", alpha=1, s=vwrPosMks, label="msr: Y")
+        axis.set_xlabel("t")
+        axis.set_ylabel("Y")
+        axis.legend()
+        axis = self.vwr["2D"]["simOV"].getAxis(2)
+        axis.plot(self.slt["time"], self.slt["eqn"]["Z"], label="slt: Z",
+                  marker="o", ms=3, c="b")
+        axis.plot(self.kfm.sim["time"], self.kfm.outputs["Z"], label="sim: Z",
+                  marker="o", ms=3, c="g")
+        if vwrPosMks > 0:
+            eqnT, posZ = np.array([]), np.array([])
+            for txt in self.msr["datMsr"]:
+                msrData = self.msr["datMsr"][txt]
+                if msrData["msrType"] == "x":
+                    eqnT = np.append(eqnT, msrData["time"])
+                    posZ = np.append(posZ, msrData["posZ"])
+            axis.scatter(eqnT, posZ, c="r", marker="^", alpha=1, s=vwrPosMks, label="msr: Z")
+        axis.set_xlabel("t")
+        axis.set_ylabel("Z")
+        axis.legend()
+
+    def plotSimulationOutputVariablesV(self):
+        """Plot simulation output variables: V"""
+
+        # Plot simulation output variables.
+        axis = self.vwr["2D"]["simOV"].getAxis(3)
+        axis.plot(self.slt["time"], self.slt["eqn"]["VX"], label="slt: VX",
+                  marker="o", ms=3, c="b")
+        axis.plot(self.kfm.sim["time"], self.kfm.outputs["VX"], label="sim: VX",
+                  marker="o", ms=3, c="g")
+        vwrPosMks = float(self.msr["vwrPosMks"].text())
+        if vwrPosMks > 0:
+            eqnT, eqnVX = np.array([]), np.array([])
+            for txt in self.msr["datMsr"]:
+                msrData = self.msr["datMsr"][txt]
+                if msrData["msrType"] == "v":
+                    eqnT = np.append(eqnT, msrData["time"])
+                    eqnVX = np.append(eqnVX, msrData["eqnVX"])
+            axis.scatter(eqnT, eqnVX, c="r", marker="o", alpha=1, s=vwrPosMks, label="msr: VX")
+        axis.set_xlabel("t")
+        axis.set_ylabel("VX")
+        axis.legend()
+        axis = self.vwr["2D"]["simOV"].getAxis(4)
+        axis.plot(self.slt["time"], self.slt["eqn"]["VY"], label="slt: VY",
+                  marker="o", ms=3, c="b")
+        axis.plot(self.kfm.sim["time"], self.kfm.outputs["VY"], label="sim: VY",
+                  marker="o", ms=3, c="g")
+        if vwrPosMks > 0:
+            eqnT, eqnVY = np.array([]), np.array([])
+            for txt in self.msr["datMsr"]:
+                msrData = self.msr["datMsr"][txt]
+                if msrData["msrType"] == "v":
+                    eqnT = np.append(eqnT, msrData["time"])
+                    eqnVY = np.append(eqnVY, msrData["eqnVY"])
+            axis.scatter(eqnT, eqnVY, c="r", marker="o", alpha=1, s=vwrPosMks, label="msr: VY")
+        axis.set_xlabel("t")
+        axis.set_ylabel("VY")
+        axis.legend()
+        axis = self.vwr["2D"]["simOV"].getAxis(5)
+        axis.plot(self.slt["time"], self.slt["eqn"]["VZ"], label="slt: VZ",
+                  marker="o", ms=3, c="b")
+        axis.plot(self.kfm.sim["time"], self.kfm.outputs["VZ"], label="sim: VZ",
+                  marker="o", ms=3, c="g")
+        if vwrPosMks > 0:
+            eqnT, eqnVZ = np.array([]), np.array([])
+            for txt in self.msr["datMsr"]:
+                msrData = self.msr["datMsr"][txt]
+                if msrData["msrType"] == "v":
+                    eqnT = np.append(eqnT, msrData["time"])
+                    eqnVZ = np.append(eqnVZ, msrData["eqnVZ"])
+            axis.scatter(eqnT, eqnVZ, c="r", marker="o", alpha=1, s=vwrPosMks, label="msr: VZ")
+        axis.set_xlabel("t")
+        axis.set_ylabel("VZ")
+        axis.legend()
+
+    def plotSimulationOutputVariablesA(self):
+        """Plot simulation output variables: A"""
+
+        # Plot simulation output variables.
+        axis = self.vwr["2D"]["simOV"].getAxis(6)
+        axis.plot(self.slt["time"], self.slt["eqn"]["AX"], label="slt: AX",
+                  marker="o", ms=3, c="b")
+        axis.plot(self.kfm.sim["time"], self.kfm.outputs["AX"], label="sim: AX",
+                  marker="o", ms=3, c="g")
+        vwrPosMks = float(self.msr["vwrPosMks"].text())
+        if vwrPosMks > 0:
+            eqnT, eqnAX = np.array([]), np.array([])
+            for txt in self.msr["datMsr"]:
+                msrData = self.msr["datMsr"][txt]
+                if msrData["msrType"] == "a":
+                    eqnT = np.append(eqnT, msrData["time"])
+                    eqnAX = np.append(eqnAX, msrData["eqnAX"])
+            axis.scatter(eqnT, eqnAX, c="r", marker="s", alpha=1, s=vwrPosMks, label="msr: AX")
+        axis.set_xlabel("t")
+        axis.set_ylabel("AX")
+        axis.legend()
+        axis = self.vwr["2D"]["simOV"].getAxis(7)
+        axis.plot(self.slt["time"], self.slt["eqn"]["AY"], label="slt: AY",
+                  marker="o", ms=3, c="b")
+        axis.plot(self.kfm.sim["time"], self.kfm.outputs["AY"], label="sim: AY",
+                  marker="o", ms=3, c="g")
+        if vwrPosMks > 0:
+            eqnT, eqnAY = np.array([]), np.array([])
+            for txt in self.msr["datMsr"]:
+                msrData = self.msr["datMsr"][txt]
+                if msrData["msrType"] == "a":
+                    eqnT = np.append(eqnT, msrData["time"])
+                    eqnAY = np.append(eqnAY, msrData["eqnAY"])
+            axis.scatter(eqnT, eqnAY, c="r", marker="s", alpha=1, s=vwrPosMks, label="msr: AY")
+        axis.set_xlabel("t")
+        axis.set_ylabel("AY")
+        axis.legend()
+        axis = self.vwr["2D"]["simOV"].getAxis(8)
+        axis.plot(self.slt["time"], self.slt["eqn"]["AZ"], label="slt: AZ",
+                  marker="o", ms=3, c="b")
+        axis.plot(self.kfm.sim["time"], self.kfm.outputs["AZ"], label="sim: AZ",
+                  marker="o", ms=3, c="g")
+        if vwrPosMks > 0:
+            eqnT, eqnAZ = np.array([]), np.array([])
+            for txt in self.msr["datMsr"]:
+                msrData = self.msr["datMsr"][txt]
+                if msrData["msrType"] == "a":
+                    eqnT = np.append(eqnT, msrData["time"])
+                    eqnAZ = np.append(eqnAZ, msrData["eqnAZ"])
+            axis.scatter(eqnT, eqnAZ, c="r", marker="s", alpha=1, s=vwrPosMks, label="msr: AZ")
+        axis.set_xlabel("t")
+        axis.set_ylabel("AZ")
+        axis.legend()
 
     def onPltCHVBtnClick(self):
         """Callback on plotting hidden variables of control law"""
@@ -1855,33 +2215,6 @@ class planeTrackingExample:
         axis.set_ylabel("yaw")
         axis.legend()
 
-    def fillSimGUIVwr(self, simGUI):
-        """Fill simulation GUI: viewer"""
-
-        # Create simulation GUI: simulation viewer options.
-        gdlVwr = QGridLayout(simGUI)
-        gdlVwr.addWidget(QLabel("Position:", simGUI), 0, 0)
-        gdlVwr.addWidget(QLabel("line width", simGUI), 0, 1)
-        gdlVwr.addWidget(self.sim["vwrLnWd"], 0, 2)
-        gdlVwr.addWidget(QLabel("marker size", simGUI), 0, 3)
-        gdlVwr.addWidget(self.sim["vwrPosMks"], 0, 4)
-        gdlVwr.addWidget(QLabel("Velocity:", simGUI), 1, 0)
-        gdlVwr.addWidget(QLabel("length", simGUI), 1, 1)
-        gdlVwr.addWidget(self.sim["vwrVelLgh"], 1, 2)
-        gdlVwr.addWidget(self.sim["vwrVelNrm"], 1, 3)
-        gdlVwr.addWidget(QLabel("Acceleration:", simGUI), 2, 0)
-        gdlVwr.addWidget(QLabel("length", simGUI), 2, 1)
-        gdlVwr.addWidget(self.sim["vwrAccLgh"], 2, 2)
-        gdlVwr.addWidget(self.sim["vwrAccNrm"], 2, 3)
-
-        # Set group box layout.
-        gpbVwr = QGroupBox(simGUI)
-        gpbVwr.setTitle("Viewer options")
-        gpbVwr.setAlignment(Qt.AlignHCenter)
-        gpbVwr.setLayout(gdlVwr)
-
-        return gpbVwr
-
     def createVwrGUI(self, gdlVwr):
         """Create viewer GUI"""
 
@@ -1927,7 +2260,7 @@ class planeTrackingExample:
             if np.abs(float(tokTi)) < 1.e-6:
                 self.throwError(eId, "t<sub>i</sub> must be superior than 0.")
                 return False
-        if float(self.slt["cdfTf"].text()) < 0.:
+        if float(self.slt["cdfTf"].text()) <= 0.:
             self.throwError(eId, "t<sub>f</sub> must be superior than 0.")
             return False
 
@@ -1970,12 +2303,12 @@ class planeTrackingExample:
                 self.throwError(eId, "list item "+str(idx+1)+", "+msg)
                 return False
             prmDt = float(txt.split(";")[3].split()[1])
-            if prmDt < 0.:
+            if prmDt <= 0.:
                 msg = "<em>&Delta;t</em> must be superior than 0."
                 self.throwError(eId, "list item "+str(idx+1)+", "+msg)
                 return False
             prmSigma = float(txt.split(";")[4].split()[1])
-            if prmSigma < 0.:
+            if prmSigma <= 0.:
                 msg = "<em>&sigma;</em> must be superior than 0."
                 self.throwError(eId, "list item "+str(idx+1)+", "+msg)
                 return False
@@ -2013,19 +2346,19 @@ class planeTrackingExample:
 
         # Check simulation parameters validity.
         eId = "simulation"
-        if float(self.sim["prmM"].text()) < 0.:
+        if float(self.sim["prmM"].text()) <= 0.:
             self.throwError(eId, "mass must be superior than 0.")
             return False
         if float(self.sim["prmC"].text()) < 0.:
             self.throwError(eId, "damping coef must be superior than 0.")
             return False
-        if float(self.sim["prmDt"].text()) < 0.:
+        if float(self.sim["prmDt"].text()) <= 0.:
             self.throwError(eId, "<em>&Delta;t</em> must be superior than 0.")
             return False
-        if float(self.sim["prmExpOrd"].text()) < 0.:
+        if float(self.sim["prmExpOrd"].text()) <= 0.:
             self.throwError(eId, "exp. taylor expansion order must be superior than 0.")
             return False
-        if float(self.sim["prmProNseSig"].text()) < 0.:
+        if float(self.sim["prmProNseSig"].text()) <= 0.:
             self.throwError(eId, "process noise std deviation must be superior than 0.")
             return False
 
@@ -2140,57 +2473,47 @@ class planeTrackingExample:
 
         return states
 
-    def computeControlLaw(self, states, sim):
+    def initStateCovariance(self, sim):
+        """Initialize state covariance"""
+
+        # Initialize state covariance.
+        prmN = self.getLTISystemSize()
+        matP = np.zeros((prmN, prmN), dtype=float)
+        matP[0, 0] = sim["cdiSigX0"]
+        matP[1, 1] = sim["cdiSigVX0"]
+        matP[2, 2] = sim["cdiSigAX0"]
+        matP[3, 3] = sim["cdiSigY0"]
+        matP[4, 4] = sim["cdiSigVY0"]
+        matP[5, 5] = sim["cdiSigAY0"]
+        matP[6, 6] = sim["cdiSigZ0"]
+        matP[7, 7] = sim["cdiSigVZ0"]
+        matP[8, 8] = sim["cdiSigAZ0"]
+
+        return matP
+
+    def computeControlLaw(self, states, sim, save=True):
         """Compute control law"""
 
         # Compute control law: get roll, pitch, yaw corrections.
-        deltaAccRolY, deltaAccRolZ = self.computeRoll(states, sim)
-        deltaAccPtcX, deltaAccPtcZ = self.computePitch(states, sim)
-        deltaAccYawX, deltaAccYawY = self.computeYaw(states, sim)
+        deltaAccRolY, deltaAccRolZ = self.computeRoll(states, sim, save)
+        deltaAccPtcX, deltaAccPtcZ = self.computePitch(states, sim, save)
+        deltaAccYawX, deltaAccYawY = self.computeYaw(states, sim, save)
 
         # Compute control law.
         fomX = deltaAccPtcX+deltaAccYawX
         fomY = deltaAccRolY+deltaAccYawY
         fomZ = deltaAccRolZ+deltaAccPtcZ
-        matU = self.computeControl(fomX, fomY, fomZ, sim)
+        matU = self.computeControl((fomX, fomY, fomZ), sim, save)
 
         # Save F/m to compute d(F/m)/dt next time.
-        sim["ctlOldFoMX"] = fomX
-        sim["ctlOldFoMY"] = fomY
-        sim["ctlOldFoMZ"] = fomZ
+        if save:
+            sim["ctlOldFoMX"] = fomX
+            sim["ctlOldFoMY"] = fomY
+            sim["ctlOldFoMZ"] = fomZ
 
         return matU
 
-    def computeControl(self, fomX, fomY, fomZ, sim):
-        """Compute control"""
-
-        # Compute control law: modify plane throttle (F/m == acceleration).
-        prmN = self.getLTISystemSize()
-        matU = np.zeros((prmN, 1), dtype=float)
-        matU[1, 0] = fomX
-        matU[4, 0] = fomY
-        matU[7, 0] = fomZ
-
-        # Compute control law: modify plane acceleration (d(F/m)/dt).
-        oldFoMX = self.sim["ctlOldFoMX"] if "ctlOldFoMX" in self.sim else 0.
-        oldFoMY = self.sim["ctlOldFoMY"] if "ctlOldFoMY" in self.sim else 0.
-        oldFoMZ = self.sim["ctlOldFoMZ"] if "ctlOldFoMZ" in self.sim else 0.
-        prmDt = float(self.sim["prmDt"].text())
-        matU[2, 0] = (fomX-oldFoMX)/prmDt
-        matU[5, 0] = (fomY-oldFoMY)/prmDt
-        matU[8, 0] = (fomZ-oldFoMZ)/prmDt
-
-        # Save control law hidden variables.
-        sim["ctlHV"]["FoM"]["X"].append(matU[1, 0])
-        sim["ctlHV"]["FoM"]["Y"].append(matU[4, 0])
-        sim["ctlHV"]["FoM"]["Z"].append(matU[7, 0])
-        sim["ctlHV"]["d(FoM)/dt"]["X"].append(matU[2, 0])
-        sim["ctlHV"]["d(FoM)/dt"]["Y"].append(matU[5, 0])
-        sim["ctlHV"]["d(FoM)/dt"]["Z"].append(matU[8, 0])
-
-        return matU
-
-    def computeRoll(self, states, sim):
+    def computeRoll(self, states, sim, save):
         """Compute control law: roll"""
 
         # Compute roll around X axis.
@@ -2200,6 +2523,10 @@ class planeTrackingExample:
         velNxt = velNow+accNow*prmDt # New velocity in YZ plane.
         roll = np.arccos(np.dot(velNow, velNxt)/(npl.norm(velNow)*npl.norm(velNxt)))
         roll = roll*(180./np.pi) # Roll angle in degrees.
+
+        # Save control law hidden variables.
+        if save:
+            sim["ctlHV"]["roll"].append(roll)
 
         # Control roll.
         accTgt = accNow # Target acceleration.
@@ -2211,12 +2538,9 @@ class planeTrackingExample:
             roll = roll*(180./np.pi) # Roll angle in degrees.
         deltaAcc = accTgt-accNow
 
-        # Save control law hidden variables.
-        sim["ctlHV"]["roll"].append(roll)
-
         return deltaAcc[1], deltaAcc[2]
 
-    def computePitch(self, states, sim):
+    def computePitch(self, states, sim, save):
         """Compute control law: pitch"""
 
         # Compute pitch around Y axis.
@@ -2226,6 +2550,10 @@ class planeTrackingExample:
         velNxt = velNow+accNow*prmDt # New velocity in XZ plane.
         pitch = np.arccos(np.dot(velNow, velNxt)/(npl.norm(velNow)*npl.norm(velNxt)))
         pitch = pitch*(180./np.pi) # Pitch angle in degrees.
+
+        # Save control law hidden variables.
+        if save:
+            sim["ctlHV"]["pitch"].append(pitch)
 
         # Control pitch.
         accTgt = accNow # Target acceleration.
@@ -2237,12 +2565,9 @@ class planeTrackingExample:
             pitch = pitch*(180./np.pi) # Pitch angle in degrees.
         deltaAcc = accTgt-accNow
 
-        # Save control law hidden variables.
-        sim["ctlHV"]["pitch"].append(pitch)
-
         return deltaAcc[0], deltaAcc[2]
 
-    def computeYaw(self, states, sim):
+    def computeYaw(self, states, sim, save):
         """Compute control law: yaw"""
 
         # Compute yaw around Z axis.
@@ -2252,6 +2577,10 @@ class planeTrackingExample:
         velNxt = velNow+accNow*prmDt # New velocity in XY plane.
         yaw = np.arccos(np.dot(velNow, velNxt)/(npl.norm(velNow)*npl.norm(velNxt)))
         yaw = yaw*(180./np.pi) # Yaw angle in degrees.
+
+        # Save control law hidden variables.
+        if save:
+            sim["ctlHV"]["yaw"].append(yaw)
 
         # Control yaw.
         accTgt = accNow # Target acceleration.
@@ -2263,10 +2592,37 @@ class planeTrackingExample:
             yaw = yaw*(180./np.pi) # Yaw angle in degrees.
         deltaAcc = accTgt-accNow
 
-        # Save control law hidden variables.
-        sim["ctlHV"]["yaw"].append(yaw)
-
         return deltaAcc[0], deltaAcc[1]
+
+    def computeControl(self, fom, sim, save):
+        """Compute control"""
+
+        # Compute control law: modify plane throttle (F/m == acceleration).
+        prmN = self.getLTISystemSize()
+        matU = np.zeros((prmN, 1), dtype=float)
+        matU[1, 0] = fom[0]
+        matU[4, 0] = fom[1]
+        matU[7, 0] = fom[2]
+
+        # Compute control law: modify plane acceleration (d(F/m)/dt).
+        oldFoMX = self.sim["ctlOldFoMX"] if "ctlOldFoMX" in self.sim else 0.
+        oldFoMY = self.sim["ctlOldFoMY"] if "ctlOldFoMY" in self.sim else 0.
+        oldFoMZ = self.sim["ctlOldFoMZ"] if "ctlOldFoMZ" in self.sim else 0.
+        prmDt = float(self.sim["prmDt"].text())
+        matU[2, 0] = (fom[0]-oldFoMX)/prmDt
+        matU[5, 0] = (fom[1]-oldFoMY)/prmDt
+        matU[8, 0] = (fom[2]-oldFoMZ)/prmDt
+
+        # Save control law hidden variables.
+        if save:
+            sim["ctlHV"]["FoM"]["X"].append(matU[1, 0])
+            sim["ctlHV"]["FoM"]["Y"].append(matU[4, 0])
+            sim["ctlHV"]["FoM"]["Z"].append(matU[7, 0])
+            sim["ctlHV"]["d(FoM)/dt"]["X"].append(matU[2, 0])
+            sim["ctlHV"]["d(FoM)/dt"]["Y"].append(matU[5, 0])
+            sim["ctlHV"]["d(FoM)/dt"]["Z"].append(matU[8, 0])
+
+        return matU
 
     @staticmethod
     def getStateKeys():
@@ -2280,17 +2636,6 @@ class planeTrackingExample:
 
         # Get outputs keys.
         return self.getStateKeys()
-
-    def saveStatesOutputs(self, states, stateDic, outputs, outputDic):
-        """Save states and outputs"""
-
-        # Save states and outputs.
-        keys = self.getStateKeys()
-        for idx, key in enumerate(keys):
-            stateDic[key].append(states[idx, 0])
-        keys = self.getOutputKeys()
-        for idx, key in enumerate(keys):
-            outputDic[key].append(outputs[idx, 0])
 
 class controllerGUI(QMainWindow):
     """Kalman filter controller"""
@@ -2378,7 +2723,6 @@ class controllerGUI(QMainWindow):
 
         # Add button to update the viewer.
         updateBtn = QPushButton("Update viewer", self)
-        updateBtn.setToolTip("Update viewer")
         updateBtn.clicked.connect(self.onUpdateVwrBtnClick)
 
         return updateBtn
