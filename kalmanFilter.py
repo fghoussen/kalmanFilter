@@ -166,10 +166,10 @@ class kalmanFilterModel():
         """Initialize"""
 
         # Initialize members.
-        self.sim = {"ctlHV": {}, "time": []}
+        self.sim = {"ctlHV": {}}
         self.msr = []
         self.example = example
-        self.solved = False
+        self.time = []
         self.states = {}
         self.outputs = {}
         self.mat = {}
@@ -182,10 +182,9 @@ class kalmanFilterModel():
         self.msr = []
 
         # Clear previous time.
-        self.sim["time"] = []
+        self.time = []
 
         # Clear previous results.
-        self.solved = False
         self.states.clear()
         keys = self.example.getStateKeys()
         for key in keys:
@@ -194,7 +193,6 @@ class kalmanFilterModel():
         keys = self.example.getOutputKeys()
         for key in keys:
             self.outputs[key] = []
-        self.sim["taylorExpLTM"] = np.array([])
 
         # Clear previous control law hidden variables.
         self.sim["ctlHV"]["FoM"] = {}
@@ -208,6 +206,15 @@ class kalmanFilterModel():
         self.sim["ctlHV"]["roll"] = []
         self.sim["ctlHV"]["pitch"] = []
         self.sim["ctlHV"]["yaw"] = []
+        self.sim["taylorExpLTM"] = np.array([])
+
+    def isSolved(self):
+        """Check if solve has been done"""
+
+        # Check if solve has been done.
+        if len(self.time) == 0:
+            return False
+        return True
 
     def setUpSimPrm(self, sim, cdfTf):
         """Setup solver: simulation parameters"""
@@ -243,16 +250,16 @@ class kalmanFilterModel():
         # Get measurement.
         posX, posY, posZ = None, None, None
         if msrData["msrType"] == "x":
-            posX, posY, posZ = msrData["posX"], msrData["posY"], msrData["posZ"]
+            posX, posY, posZ = msrData["X"], msrData["Y"], msrData["Z"]
         eqnVX, eqnVY, eqnVZ = None, None, None
         if msrData["msrType"] == "v":
-            eqnVX, eqnVY, eqnVZ = msrData["eqnVX"], msrData["eqnVY"], msrData["eqnVZ"]
+            eqnVX, eqnVY, eqnVZ = msrData["VX"], msrData["VY"], msrData["VZ"]
         eqnAX, eqnAY, eqnAZ = None, None, None
         if msrData["msrType"] == "a":
-            eqnAX, eqnAY, eqnAZ = msrData["eqnAX"], msrData["eqnAY"], msrData["eqnAZ"]
+            eqnAX, eqnAY, eqnAZ = msrData["AX"], msrData["AY"], msrData["AZ"]
 
         # Append measurement.
-        for idx, time in enumerate(msrData["time"]):
+        for idx, time in enumerate(msrData["T"]):
             if time not in msrDic:
                 msrDic[time] = []
             prmSig = "sigma "+str(prmSigma)
@@ -301,7 +308,7 @@ class kalmanFilterModel():
         """Solve based on Kalman filter"""
 
         # Don't solve if we have already a solution.
-        if self.solved:
+        if self.isSolved():
             return
 
         # Initialize states.
@@ -330,9 +337,6 @@ class kalmanFilterModel():
 
             # Increase time.
             time = time+timeDt
-
-        # Mark solver as solved.
-        self.solved = True
 
     def corrector(self, time, prmDt, matP, states):
         """Solve corrector step"""
@@ -567,7 +571,7 @@ class kalmanFilterModel():
         """Save simulation results"""
 
         # Save time.
-        self.sim["time"].append(time)
+        self.time.append(time)
 
         # Save states and outputs.
         keys = self.example.getStateKeys()
@@ -618,7 +622,7 @@ class planeTrackingExample:
 
         # Initialize members.
         self.ctrGUI = ctrGUI
-        self.slt = {"sltId": "", "time": [], "eqn": {}}
+        self.slt = {"sltId": ""}
         self.msr = {"sltId": "", "msrId": ""}
         self.sim = {"sltId": "", "msrId": "", "simId": ""}
         self.vwr = {"2D": {"tzp": None, "ctlHV": None, "simOV": None, "timSc": None}, "3D": None}
@@ -747,22 +751,22 @@ class planeTrackingExample:
         self.slt["indAZ0"].setText("%.3f" % eqnAZ[0])
 
         # Save analytic solution.
-        self.slt["time"] = eqnT
-        self.slt["eqn"]["X"] = eqnX
-        self.slt["eqn"]["Y"] = eqnY
-        self.slt["eqn"]["Z"] = eqnZ
-        self.slt["eqn"]["VX"] = eqnVX
-        self.slt["eqn"]["VY"] = eqnVY
-        self.slt["eqn"]["VZ"] = eqnVZ
-        self.slt["eqn"]["AX"] = eqnAX
-        self.slt["eqn"]["AY"] = eqnAY
-        self.slt["eqn"]["AZ"] = eqnAZ
+        self.slt["T"] = eqnT
+        self.slt["X"] = eqnX
+        self.slt["Y"] = eqnY
+        self.slt["Z"] = eqnZ
+        self.slt["VX"] = eqnVX
+        self.slt["VY"] = eqnVY
+        self.slt["VZ"] = eqnVZ
+        self.slt["AX"] = eqnAX
+        self.slt["AY"] = eqnAY
+        self.slt["AZ"] = eqnAZ
 
     def updateViewerSltX(self):
         """Update viewer: plot displacement of the solution"""
 
         # Plot solution: displacement.
-        eqnX, eqnY, eqnZ = self.slt["eqn"]["X"], self.slt["eqn"]["Y"], self.slt["eqn"]["Z"]
+        eqnX, eqnY, eqnZ = self.slt["X"], self.slt["Y"], self.slt["Z"]
         vwrLnWd = float(self.slt["vwrLnWd"].text())
         if vwrLnWd == 0.:
             return
@@ -776,8 +780,8 @@ class planeTrackingExample:
         """Update viewer: plot velocity of the solution"""
 
         # Plot solution: velocity.
-        eqnX, eqnY, eqnZ = self.slt["eqn"]["X"], self.slt["eqn"]["Y"], self.slt["eqn"]["Z"]
-        eqnVX, eqnVY, eqnVZ = self.slt["eqn"]["VX"], self.slt["eqn"]["VY"], self.slt["eqn"]["VZ"]
+        eqnX, eqnY, eqnZ = self.slt["X"], self.slt["Y"], self.slt["Z"]
+        eqnVX, eqnVY, eqnVZ = self.slt["VX"], self.slt["VY"], self.slt["VZ"]
         clr = (0., 0.75, 1.) # Skyblue.
         vwrVelLgh = float(self.slt["vwrVelLgh"].text())
         if vwrVelLgh == 0.:
@@ -791,8 +795,8 @@ class planeTrackingExample:
         """Update viewer: plot acceleration of the solution"""
 
         # Plot solution: acceleration.
-        eqnX, eqnY, eqnZ = self.slt["eqn"]["X"], self.slt["eqn"]["Y"], self.slt["eqn"]["Z"]
-        eqnAX, eqnAY, eqnAZ = self.slt["eqn"]["AX"], self.slt["eqn"]["AY"], self.slt["eqn"]["AZ"]
+        eqnX, eqnY, eqnZ = self.slt["X"], self.slt["Y"], self.slt["Z"]
+        eqnAX, eqnAY, eqnAZ = self.slt["AX"], self.slt["AY"], self.slt["AZ"]
         clr = (0.25, 0., 0.5) # Indigo.
         vwrAccLgh = float(self.slt["vwrAccLgh"].text())
         if vwrAccLgh == 0.:
@@ -882,14 +886,14 @@ class planeTrackingExample:
         prmDt = float(txt.split(";")[3].split()[1])
         prmNbPt = (prmTf-prmT0)/prmDt
         eqnT = np.linspace(prmT0, prmTf, prmNbPt)
-        msrData["time"] = eqnT
+        msrData["T"] = eqnT
 
         # Data.
         eqnX, eqnY, eqnZ = self.getDisplEquations(eqnT)
         prmSigma = float(txt.split(";")[4].split()[1])
-        msrData["posX"] = self.addNoise(eqnX, prmSigma)
-        msrData["posY"] = self.addNoise(eqnY, prmSigma)
-        msrData["posZ"] = self.addNoise(eqnZ, prmSigma)
+        msrData["X"] = self.addNoise(eqnX, prmSigma)
+        msrData["Y"] = self.addNoise(eqnY, prmSigma)
+        msrData["Z"] = self.addNoise(eqnZ, prmSigma)
 
     def getMsrDataV(self, txt, msrData):
         """Get measure data: velocity"""
@@ -900,18 +904,18 @@ class planeTrackingExample:
         prmDt = float(txt.split(";")[3].split()[1])
         prmNbPt = (prmTf-prmT0)/prmDt
         eqnT = np.linspace(prmT0, prmTf, prmNbPt)
-        msrData["time"] = eqnT
+        msrData["T"] = eqnT
 
         # Data.
         eqnX, eqnY, eqnZ = self.getDisplEquations(eqnT)
-        msrData["posX"] = eqnX
-        msrData["posY"] = eqnY
-        msrData["posZ"] = eqnZ
+        msrData["X"] = eqnX
+        msrData["Y"] = eqnY
+        msrData["Z"] = eqnZ
         eqnVX, eqnVY, eqnVZ = self.getVelocEquations(eqnT)
         prmSigma = float(txt.split(";")[4].split()[1])
-        msrData["eqnVX"] = self.addNoise(eqnVX, prmSigma)
-        msrData["eqnVY"] = self.addNoise(eqnVY, prmSigma)
-        msrData["eqnVZ"] = self.addNoise(eqnVZ, prmSigma)
+        msrData["VX"] = self.addNoise(eqnVX, prmSigma)
+        msrData["VY"] = self.addNoise(eqnVY, prmSigma)
+        msrData["VZ"] = self.addNoise(eqnVZ, prmSigma)
 
     def getMsrDataA(self, txt, msrData):
         """Get measure data: acceleration"""
@@ -922,18 +926,18 @@ class planeTrackingExample:
         prmDt = float(txt.split(";")[3].split()[1])
         prmNbPt = (prmTf-prmT0)/prmDt
         eqnT = np.linspace(prmT0, prmTf, prmNbPt)
-        msrData["time"] = eqnT
+        msrData["T"] = eqnT
 
         # Data.
         eqnX, eqnY, eqnZ = self.getDisplEquations(eqnT)
-        msrData["posX"] = eqnX
-        msrData["posY"] = eqnY
-        msrData["posZ"] = eqnZ
+        msrData["X"] = eqnX
+        msrData["Y"] = eqnY
+        msrData["Z"] = eqnZ
         eqnAX, eqnAY, eqnAZ = self.getAccelEquations(eqnT)
         prmSigma = float(txt.split(";")[4].split()[1])
-        msrData["eqnAX"] = self.addNoise(eqnAX, prmSigma)
-        msrData["eqnAY"] = self.addNoise(eqnAY, prmSigma)
-        msrData["eqnAZ"] = self.addNoise(eqnAZ, prmSigma)
+        msrData["AX"] = self.addNoise(eqnAX, prmSigma)
+        msrData["AY"] = self.addNoise(eqnAY, prmSigma)
+        msrData["AZ"] = self.addNoise(eqnAZ, prmSigma)
 
     @staticmethod
     def addNoise(eqn, prmSigma):
@@ -1119,9 +1123,9 @@ class planeTrackingExample:
         """View measure data: displacement"""
 
         # View measure data: displacement.
-        posX = msrData["posX"]
-        posY = msrData["posY"]
-        posZ = msrData["posZ"]
+        posX = msrData["X"]
+        posY = msrData["Y"]
+        posZ = msrData["Z"]
         vwrPosMks = float(self.msr["vwrPosMks"].text())
         if vwrPosMks == 0.:
             return
@@ -1133,12 +1137,12 @@ class planeTrackingExample:
         """View measure data: velocity"""
 
         # View measure data: velocity.
-        posX = msrData["posX"]
-        posY = msrData["posY"]
-        posZ = msrData["posZ"]
-        eqnVX = msrData["eqnVX"]
-        eqnVY = msrData["eqnVY"]
-        eqnVZ = msrData["eqnVZ"]
+        posX = msrData["X"]
+        posY = msrData["Y"]
+        posZ = msrData["Z"]
+        eqnVX = msrData["VX"]
+        eqnVY = msrData["VY"]
+        eqnVZ = msrData["VZ"]
         clr = (1., 0.65, 0.) # Orange.
         vwrVelLgh = float(self.msr["vwrVelLgh"].text())
         if vwrVelLgh == 0.:
@@ -1153,12 +1157,12 @@ class planeTrackingExample:
         """View measure data: acceleration"""
 
         # View measure data: acceleration.
-        posX = msrData["posX"]
-        posY = msrData["posY"]
-        posZ = msrData["posZ"]
-        eqnAX = msrData["eqnAX"]
-        eqnAY = msrData["eqnAY"]
-        eqnAZ = msrData["eqnAZ"]
+        posX = msrData["X"]
+        posY = msrData["Y"]
+        posZ = msrData["Z"]
+        eqnAX = msrData["AX"]
+        eqnAY = msrData["AY"]
+        eqnAZ = msrData["AZ"]
         clr = (0.6, 0.3, 0.) # Brown.
         vwrAccLgh = float(self.msr["vwrAccLgh"].text())
         if vwrAccLgh == 0.:
@@ -1982,7 +1986,7 @@ class planeTrackingExample:
         """Plot simulation output variables"""
 
         # Don't plot if there's nothing to plot.
-        if not self.kfm.solved:
+        if not self.kfm.isSolved():
             return
 
         # Plot simulation output variables.
@@ -1995,9 +1999,9 @@ class planeTrackingExample:
 
         # Plot simulation output variables.
         axis = self.vwr["2D"]["simOV"].getAxis(0)
-        axis.plot(self.slt["time"], self.slt["eqn"]["X"], label="slt: X",
+        axis.plot(self.slt["T"], self.slt["X"], label="slt: X",
                   marker="o", ms=3, c="b")
-        axis.plot(self.kfm.sim["time"], self.kfm.outputs["X"], label="sim: X",
+        axis.plot(self.kfm.time, self.kfm.outputs["X"], label="sim: X",
                   marker="o", ms=3, c="g")
         vwrPosMks = float(self.msr["vwrPosMks"].text())
         if vwrPosMks > 0:
@@ -2005,40 +2009,40 @@ class planeTrackingExample:
             for txt in self.msr["datMsr"]:
                 msrData = self.msr["datMsr"][txt]
                 if msrData["msrType"] == "x":
-                    eqnT = np.append(eqnT, msrData["time"])
-                    posX = np.append(posX, msrData["posX"])
+                    eqnT = np.append(eqnT, msrData["T"])
+                    posX = np.append(posX, msrData["X"])
             axis.scatter(eqnT, posX, c="r", marker="^", alpha=1, s=vwrPosMks, label="msr: X")
         axis.set_xlabel("t")
         axis.set_ylabel("X")
         axis.legend()
         axis = self.vwr["2D"]["simOV"].getAxis(1)
-        axis.plot(self.slt["time"], self.slt["eqn"]["Y"], label="slt: Y",
+        axis.plot(self.slt["T"], self.slt["Y"], label="slt: Y",
                   marker="o", ms=3, c="b")
-        axis.plot(self.kfm.sim["time"], self.kfm.outputs["Y"], label="sim: Y",
+        axis.plot(self.kfm.time, self.kfm.outputs["Y"], label="sim: Y",
                   marker="o", ms=3, c="g")
         if vwrPosMks > 0:
             eqnT, posY = np.array([]), np.array([])
             for txt in self.msr["datMsr"]:
                 msrData = self.msr["datMsr"][txt]
                 if msrData["msrType"] == "x":
-                    eqnT = np.append(eqnT, msrData["time"])
-                    posY = np.append(posY, msrData["posY"])
+                    eqnT = np.append(eqnT, msrData["T"])
+                    posY = np.append(posY, msrData["Y"])
             axis.scatter(eqnT, posY, c="r", marker="^", alpha=1, s=vwrPosMks, label="msr: Y")
         axis.set_xlabel("t")
         axis.set_ylabel("Y")
         axis.legend()
         axis = self.vwr["2D"]["simOV"].getAxis(2)
-        axis.plot(self.slt["time"], self.slt["eqn"]["Z"], label="slt: Z",
+        axis.plot(self.slt["T"], self.slt["Z"], label="slt: Z",
                   marker="o", ms=3, c="b")
-        axis.plot(self.kfm.sim["time"], self.kfm.outputs["Z"], label="sim: Z",
+        axis.plot(self.kfm.time, self.kfm.outputs["Z"], label="sim: Z",
                   marker="o", ms=3, c="g")
         if vwrPosMks > 0:
             eqnT, posZ = np.array([]), np.array([])
             for txt in self.msr["datMsr"]:
                 msrData = self.msr["datMsr"][txt]
                 if msrData["msrType"] == "x":
-                    eqnT = np.append(eqnT, msrData["time"])
-                    posZ = np.append(posZ, msrData["posZ"])
+                    eqnT = np.append(eqnT, msrData["T"])
+                    posZ = np.append(posZ, msrData["Z"])
             axis.scatter(eqnT, posZ, c="r", marker="^", alpha=1, s=vwrPosMks, label="msr: Z")
         axis.set_xlabel("t")
         axis.set_ylabel("Z")
@@ -2049,9 +2053,9 @@ class planeTrackingExample:
 
         # Plot simulation output variables.
         axis = self.vwr["2D"]["simOV"].getAxis(3)
-        axis.plot(self.slt["time"], self.slt["eqn"]["VX"], label="slt: VX",
+        axis.plot(self.slt["T"], self.slt["VX"], label="slt: VX",
                   marker="o", ms=3, c="b")
-        axis.plot(self.kfm.sim["time"], self.kfm.outputs["VX"], label="sim: VX",
+        axis.plot(self.kfm.time, self.kfm.outputs["VX"], label="sim: VX",
                   marker="o", ms=3, c="g")
         vwrPosMks = float(self.msr["vwrPosMks"].text())
         if vwrPosMks > 0:
@@ -2059,40 +2063,40 @@ class planeTrackingExample:
             for txt in self.msr["datMsr"]:
                 msrData = self.msr["datMsr"][txt]
                 if msrData["msrType"] == "v":
-                    eqnT = np.append(eqnT, msrData["time"])
-                    eqnVX = np.append(eqnVX, msrData["eqnVX"])
+                    eqnT = np.append(eqnT, msrData["T"])
+                    eqnVX = np.append(eqnVX, msrData["VX"])
             axis.scatter(eqnT, eqnVX, c="r", marker="o", alpha=1, s=vwrPosMks, label="msr: VX")
         axis.set_xlabel("t")
         axis.set_ylabel("VX")
         axis.legend()
         axis = self.vwr["2D"]["simOV"].getAxis(4)
-        axis.plot(self.slt["time"], self.slt["eqn"]["VY"], label="slt: VY",
+        axis.plot(self.slt["T"], self.slt["VY"], label="slt: VY",
                   marker="o", ms=3, c="b")
-        axis.plot(self.kfm.sim["time"], self.kfm.outputs["VY"], label="sim: VY",
+        axis.plot(self.kfm.time, self.kfm.outputs["VY"], label="sim: VY",
                   marker="o", ms=3, c="g")
         if vwrPosMks > 0:
             eqnT, eqnVY = np.array([]), np.array([])
             for txt in self.msr["datMsr"]:
                 msrData = self.msr["datMsr"][txt]
                 if msrData["msrType"] == "v":
-                    eqnT = np.append(eqnT, msrData["time"])
-                    eqnVY = np.append(eqnVY, msrData["eqnVY"])
+                    eqnT = np.append(eqnT, msrData["T"])
+                    eqnVY = np.append(eqnVY, msrData["VY"])
             axis.scatter(eqnT, eqnVY, c="r", marker="o", alpha=1, s=vwrPosMks, label="msr: VY")
         axis.set_xlabel("t")
         axis.set_ylabel("VY")
         axis.legend()
         axis = self.vwr["2D"]["simOV"].getAxis(5)
-        axis.plot(self.slt["time"], self.slt["eqn"]["VZ"], label="slt: VZ",
+        axis.plot(self.slt["T"], self.slt["VZ"], label="slt: VZ",
                   marker="o", ms=3, c="b")
-        axis.plot(self.kfm.sim["time"], self.kfm.outputs["VZ"], label="sim: VZ",
+        axis.plot(self.kfm.time, self.kfm.outputs["VZ"], label="sim: VZ",
                   marker="o", ms=3, c="g")
         if vwrPosMks > 0:
             eqnT, eqnVZ = np.array([]), np.array([])
             for txt in self.msr["datMsr"]:
                 msrData = self.msr["datMsr"][txt]
                 if msrData["msrType"] == "v":
-                    eqnT = np.append(eqnT, msrData["time"])
-                    eqnVZ = np.append(eqnVZ, msrData["eqnVZ"])
+                    eqnT = np.append(eqnT, msrData["T"])
+                    eqnVZ = np.append(eqnVZ, msrData["VZ"])
             axis.scatter(eqnT, eqnVZ, c="r", marker="o", alpha=1, s=vwrPosMks, label="msr: VZ")
         axis.set_xlabel("t")
         axis.set_ylabel("VZ")
@@ -2103,9 +2107,9 @@ class planeTrackingExample:
 
         # Plot simulation output variables.
         axis = self.vwr["2D"]["simOV"].getAxis(6)
-        axis.plot(self.slt["time"], self.slt["eqn"]["AX"], label="slt: AX",
+        axis.plot(self.slt["T"], self.slt["AX"], label="slt: AX",
                   marker="o", ms=3, c="b")
-        axis.plot(self.kfm.sim["time"], self.kfm.outputs["AX"], label="sim: AX",
+        axis.plot(self.kfm.time, self.kfm.outputs["AX"], label="sim: AX",
                   marker="o", ms=3, c="g")
         vwrPosMks = float(self.msr["vwrPosMks"].text())
         if vwrPosMks > 0:
@@ -2113,40 +2117,40 @@ class planeTrackingExample:
             for txt in self.msr["datMsr"]:
                 msrData = self.msr["datMsr"][txt]
                 if msrData["msrType"] == "a":
-                    eqnT = np.append(eqnT, msrData["time"])
-                    eqnAX = np.append(eqnAX, msrData["eqnAX"])
+                    eqnT = np.append(eqnT, msrData["T"])
+                    eqnAX = np.append(eqnAX, msrData["AX"])
             axis.scatter(eqnT, eqnAX, c="r", marker="s", alpha=1, s=vwrPosMks, label="msr: AX")
         axis.set_xlabel("t")
         axis.set_ylabel("AX")
         axis.legend()
         axis = self.vwr["2D"]["simOV"].getAxis(7)
-        axis.plot(self.slt["time"], self.slt["eqn"]["AY"], label="slt: AY",
+        axis.plot(self.slt["T"], self.slt["AY"], label="slt: AY",
                   marker="o", ms=3, c="b")
-        axis.plot(self.kfm.sim["time"], self.kfm.outputs["AY"], label="sim: AY",
+        axis.plot(self.kfm.time, self.kfm.outputs["AY"], label="sim: AY",
                   marker="o", ms=3, c="g")
         if vwrPosMks > 0:
             eqnT, eqnAY = np.array([]), np.array([])
             for txt in self.msr["datMsr"]:
                 msrData = self.msr["datMsr"][txt]
                 if msrData["msrType"] == "a":
-                    eqnT = np.append(eqnT, msrData["time"])
-                    eqnAY = np.append(eqnAY, msrData["eqnAY"])
+                    eqnT = np.append(eqnT, msrData["T"])
+                    eqnAY = np.append(eqnAY, msrData["AY"])
             axis.scatter(eqnT, eqnAY, c="r", marker="s", alpha=1, s=vwrPosMks, label="msr: AY")
         axis.set_xlabel("t")
         axis.set_ylabel("AY")
         axis.legend()
         axis = self.vwr["2D"]["simOV"].getAxis(8)
-        axis.plot(self.slt["time"], self.slt["eqn"]["AZ"], label="slt: AZ",
+        axis.plot(self.slt["T"], self.slt["AZ"], label="slt: AZ",
                   marker="o", ms=3, c="b")
-        axis.plot(self.kfm.sim["time"], self.kfm.outputs["AZ"], label="sim: AZ",
+        axis.plot(self.kfm.time, self.kfm.outputs["AZ"], label="sim: AZ",
                   marker="o", ms=3, c="g")
         if vwrPosMks > 0:
             eqnT, eqnAZ = np.array([]), np.array([])
             for txt in self.msr["datMsr"]:
                 msrData = self.msr["datMsr"][txt]
                 if msrData["msrType"] == "a":
-                    eqnT = np.append(eqnT, msrData["time"])
-                    eqnAZ = np.append(eqnAZ, msrData["eqnAZ"])
+                    eqnT = np.append(eqnT, msrData["T"])
+                    eqnAZ = np.append(eqnAZ, msrData["AZ"])
             axis.scatter(eqnT, eqnAZ, c="r", marker="s", alpha=1, s=vwrPosMks, label="msr: AZ")
         axis.set_xlabel("t")
         axis.set_ylabel("AZ")
@@ -2175,11 +2179,11 @@ class planeTrackingExample:
         """Plot control law hidden variables"""
 
         # Don't plot if there's nothing to plot.
-        if not self.kfm.solved:
+        if not self.kfm.isSolved():
             return
 
         # Plot control law hidden variables.
-        time = self.kfm.sim["time"]
+        time = self.kfm.time
         axis = self.vwr["2D"]["ctlHV"].getAxis(0)
         axis.plot(time, self.kfm.sim["ctlHV"]["FoM"]["X"], label="F/m - X", marker="o", ms=3)
         axis.set_xlabel("t")
@@ -2252,15 +2256,15 @@ class planeTrackingExample:
         """Plot time scheme variables"""
 
         # Don't plot if there's nothing to plot.
-        if not self.kfm.solved:
+        if not self.kfm.isSolved():
             return
 
         # Plot time scheme variables.
-        time = self.kfm.sim["time"]
+        time = self.kfm.time
         axis = self.vwr["2D"]["timSc"].getAxis(0)
         cfl = np.array([], dtype=float)
-        for idx in range(1, len(self.kfm.sim["time"])):
-            deltaT = self.kfm.sim["time"][idx]-self.kfm.sim["time"][idx-1]
+        for idx in range(1, len(self.kfm.time)):
+            deltaT = self.kfm.time[idx]-self.kfm.time[idx-1]
             deltaX = self.kfm.outputs["X"][idx]-self.kfm.outputs["X"][idx-1]
             deltaY = self.kfm.outputs["Y"][idx]-self.kfm.outputs["Y"][idx-1]
             deltaZ = self.kfm.outputs["Z"][idx]-self.kfm.outputs["Z"][idx-1]
