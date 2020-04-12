@@ -194,6 +194,7 @@ class kalmanFilterModel():
         keys = self.example.getOutputKeys()
         for key in keys:
             self.outputs[key] = []
+        self.sim["taylorExpLTM"] = np.array([])
 
         # Clear previous control law hidden variables.
         self.sim["ctlHV"]["FoM"] = {}
@@ -515,8 +516,9 @@ class kalmanFilterModel():
             taylorExpLTM = np.amax(np.abs(taylorExp))
             matF = matF+taylorExp
         if self.sim["prmVrb"] >= 3:
-            msg = "Predictor - F (last term magnitude of taylor expansion %.6f)" % taylorExpLTM
+            msg = "Predictor - F"
             self.printMat(msg, matF)
+        self.sim["taylorExpLTM"] = np.append(self.sim["taylorExpLTM"], taylorExpLTM)
 
         # Compute G_{n,n}.
         matG = None
@@ -619,7 +621,7 @@ class planeTrackingExample:
         self.slt = {"sltId": "", "time": [], "eqn": {}}
         self.msr = {"sltId": "", "msrId": ""}
         self.sim = {"sltId": "", "msrId": "", "simId": ""}
-        self.vwr = {"2D": {"tzp": None, "ctlHV": None, "simOV": None}, "3D": None}
+        self.vwr = {"2D": {"tzp": None, "ctlHV": None, "simOV": None, "timSc": None}, "3D": None}
         self.kfm = kalmanFilterModel(self)
 
     @staticmethod
@@ -683,6 +685,13 @@ class planeTrackingExample:
                     axis.set_xlabel("t")
                     axis.cla()
                 self.vwr["2D"]["ctlHV"].draw()
+        if vwrId in ("all", "timSc"):
+            if self.vwr["2D"]["timSc"]:
+                for idx in [0, 1]:
+                    axis = self.vwr["2D"]["timSc"].getAxis(idx)
+                    axis.set_xlabel("t")
+                    axis.cla()
+                self.vwr["2D"]["timSc"].draw()
         if vwrId in ("all", "3D"):
             axis = self.vwr["3D"].getAxis()
             axis.cla()
@@ -1199,6 +1208,8 @@ class planeTrackingExample:
             self.onPltSOVBtnClick()
         if self.vwr["2D"]["ctlHV"] and not self.vwr["2D"]["ctlHV"].closed:
             self.onPltCHVBtnClick()
+        if self.vwr["2D"]["timSc"] and not self.vwr["2D"]["timSc"].closed:
+            self.onPltTScBtnClick()
 
         # Track simulation features.
         self.sim["simId"] = self.getSimId()
@@ -1931,11 +1942,14 @@ class planeTrackingExample:
         pltSOVBtn.clicked.connect(self.onPltSOVBtnClick)
         pltCHVBtn = QPushButton("Control law variables", simGUI)
         pltCHVBtn.clicked.connect(self.onPltCHVBtnClick)
+        pltTscBtn = QPushButton("Time scheme", simGUI)
+        pltTscBtn.clicked.connect(self.onPltTScBtnClick)
 
         # Create simulation GUI: simulation post processing.
         gdlPpg = QGridLayout(simGUI)
         gdlPpg.addWidget(pltSOVBtn, 0, 0)
         gdlPpg.addWidget(pltCHVBtn, 0, 1)
+        gdlPpg.addWidget(pltTscBtn, 0, 2)
 
         # Set group box layout.
         gpbPpg = QGroupBox(simGUI)
@@ -2213,6 +2227,58 @@ class planeTrackingExample:
         axis.plot(time, self.kfm.sim["ctlHV"]["yaw"], label="yaw", marker="o", ms=3)
         axis.set_xlabel("t")
         axis.set_ylabel("yaw")
+        axis.legend()
+
+    def onPltTScBtnClick(self):
+        """Callback on plotting time scheme variables"""
+
+        # Create or retrieve viewer.
+        if not self.vwr["2D"]["timSc"] or self.vwr["2D"]["timSc"].closed:
+            self.vwr["2D"]["timSc"] = viewer2DGUI(self.ctrGUI)
+            self.vwr["2D"]["timSc"].setUp(nrows=1, ncols=2)
+            self.vwr["2D"]["timSc"].setWindowTitle("Simulation: time scheme")
+            self.vwr["2D"]["timSc"].show()
+
+        # Clear the viewer.
+        self.clearViewer(vwrId="timSc")
+
+        # Plot hidden variables.
+        self.plotTimeSchemeVariables()
+
+        # Draw scene.
+        self.vwr["2D"]["timSc"].draw()
+
+    def plotTimeSchemeVariables(self):
+        """Plot time scheme variables"""
+
+        # Don't plot if there's nothing to plot.
+        if not self.kfm.solved:
+            return
+
+        # Plot time scheme variables.
+        time = self.kfm.sim["time"]
+        axis = self.vwr["2D"]["timSc"].getAxis(0)
+        cfl = np.array([], dtype=float)
+        for idx in range(1, len(self.kfm.sim["time"])):
+            deltaT = self.kfm.sim["time"][idx]-self.kfm.sim["time"][idx-1]
+            deltaX = self.kfm.outputs["X"][idx]-self.kfm.outputs["X"][idx-1]
+            deltaY = self.kfm.outputs["Y"][idx]-self.kfm.outputs["Y"][idx-1]
+            deltaZ = self.kfm.outputs["Z"][idx]-self.kfm.outputs["Z"][idx-1]
+            deltaVX = self.kfm.outputs["VX"][idx]-self.kfm.outputs["VX"][idx-1]
+            deltaVY = self.kfm.outputs["VY"][idx]-self.kfm.outputs["VY"][idx-1]
+            deltaVZ = self.kfm.outputs["VZ"][idx]-self.kfm.outputs["VZ"][idx-1]
+            dist = math.sqrt(deltaX*deltaX+deltaY*deltaY+deltaZ*deltaZ)
+            speed = math.sqrt(deltaVX*deltaVX+deltaVY*deltaVY+deltaVZ*deltaVZ)
+            cfl = np.append(cfl, speed*deltaT/dist)
+        axis.plot(time[1:], cfl, label="CFL", marker="o", ms=3)
+        axis.set_xlabel("t")
+        axis.set_ylabel("CFL")
+        axis.legend()
+        axis = self.vwr["2D"]["timSc"].getAxis(1)
+        title = "Taylor expansion (exponential): last term magnitude"
+        axis.plot(time[1:], self.kfm.sim["taylorExpLTM"], label=title, marker="o", ms=3)
+        axis.set_xlabel("t")
+        axis.set_ylabel("magnitude")
         axis.legend()
 
     def createVwrGUI(self, gdlVwr):
