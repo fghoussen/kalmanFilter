@@ -166,7 +166,7 @@ class kalmanFilterModel():
         """Initialize"""
 
         # Initialize members.
-        self.sim = {"ctlHV": {}, "matP": {}}
+        self.sim = {"ctlHV": {}, "matP": {}, "matK": {}}
         self.msr = []
         self.example = example
         self.time = []
@@ -208,17 +208,18 @@ class kalmanFilterModel():
         self.sim["ctlHV"]["yaw"] = []
         self.sim["taylorExpLTM"] = np.array([])
 
-        # Clear previous covariance variables.
-        self.sim["matP"]["T"] = []
-        self.sim["matP"]["X"] = []
-        self.sim["matP"]["VX"] = []
-        self.sim["matP"]["AX"] = []
-        self.sim["matP"]["Y"] = []
-        self.sim["matP"]["VY"] = []
-        self.sim["matP"]["AY"] = []
-        self.sim["matP"]["Z"] = []
-        self.sim["matP"]["VZ"] = []
-        self.sim["matP"]["AZ"] = []
+        # Clear previous covariance and Kalman gain variables.
+        for key in ["matP", "matK"]:
+            self.sim[key]["T"] = []
+            self.sim[key]["X"] = []
+            self.sim[key]["VX"] = []
+            self.sim[key]["AX"] = []
+            self.sim[key]["Y"] = []
+            self.sim[key]["VY"] = []
+            self.sim[key]["AY"] = []
+            self.sim[key]["Z"] = []
+            self.sim[key]["VZ"] = []
+            self.sim[key]["AZ"] = []
 
     def isSolved(self):
         """Check if solve has been done"""
@@ -390,6 +391,7 @@ class kalmanFilterModel():
         matK = self.computeKalmanGain(msrLst, matP, matH)
         if self.sim["prmVrb"] >= 3:
             self.printMat("Corrector - K", matK)
+        self.saveK(newTime, matK)
 
         # Update estimate with measurement: x_{n,n} = x_{n,n-1} + K_{n}*(z_{n} - H*x_{n,n-1}).
         matI = matZ-np.dot(matH, states) # Innovation.
@@ -605,6 +607,15 @@ class kalmanFilterModel():
         for idx, key in enumerate(keys):
             self.sim["matP"][key].append(matP[idx, idx])
 
+    def saveK(self, time, matK):
+        """Save Kalman gain"""
+
+        # Save Kalman gain.
+        self.sim["matK"]["T"].append(time)
+        keys = self.example.getStateKeys()
+        for idx, key in enumerate(keys):
+            self.sim["matK"][key].append(matK[idx, idx])
+
     def getProcessNoise(self, states):
         """Get process noise"""
 
@@ -655,6 +666,7 @@ class planeTrackingExample:
         self.vwr["2D"]["simOV"] = None
         self.vwr["2D"]["timSc"] = None
         self.vwr["2D"]["matP"] = None
+        self.vwr["2D"]["matK"] = None
         self.kfm = kalmanFilterModel(self)
 
     @staticmethod
@@ -704,7 +716,7 @@ class planeTrackingExample:
                 axis.set_xlabel("t")
                 axis.set_ylabel("z")
                 self.vwr["2D"]["tzp"].draw()
-        for key in ["simOV", "ctlHV", "matP"]:
+        for key in ["simOV", "ctlHV", "matP", "matK"]:
             if vwrId in ("all", key):
                 if self.vwr["2D"][key]:
                     for idx in [0, 1, 2, 3, 4, 5, 6, 7, 8]:
@@ -1239,6 +1251,8 @@ class planeTrackingExample:
             self.onPltTScBtnClick()
         if self.vwr["2D"]["matP"] and not self.vwr["2D"]["matP"].closed:
             self.onPltCovBtnClick()
+        if self.vwr["2D"]["matK"] and not self.vwr["2D"]["matK"].closed:
+            self.onPltSKGBtnClick()
 
         # Track simulation features.
         self.sim["simId"] = self.getSimId()
@@ -1975,6 +1989,8 @@ class planeTrackingExample:
         pltTscBtn.clicked.connect(self.onPltTScBtnClick)
         pltCovBtn = QPushButton("Covariance", simGUI)
         pltCovBtn.clicked.connect(self.onPltCovBtnClick)
+        pltSKGBtn = QPushButton("Kalman gain", simGUI)
+        pltSKGBtn.clicked.connect(self.onPltSKGBtnClick)
 
         # Create simulation GUI: simulation post processing.
         gdlPpg = QGridLayout(simGUI)
@@ -1982,6 +1998,7 @@ class planeTrackingExample:
         gdlPpg.addWidget(pltCHVBtn, 0, 1)
         gdlPpg.addWidget(pltTscBtn, 0, 2)
         gdlPpg.addWidget(pltCovBtn, 0, 3)
+        gdlPpg.addWidget(pltSKGBtn, 0, 4)
 
         # Set group box layout.
         gpbPpg = QGroupBox(simGUI)
@@ -2385,6 +2402,80 @@ class planeTrackingExample:
         axis.plot(time, self.kfm.sim["matP"]["AZ"], label="$P_{azaz}$", marker="o", ms=3)
         axis.set_xlabel("t")
         axis.set_ylabel("$P_{azaz}$")
+        axis.legend()
+
+    def onPltSKGBtnClick(self):
+        """Callback on plotting Kalman gain diagonal terms"""
+
+        # Create or retrieve viewer.
+        if not self.vwr["2D"]["matK"] or self.vwr["2D"]["matK"].closed:
+            self.vwr["2D"]["matK"] = viewer2DGUI(self.ctrGUI)
+            self.vwr["2D"]["matK"].setUp(nrows=3, ncols=3)
+            self.vwr["2D"]["matK"].setWindowTitle("Simulation: Kalman gain")
+            self.vwr["2D"]["matK"].show()
+
+        # Clear the viewer.
+        self.clearViewer(vwrId="matK")
+
+        # Plot hidden variables.
+        self.plotSimulationKalmanGainVariables()
+
+        # Draw scene.
+        self.vwr["2D"]["matK"].draw()
+
+    def plotSimulationKalmanGainVariables(self):
+        """Plot Kalman gain diagonal terms"""
+
+        # Don't plot if there's nothing to plot.
+        if not self.kfm.isSolved():
+            return
+
+        # Plot simulation Kalman gain variables.
+        time = self.kfm.sim["matK"]["T"]
+        axis = self.vwr["2D"]["matK"].getAxis(0)
+        axis.plot(time, self.kfm.sim["matK"]["X"], label="$K_{xx}$", marker="o", ms=3)
+        axis.set_xlabel("t")
+        axis.set_ylabel("$K_{xx}$")
+        axis.legend()
+        axis = self.vwr["2D"]["matK"].getAxis(1)
+        axis.plot(time, self.kfm.sim["matK"]["Y"], label="$K_{yy}$", marker="o", ms=3)
+        axis.set_xlabel("t")
+        axis.set_ylabel("$K_{yy}$")
+        axis.legend()
+        axis = self.vwr["2D"]["matK"].getAxis(2)
+        axis.plot(time, self.kfm.sim["matK"]["Z"], label="$K_{zz}$", marker="o", ms=3)
+        axis.set_xlabel("t")
+        axis.set_ylabel("$K_{zz}$")
+        axis.legend()
+        axis = self.vwr["2D"]["matK"].getAxis(3)
+        axis.plot(time, self.kfm.sim["matK"]["VX"], label="$K_{vxvx}$", marker="o", ms=3)
+        axis.set_xlabel("t")
+        axis.set_ylabel("$K_{vxvx}$")
+        axis.legend()
+        axis = self.vwr["2D"]["matK"].getAxis(4)
+        axis.plot(time, self.kfm.sim["matK"]["VY"], label="$K_{vyvy}$", marker="o", ms=3)
+        axis.set_xlabel("t")
+        axis.set_ylabel("$K_{vyvy}$")
+        axis.legend()
+        axis = self.vwr["2D"]["matK"].getAxis(5)
+        axis.plot(time, self.kfm.sim["matK"]["VZ"], label="$K_{vzvz}$", marker="o", ms=3)
+        axis.set_xlabel("t")
+        axis.set_ylabel("$K_{vzvz}$")
+        axis.legend()
+        axis = self.vwr["2D"]["matK"].getAxis(6)
+        axis.plot(time, self.kfm.sim["matK"]["AX"], label="$K_{axax}$", marker="o", ms=3)
+        axis.set_xlabel("t")
+        axis.set_ylabel("$K_{axax}$")
+        axis.legend()
+        axis = self.vwr["2D"]["matK"].getAxis(7)
+        axis.plot(time, self.kfm.sim["matK"]["AY"], label="$K_{ayay}$", marker="o", ms=3)
+        axis.set_xlabel("t")
+        axis.set_ylabel("$K_{ayay}$")
+        axis.legend()
+        axis = self.vwr["2D"]["matK"].getAxis(8)
+        axis.plot(time, self.kfm.sim["matK"]["AZ"], label="$K_{azaz}$", marker="o", ms=3)
+        axis.set_xlabel("t")
+        axis.set_ylabel("$K_{azaz}$")
         axis.legend()
 
     def createVwrGUI(self, gdlVwr):
