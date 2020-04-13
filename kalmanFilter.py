@@ -2050,12 +2050,11 @@ class planeTrackingExample:
         # Plot simulation output variables.
         key = "simOVr"
         axis = self.vwr["2D"][key].getAxis(0)
-        axis.plot(self.slt["T"], self.slt["X"], label="slt: X",
-                  marker="o", ms=3, c="b")
-        axis.plot(self.kfm.time, self.kfm.outputs["X"], label="sim: X",
-                  marker="o", ms=3, c="g")
+        axis.plot(self.kfm.time, self.kfm.outputs["X"], label="sim: X", marker="o", ms=3, c="g")
+        if self.vwr["ckbSlt"].isChecked():
+            axis.plot(self.slt["T"], self.slt["X"], label="slt: X", marker="o", ms=3, c="b")
         vwrPosMks = float(self.msr["vwrPosMks"].text())
-        if vwrPosMks > 0:
+        if vwrPosMks > 0 and self.vwr["ckbMsr"].isChecked():
             eqnT, posX = np.array([]), np.array([])
             for txt in self.msr["datMsr"]:
                 msrData = self.msr["datMsr"][txt]
@@ -2067,11 +2066,10 @@ class planeTrackingExample:
         axis.set_ylabel("X")
         axis.legend()
         axis = self.vwr["2D"][key].getAxis(1)
-        axis.plot(self.slt["T"], self.slt["Y"], label="slt: Y",
-                  marker="o", ms=3, c="b")
-        axis.plot(self.kfm.time, self.kfm.outputs["Y"], label="sim: Y",
-                  marker="o", ms=3, c="g")
-        if vwrPosMks > 0:
+        axis.plot(self.kfm.time, self.kfm.outputs["Y"], label="sim: Y", marker="o", ms=3, c="g")
+        if self.vwr["ckbSlt"].isChecked():
+            axis.plot(self.slt["T"], self.slt["Y"], label="slt: Y", marker="o", ms=3, c="b")
+        if vwrPosMks > 0 and self.vwr["ckbMsr"].isChecked():
             eqnT, posY = np.array([]), np.array([])
             for txt in self.msr["datMsr"]:
                 msrData = self.msr["datMsr"][txt]
@@ -2083,11 +2081,10 @@ class planeTrackingExample:
         axis.set_ylabel("Y")
         axis.legend()
         axis = self.vwr["2D"][key].getAxis(2)
-        axis.plot(self.slt["T"], self.slt["Z"], label="slt: Z",
-                  marker="o", ms=3, c="b")
-        axis.plot(self.kfm.time, self.kfm.outputs["Z"], label="sim: Z",
-                  marker="o", ms=3, c="g")
-        if vwrPosMks > 0:
+        axis.plot(self.kfm.time, self.kfm.outputs["Z"], label="sim: Z", marker="o", ms=3, c="g")
+        if self.vwr["ckbSlt"].isChecked():
+            axis.plot(self.slt["T"], self.slt["Z"], label="slt: Z", marker="o", ms=3, c="b")
+        if vwrPosMks > 0 and self.vwr["ckbMsr"].isChecked():
             eqnT, posZ = np.array([]), np.array([])
             for txt in self.msr["datMsr"]:
                 msrData = self.msr["datMsr"][txt]
@@ -2105,12 +2102,11 @@ class planeTrackingExample:
         # Plot simulation output variables.
         key = "simOVr"
         axis = self.vwr["2D"][key].getAxis(3)
-        axis.plot(self.slt["T"], self.slt["VX"], label="slt: VX",
-                  marker="o", ms=3, c="b")
-        axis.plot(self.kfm.time, self.kfm.outputs["VX"], label="sim: VX",
-                  marker="o", ms=3, c="g")
+        axis.plot(self.kfm.time, self.kfm.outputs["VX"], label="sim: VX", marker="o", ms=3, c="g")
+        if self.vwr["ckbSlt"].isChecked():
+            axis.plot(self.slt["T"], self.slt["VX"], label="slt: VX", marker="o", ms=3, c="b")
         vwrPosMks = float(self.msr["vwrPosMks"].text())
-        if vwrPosMks > 0:
+        if vwrPosMks > 0 and self.vwr["ckbMsr"].isChecked():
             eqnT, eqnVX = np.array([]), np.array([])
             for txt in self.msr["datMsr"]:
                 msrData = self.msr["datMsr"][txt]
@@ -2122,11 +2118,10 @@ class planeTrackingExample:
         axis.set_ylabel("VX")
         axis.legend()
         axis = self.vwr["2D"][key].getAxis(4)
-        axis.plot(self.slt["T"], self.slt["VY"], label="slt: VY",
-                  marker="o", ms=3, c="b")
-        axis.plot(self.kfm.time, self.kfm.outputs["VY"], label="sim: VY",
-                  marker="o", ms=3, c="g")
-        if vwrPosMks > 0:
+        axis.plot(self.kfm.time, self.kfm.outputs["VY"], label="sim: VY", marker="o", ms=3, c="g")
+        if self.vwr["ckbSlt"].isChecked():
+            axis.plot(self.slt["T"], self.slt["VY"], label="slt: VY", marker="o", ms=3, c="b")
+        if vwrPosMks > 0 and self.vwr["ckbMsr"].isChecked():
             eqnT, eqnVY = np.array([]), np.array([])
             for txt in self.msr["datMsr"]:
                 msrData = self.msr["datMsr"][txt]
@@ -2138,11 +2133,10 @@ class planeTrackingExample:
         axis.set_ylabel("VY")
         axis.legend()
         axis = self.vwr["2D"][key].getAxis(5)
-        axis.plot(self.slt["T"], self.slt["VZ"], label="slt: VZ",
-                  marker="o", ms=3, c="b")
-        axis.plot(self.kfm.time, self.kfm.outputs["VZ"], label="sim: VZ",
-                  marker="o", ms=3, c="g")
-        if vwrPosMks > 0:
+        axis.plot(self.kfm.time, self.kfm.outputs["VZ"], label="sim: VZ", marker="o", ms=3, c="g")
+        if self.vwr["ckbSlt"].isChecked():
+            axis.plot(self.slt["T"], self.slt["VZ"], label="slt: VZ", marker="o", ms=3, c="b")
+        if vwrPosMks > 0 and self.vwr["ckbMsr"].isChecked():
             eqnT, eqnVZ = np.array([]), np.array([])
             for txt in self.msr["datMsr"]:
                 msrData = self.msr["datMsr"][txt]
@@ -2160,12 +2154,11 @@ class planeTrackingExample:
         # Plot simulation output variables.
         key = "simOVr"
         axis = self.vwr["2D"][key].getAxis(6)
-        axis.plot(self.slt["T"], self.slt["AX"], label="slt: AX",
-                  marker="o", ms=3, c="b")
-        axis.plot(self.kfm.time, self.kfm.outputs["AX"], label="sim: AX",
-                  marker="o", ms=3, c="g")
+        axis.plot(self.kfm.time, self.kfm.outputs["AX"], label="sim: AX", marker="o", ms=3, c="g")
+        if self.vwr["ckbSlt"].isChecked():
+            axis.plot(self.slt["T"], self.slt["AX"], label="slt: AX", marker="o", ms=3, c="b")
         vwrPosMks = float(self.msr["vwrPosMks"].text())
-        if vwrPosMks > 0:
+        if vwrPosMks > 0 and self.vwr["ckbMsr"].isChecked():
             eqnT, eqnAX = np.array([]), np.array([])
             for txt in self.msr["datMsr"]:
                 msrData = self.msr["datMsr"][txt]
@@ -2177,11 +2170,10 @@ class planeTrackingExample:
         axis.set_ylabel("AX")
         axis.legend()
         axis = self.vwr["2D"][key].getAxis(7)
-        axis.plot(self.slt["T"], self.slt["AY"], label="slt: AY",
-                  marker="o", ms=3, c="b")
-        axis.plot(self.kfm.time, self.kfm.outputs["AY"], label="sim: AY",
-                  marker="o", ms=3, c="g")
-        if vwrPosMks > 0:
+        axis.plot(self.kfm.time, self.kfm.outputs["AY"], label="sim: AY", marker="o", ms=3, c="g")
+        if self.vwr["ckbSlt"].isChecked():
+            axis.plot(self.slt["T"], self.slt["AY"], label="slt: AY", marker="o", ms=3, c="b")
+        if vwrPosMks > 0 and self.vwr["ckbMsr"].isChecked():
             eqnT, eqnAY = np.array([]), np.array([])
             for txt in self.msr["datMsr"]:
                 msrData = self.msr["datMsr"][txt]
@@ -2193,11 +2185,10 @@ class planeTrackingExample:
         axis.set_ylabel("AY")
         axis.legend()
         axis = self.vwr["2D"][key].getAxis(8)
-        axis.plot(self.slt["T"], self.slt["AZ"], label="slt: AZ",
-                  marker="o", ms=3, c="b")
-        axis.plot(self.kfm.time, self.kfm.outputs["AZ"], label="sim: AZ",
-                  marker="o", ms=3, c="g")
-        if vwrPosMks > 0:
+        axis.plot(self.kfm.time, self.kfm.outputs["AZ"], label="sim: AZ", marker="o", ms=3, c="g")
+        if self.vwr["ckbSlt"].isChecked():
+            axis.plot(self.slt["T"], self.slt["AZ"], label="slt: AZ", marker="o", ms=3, c="b")
+        if vwrPosMks > 0 and self.vwr["ckbMsr"].isChecked():
             eqnT, eqnAZ = np.array([]), np.array([])
             for txt in self.msr["datMsr"]:
                 msrData = self.msr["datMsr"][txt]
