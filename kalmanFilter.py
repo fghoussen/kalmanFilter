@@ -166,7 +166,7 @@ class kalmanFilterModel():
         """Initialize"""
 
         # Initialize members.
-        self.sim = {"ctlHV": {}}
+        self.sim = {"ctlHV": {}, "matP": {}}
         self.msr = []
         self.example = example
         self.time = []
@@ -207,6 +207,18 @@ class kalmanFilterModel():
         self.sim["ctlHV"]["pitch"] = []
         self.sim["ctlHV"]["yaw"] = []
         self.sim["taylorExpLTM"] = np.array([])
+
+        # Clear previous covariance variables.
+        self.sim["matP"]["T"] = []
+        self.sim["matP"]["X"] = []
+        self.sim["matP"]["VX"] = []
+        self.sim["matP"]["AX"] = []
+        self.sim["matP"]["Y"] = []
+        self.sim["matP"]["VY"] = []
+        self.sim["matP"]["AY"] = []
+        self.sim["matP"]["Z"] = []
+        self.sim["matP"]["VZ"] = []
+        self.sim["matP"]["AZ"] = []
 
     def isSolved(self):
         """Check if solve has been done"""
@@ -316,15 +328,17 @@ class kalmanFilterModel():
         states = self.example.initStates(self.sim)
         matU = self.example.computeControlLaw(states, self.sim)
         outputs = self.computeOutputs(states, matU)
+        matP = self.example.initStateCovariance(self.sim)
         if self.sim["prmVrb"] >= 1:
             print("  "*2+"Initialisation:")
         if self.sim["prmVrb"] >= 2:
             self.printMat("Initialisation - X", np.transpose(states))
             self.printMat("Initialisation - Y", np.transpose(outputs))
-        self.save(time, states, outputs)
+            self.printMat("Initialisation - P", matP)
+        self.saveXY(time, states, outputs)
+        self.saveP(time, matP)
 
         # Solve: https://www.kalmanfilter.net/multiSummary.html.
-        matP = self.example.initStateCovariance(self.sim)
         prmDt, prmTf = self.sim["prmDt"], self.sim["cdfTf"]
         while time < prmTf:
             # Cut off time.
@@ -500,7 +514,8 @@ class kalmanFilterModel():
             self.printMat("Predictor - Y", np.transpose(newOutputs))
 
         # Save simulation results.
-        self.save(newTime, newStates, newOutputs)
+        self.saveXY(newTime, newStates, newOutputs)
+        self.saveP(newTime, matP)
 
         # Extrapolate uncertainty.
         newMatP = self.predictCovariance(matP, matF, matG)
@@ -567,8 +582,8 @@ class kalmanFilterModel():
 
         return newMatP
 
-    def save(self, time, newStates, newOutputs):
-        """Save simulation results"""
+    def saveXY(self, time, newStates, newOutputs):
+        """Save simulation states and outputs"""
 
         # Save time.
         self.time.append(time)
@@ -580,6 +595,15 @@ class kalmanFilterModel():
         keys = self.example.getOutputKeys()
         for idx, key in enumerate(keys):
             self.outputs[key].append(newOutputs[idx, 0])
+
+    def saveP(self, time, matP):
+        """Save covariance"""
+
+        # Save covariance.
+        self.sim["matP"]["T"].append(time)
+        keys = self.example.getStateKeys()
+        for idx, key in enumerate(keys):
+            self.sim["matP"][key].append(matP[idx, idx])
 
     def getProcessNoise(self, states):
         """Get process noise"""
@@ -625,7 +649,12 @@ class planeTrackingExample:
         self.slt = {"sltId": ""}
         self.msr = {"sltId": "", "msrId": ""}
         self.sim = {"sltId": "", "msrId": "", "simId": ""}
-        self.vwr = {"2D": {"tzp": None, "ctlHV": None, "simOV": None, "timSc": None}, "3D": None}
+        self.vwr = {"2D": {}, "3D": None}
+        self.vwr["2D"]["tzp"] = None
+        self.vwr["2D"]["ctlHV"] = None
+        self.vwr["2D"]["simOV"] = None
+        self.vwr["2D"]["timSc"] = None
+        self.vwr["2D"]["matP"] = None
         self.kfm = kalmanFilterModel(self)
 
     @staticmethod
@@ -675,20 +704,14 @@ class planeTrackingExample:
                 axis.set_xlabel("t")
                 axis.set_ylabel("z")
                 self.vwr["2D"]["tzp"].draw()
-        if vwrId in ("all", "simOV"):
-            if self.vwr["2D"]["simOV"]:
-                for idx in [0, 1, 2, 3, 4, 5, 6, 7, 8]:
-                    axis = self.vwr["2D"]["simOV"].getAxis(idx)
-                    axis.set_xlabel("t")
-                    axis.cla()
-                self.vwr["2D"]["simOV"].draw()
-        if vwrId in ("all", "ctlHV"):
-            if self.vwr["2D"]["ctlHV"]:
-                for idx in [0, 1, 2, 3, 4, 5, 6, 7, 8]:
-                    axis = self.vwr["2D"]["ctlHV"].getAxis(idx)
-                    axis.set_xlabel("t")
-                    axis.cla()
-                self.vwr["2D"]["ctlHV"].draw()
+        for key in ["simOV", "ctlHV", "matP"]:
+            if vwrId in ("all", key):
+                if self.vwr["2D"][key]:
+                    for idx in [0, 1, 2, 3, 4, 5, 6, 7, 8]:
+                        axis = self.vwr["2D"][key].getAxis(idx)
+                        axis.set_xlabel("t")
+                        axis.cla()
+                    self.vwr["2D"][key].draw()
         if vwrId in ("all", "timSc"):
             if self.vwr["2D"]["timSc"]:
                 for idx in [0, 1]:
@@ -1214,6 +1237,8 @@ class planeTrackingExample:
             self.onPltCHVBtnClick()
         if self.vwr["2D"]["timSc"] and not self.vwr["2D"]["timSc"].closed:
             self.onPltTScBtnClick()
+        if self.vwr["2D"]["matP"] and not self.vwr["2D"]["matP"].closed:
+            self.onPltCovBtnClick()
 
         # Track simulation features.
         self.sim["simId"] = self.getSimId()
@@ -1717,7 +1742,7 @@ class planeTrackingExample:
         self.sim["prmDt"] = QLineEdit("0.03", self.ctrGUI)
         self.sim["prmExpOrd"] = QLineEdit("3", self.ctrGUI)
         self.sim["prmProNseSig"] = QLineEdit("0.05", self.ctrGUI)
-        self.sim["prmVrb"] = QLineEdit("4", self.ctrGUI)
+        self.sim["prmVrb"] = QLineEdit("1", self.ctrGUI)
         self.sim["cdiX0"] = QLineEdit("0.1", self.ctrGUI)
         self.sim["cdiY0"] = QLineEdit("0.1", self.ctrGUI)
         self.sim["cdiZ0"] = QLineEdit("0.1", self.ctrGUI)
@@ -1948,12 +1973,15 @@ class planeTrackingExample:
         pltCHVBtn.clicked.connect(self.onPltCHVBtnClick)
         pltTscBtn = QPushButton("Time scheme", simGUI)
         pltTscBtn.clicked.connect(self.onPltTScBtnClick)
+        pltCovBtn = QPushButton("Covariance", simGUI)
+        pltCovBtn.clicked.connect(self.onPltCovBtnClick)
 
         # Create simulation GUI: simulation post processing.
         gdlPpg = QGridLayout(simGUI)
         gdlPpg.addWidget(pltSOVBtn, 0, 0)
         gdlPpg.addWidget(pltCHVBtn, 0, 1)
         gdlPpg.addWidget(pltTscBtn, 0, 2)
+        gdlPpg.addWidget(pltCovBtn, 0, 3)
 
         # Set group box layout.
         gpbPpg = QGroupBox(simGUI)
@@ -2283,6 +2311,80 @@ class planeTrackingExample:
         axis.plot(time[1:], self.kfm.sim["taylorExpLTM"], label=title, marker="o", ms=3)
         axis.set_xlabel("t")
         axis.set_ylabel("magnitude")
+        axis.legend()
+
+    def onPltCovBtnClick(self):
+        """Callback on plotting covariance diagonal terms"""
+
+        # Create or retrieve viewer.
+        if not self.vwr["2D"]["matP"] or self.vwr["2D"]["matP"].closed:
+            self.vwr["2D"]["matP"] = viewer2DGUI(self.ctrGUI)
+            self.vwr["2D"]["matP"].setUp(nrows=3, ncols=3)
+            self.vwr["2D"]["matP"].setWindowTitle("Simulation: covariance")
+            self.vwr["2D"]["matP"].show()
+
+        # Clear the viewer.
+        self.clearViewer(vwrId="matP")
+
+        # Plot hidden variables.
+        self.plotSimulationCovarianceVariables()
+
+        # Draw scene.
+        self.vwr["2D"]["matP"].draw()
+
+    def plotSimulationCovarianceVariables(self):
+        """Plot covariance diagonal terms"""
+
+        # Don't plot if there's nothing to plot.
+        if not self.kfm.isSolved():
+            return
+
+        # Plot simulation covariance variables.
+        time = self.kfm.sim["matP"]["T"]
+        axis = self.vwr["2D"]["matP"].getAxis(0)
+        axis.plot(time, self.kfm.sim["matP"]["X"], label="$P_{xx}$", marker="o", ms=3)
+        axis.set_xlabel("t")
+        axis.set_ylabel("$P_{xx}$")
+        axis.legend()
+        axis = self.vwr["2D"]["matP"].getAxis(1)
+        axis.plot(time, self.kfm.sim["matP"]["Y"], label="$P_{yy}$", marker="o", ms=3)
+        axis.set_xlabel("t")
+        axis.set_ylabel("$P_{yy}$")
+        axis.legend()
+        axis = self.vwr["2D"]["matP"].getAxis(2)
+        axis.plot(time, self.kfm.sim["matP"]["Z"], label="$P_{zz}$", marker="o", ms=3)
+        axis.set_xlabel("t")
+        axis.set_ylabel("$P_{zz}$")
+        axis.legend()
+        axis = self.vwr["2D"]["matP"].getAxis(3)
+        axis.plot(time, self.kfm.sim["matP"]["VX"], label="$P_{vxvx}$", marker="o", ms=3)
+        axis.set_xlabel("t")
+        axis.set_ylabel("$P_{vxvx}$")
+        axis.legend()
+        axis = self.vwr["2D"]["matP"].getAxis(4)
+        axis.plot(time, self.kfm.sim["matP"]["VY"], label="$P_{vyvy}$", marker="o", ms=3)
+        axis.set_xlabel("t")
+        axis.set_ylabel("$P_{vyvy}$")
+        axis.legend()
+        axis = self.vwr["2D"]["matP"].getAxis(5)
+        axis.plot(time, self.kfm.sim["matP"]["VZ"], label="$P_{vzvz}$", marker="o", ms=3)
+        axis.set_xlabel("t")
+        axis.set_ylabel("$P_{vzvz}$")
+        axis.legend()
+        axis = self.vwr["2D"]["matP"].getAxis(6)
+        axis.plot(time, self.kfm.sim["matP"]["AX"], label="$P_{axax}$", marker="o", ms=3)
+        axis.set_xlabel("t")
+        axis.set_ylabel("$P_{axax}$")
+        axis.legend()
+        axis = self.vwr["2D"]["matP"].getAxis(7)
+        axis.plot(time, self.kfm.sim["matP"]["AY"], label="$P_{ayay}$", marker="o", ms=3)
+        axis.set_xlabel("t")
+        axis.set_ylabel("$P_{ayay}$")
+        axis.legend()
+        axis = self.vwr["2D"]["matP"].getAxis(8)
+        axis.plot(time, self.kfm.sim["matP"]["AZ"], label="$P_{azaz}$", marker="o", ms=3)
+        axis.set_xlabel("t")
+        axis.set_ylabel("$P_{azaz}$")
         axis.legend()
 
     def createVwrGUI(self, gdlVwr):
