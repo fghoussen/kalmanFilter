@@ -1025,7 +1025,7 @@ class planeTrackingExample:
         # Get X equation: displacement.
         prmV0 = float(self.slt["cdiX0"].text())
         prmA = float(self.slt["fpeAx"].text())
-        prmPhi = float(self.slt["fpePhix"].text())
+        prmPhi = float(self.slt["fpePhix"].text())*(np.pi/180.) # In radians.
         prmT = float(self.slt["fpeTx"].text())
         prmB = prmV0-prmA*np.cos(prmPhi)
         omega = 2.*math.pi/prmT
@@ -1038,7 +1038,7 @@ class planeTrackingExample:
 
         # Get X equation: velocity.
         prmA = float(self.slt["fpeAx"].text())
-        prmPhi = float(self.slt["fpePhix"].text())
+        prmPhi = float(self.slt["fpePhix"].text())*(np.pi/180.) # In radians.
         prmT = float(self.slt["fpeTx"].text())
         omega = 2.*math.pi/prmT
         eqnVX = -1.*prmA*omega*np.sin(omega*eqnT+prmPhi)
@@ -1050,7 +1050,7 @@ class planeTrackingExample:
 
         # Get X equation: acceleration.
         prmA = float(self.slt["fpeAx"].text())
-        prmPhi = float(self.slt["fpePhix"].text())
+        prmPhi = float(self.slt["fpePhix"].text())*(np.pi/180.) # In radians.
         prmT = float(self.slt["fpeTx"].text())
         omega = 2.*math.pi/prmT
         eqnAX = -1.*prmA*omega*omega*np.cos(omega*eqnT+prmPhi)
@@ -1063,7 +1063,7 @@ class planeTrackingExample:
         # Get Y equation: displacement.
         prmV0 = float(self.slt["cdiY0"].text())
         prmA = float(self.slt["fpeAy"].text())
-        prmPhi = float(self.slt["fpePhiy"].text())
+        prmPhi = float(self.slt["fpePhiy"].text())*(np.pi/180.) # In radians.
         prmT = float(self.slt["fpeTy"].text())
         prmB = prmV0-prmA*np.sin(prmPhi)
         omega = 2.*math.pi/prmT
@@ -1076,7 +1076,7 @@ class planeTrackingExample:
 
         # Get Y equation: velocity.
         prmA = float(self.slt["fpeAy"].text())
-        prmPhi = float(self.slt["fpePhiy"].text())
+        prmPhi = float(self.slt["fpePhiy"].text())*(np.pi/180.) # In radians.
         prmT = float(self.slt["fpeTy"].text())
         omega = 2.*math.pi/prmT
         eqnVY = prmA*omega*np.cos(omega*eqnT+prmPhi)
@@ -1088,7 +1088,7 @@ class planeTrackingExample:
 
         # Get Y equation: acceleration.
         prmA = float(self.slt["fpeAy"].text())
-        prmPhi = float(self.slt["fpePhiy"].text())
+        prmPhi = float(self.slt["fpePhiy"].text())*(np.pi/180.) # In radians.
         prmT = float(self.slt["fpeTy"].text())
         omega = 2.*math.pi/prmT
         eqnAY = -1.*prmA*omega*omega*np.sin(omega*eqnT+prmPhi)
@@ -1343,6 +1343,15 @@ class planeTrackingExample:
         msg.setText("Error")
         msg.setText("Error"+" - "+eId+": "+txt)
         msg.exec_()
+
+    def createPrbGUI(self):
+        """Create preambule GUI"""
+
+        # Create preambule GUI: specify units.
+
+        lbl = QLabel("Units: distance in m, time in s, mass in kg, angle in °", self.ctrGUI)
+        lbl.setAlignment(Qt.AlignHCenter)
+        return lbl
 
     def createSltGUI(self):
         """Create solution GUI"""
@@ -2958,6 +2967,8 @@ class controllerGUI(QMainWindow):
         gdlVwr, gdlVwrRow, gdlVwrSpan = QGridLayout(), 0, 1
         for example in self.examples:
             if example.getName() == txt:
+                prbGUI = example.createPrbGUI()
+                layCtr.addWidget(prbGUI)
                 sltGUI = example.createSltGUI()
                 layCtr.addWidget(sltGUI)
                 msrGUI = example.createMsrGUI()
