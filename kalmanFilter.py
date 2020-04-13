@@ -166,7 +166,7 @@ class kalmanFilterModel():
         """Initialize"""
 
         # Initialize members.
-        self.sim = {"ctlHV": {}, "matP": {}, "matK": {}}
+        self.sim = {"simCLV": {}, "simDgP": {}, "simDgK": {}}
         self.msr = []
         self.example = example
         self.time = []
@@ -195,21 +195,21 @@ class kalmanFilterModel():
             self.outputs[key] = []
 
         # Clear previous control law hidden variables.
-        self.sim["ctlHV"]["FoM"] = {}
-        self.sim["ctlHV"]["FoM"]["X"] = []
-        self.sim["ctlHV"]["FoM"]["Y"] = []
-        self.sim["ctlHV"]["FoM"]["Z"] = []
-        self.sim["ctlHV"]["d(FoM)/dt"] = {}
-        self.sim["ctlHV"]["d(FoM)/dt"]["X"] = []
-        self.sim["ctlHV"]["d(FoM)/dt"]["Y"] = []
-        self.sim["ctlHV"]["d(FoM)/dt"]["Z"] = []
-        self.sim["ctlHV"]["roll"] = []
-        self.sim["ctlHV"]["pitch"] = []
-        self.sim["ctlHV"]["yaw"] = []
-        self.sim["taylorExpLTM"] = np.array([])
+        self.sim["simCLV"]["FoM"] = {}
+        self.sim["simCLV"]["FoM"]["X"] = []
+        self.sim["simCLV"]["FoM"]["Y"] = []
+        self.sim["simCLV"]["FoM"]["Z"] = []
+        self.sim["simCLV"]["d(FoM)/dt"] = {}
+        self.sim["simCLV"]["d(FoM)/dt"]["X"] = []
+        self.sim["simCLV"]["d(FoM)/dt"]["Y"] = []
+        self.sim["simCLV"]["d(FoM)/dt"]["Z"] = []
+        self.sim["simCLV"]["roll"] = []
+        self.sim["simCLV"]["pitch"] = []
+        self.sim["simCLV"]["yaw"] = []
+        self.sim["simTEM"] = np.array([])
 
         # Clear previous covariance and Kalman gain variables.
-        for key in ["matP", "matK"]:
+        for key in ["simDgP", "simDgK"]:
             self.sim[key]["T"] = []
             self.sim[key]["X"] = []
             self.sim[key]["VX"] = []
@@ -539,7 +539,7 @@ class kalmanFilterModel():
         if self.sim["prmVrb"] >= 3:
             msg = "Predictor - F"
             self.printMat(msg, matF)
-        self.sim["taylorExpLTM"] = np.append(self.sim["taylorExpLTM"], taylorExpLTM)
+        self.sim["simTEM"] = np.append(self.sim["simTEM"], taylorExpLTM)
 
         # Compute G_{n,n}.
         matG = None
@@ -599,22 +599,22 @@ class kalmanFilterModel():
             self.outputs[key].append(newOutputs[idx, 0])
 
     def saveP(self, time, matP):
-        """Save covariance"""
+        """Save diagonal terms of covariance"""
 
-        # Save covariance.
-        self.sim["matP"]["T"].append(time)
+        # Save diagonal terms of covariance.
+        self.sim["simDgP"]["T"].append(time)
         keys = self.example.getStateKeys()
         for idx, key in enumerate(keys):
-            self.sim["matP"][key].append(matP[idx, idx])
+            self.sim["simDgP"][key].append(matP[idx, idx])
 
     def saveK(self, time, matK):
-        """Save Kalman gain"""
+        """Save diagonal terms of Kalman gain"""
 
-        # Save Kalman gain.
-        self.sim["matK"]["T"].append(time)
+        # Save diagonal terms of Kalman gain.
+        self.sim["simDgK"]["T"].append(time)
         keys = self.example.getStateKeys()
         for idx, key in enumerate(keys):
-            self.sim["matK"][key].append(matK[idx, idx])
+            self.sim["simDgK"][key].append(matK[idx, idx])
 
     def getProcessNoise(self, states):
         """Get process noise"""
@@ -661,12 +661,12 @@ class planeTrackingExample:
         self.msr = {"sltId": "", "msrId": ""}
         self.sim = {"sltId": "", "msrId": "", "simId": ""}
         self.vwr = {"2D": {}, "3D": None}
-        self.vwr["2D"]["tzp"] = None
-        self.vwr["2D"]["ctlHV"] = None
-        self.vwr["2D"]["simOV"] = None
-        self.vwr["2D"]["timSc"] = None
-        self.vwr["2D"]["matP"] = None
-        self.vwr["2D"]["matK"] = None
+        self.vwr["2D"]["fpeTZP"] = None
+        self.vwr["2D"]["simCLV"] = None
+        self.vwr["2D"]["simOVr"] = None
+        self.vwr["2D"]["simTSV"] = None
+        self.vwr["2D"]["simDgP"] = None
+        self.vwr["2D"]["simDgK"] = None
         self.kfm = kalmanFilterModel(self)
 
     @staticmethod
@@ -709,14 +709,14 @@ class planeTrackingExample:
         """Clear viewer"""
 
         # Clear the viewer.
-        if vwrId in ("all", "tzp"):
-            if self.vwr["2D"]["tzp"]:
-                axis = self.vwr["2D"]["tzp"].getAxis()
+        if vwrId in ("all", "fpeTZP"):
+            if self.vwr["2D"]["fpeTZP"]:
+                axis = self.vwr["2D"]["fpeTZP"].getAxis()
                 axis.cla()
                 axis.set_xlabel("t")
                 axis.set_ylabel("z")
-                self.vwr["2D"]["tzp"].draw()
-        for key in ["simOV", "ctlHV", "matP", "matK"]:
+                self.vwr["2D"]["fpeTZP"].draw()
+        for key in ["simOVr", "simCLV", "simDgP", "simDgK"]:
             if vwrId in ("all", key):
                 if self.vwr["2D"][key]:
                     for idx in [0, 1, 2, 3, 4, 5, 6, 7, 8]:
@@ -724,13 +724,13 @@ class planeTrackingExample:
                         axis.set_xlabel("t")
                         axis.cla()
                     self.vwr["2D"][key].draw()
-        if vwrId in ("all", "timSc"):
-            if self.vwr["2D"]["timSc"]:
+        if vwrId in ("all", "simTSV"):
+            if self.vwr["2D"]["simTSV"]:
                 for idx in [0, 1]:
-                    axis = self.vwr["2D"]["timSc"].getAxis(idx)
+                    axis = self.vwr["2D"]["simTSV"].getAxis(idx)
                     axis.set_xlabel("t")
                     axis.cla()
-                self.vwr["2D"]["timSc"].draw()
+                self.vwr["2D"]["simTSV"].draw()
         if vwrId in ("all", "3D"):
             axis = self.vwr["3D"].getAxis()
             axis.cla()
@@ -757,7 +757,7 @@ class planeTrackingExample:
         self.updateViewerSltX()
         self.updateViewerSltV()
         self.updateViewerSltA()
-        if self.vwr["2D"]["tzp"] and not self.vwr["2D"]["tzp"].closed:
+        if self.vwr["2D"]["fpeTZP"] and not self.vwr["2D"]["fpeTZP"].closed:
             self.onPltTZPBtnClick()
 
         # Track solution features.
@@ -1243,15 +1243,15 @@ class planeTrackingExample:
         self.updateViewerSimX()
         self.updateViewerSimV()
         self.updateViewerSimA()
-        if self.vwr["2D"]["simOV"] and not self.vwr["2D"]["simOV"].closed:
+        if self.vwr["2D"]["simOVr"] and not self.vwr["2D"]["simOVr"].closed:
             self.onPltSOVBtnClick()
-        if self.vwr["2D"]["ctlHV"] and not self.vwr["2D"]["ctlHV"].closed:
-            self.onPltCHVBtnClick()
-        if self.vwr["2D"]["timSc"] and not self.vwr["2D"]["timSc"].closed:
-            self.onPltTScBtnClick()
-        if self.vwr["2D"]["matP"] and not self.vwr["2D"]["matP"].closed:
-            self.onPltCovBtnClick()
-        if self.vwr["2D"]["matK"] and not self.vwr["2D"]["matK"].closed:
+        if self.vwr["2D"]["simCLV"] and not self.vwr["2D"]["simCLV"].closed:
+            self.onPltSCLBtnClick()
+        if self.vwr["2D"]["simTSV"] and not self.vwr["2D"]["simTSV"].closed:
+            self.onPltSTSBtnClick()
+        if self.vwr["2D"]["simDgP"] and not self.vwr["2D"]["simDgP"].closed:
+            self.onPltSCvBtnClick()
+        if self.vwr["2D"]["simDgK"] and not self.vwr["2D"]["simDgK"].closed:
             self.onPltSKGBtnClick()
 
         # Track simulation features.
@@ -1445,14 +1445,14 @@ class planeTrackingExample:
         """Callback on plotting lagrange T-Z polynomial"""
 
         # Create or retrieve viewer.
-        if not self.vwr["2D"]["tzp"] or self.vwr["2D"]["tzp"].closed:
-            self.vwr["2D"]["tzp"] = viewer2DGUI(self.ctrGUI)
-            self.vwr["2D"]["tzp"].setUp()
-            self.vwr["2D"]["tzp"].setWindowTitle("Flight path equation: Lagrange T-Z polynomial")
-            self.vwr["2D"]["tzp"].show()
+        if not self.vwr["2D"]["fpeTZP"] or self.vwr["2D"]["fpeTZP"].closed:
+            self.vwr["2D"]["fpeTZP"] = viewer2DGUI(self.ctrGUI)
+            self.vwr["2D"]["fpeTZP"].setUp()
+            self.vwr["2D"]["fpeTZP"].setWindowTitle("Flight path equation: Lagrange T-Z polynomial")
+            self.vwr["2D"]["fpeTZP"].show()
 
         # Clear the viewer.
-        self.clearViewer(vwrId="tzp")
+        self.clearViewer(vwrId="fpeTZP")
 
         # Time.
         prmTf = float(self.slt["cdfTf"].text())
@@ -1464,7 +1464,7 @@ class planeTrackingExample:
         eqnZ = poly(eqnT)
 
         # Plot lagrange Z polynomial.
-        axis = self.vwr["2D"]["tzp"].getAxis()
+        axis = self.vwr["2D"]["fpeTZP"].getAxis()
         vwrLnWd = float(self.slt["vwrLnWd"].text())
         if vwrLnWd > 0.:
             vwrPosMks = float(self.slt["vwrPosMks"].text())
@@ -1475,7 +1475,7 @@ class planeTrackingExample:
         axis.legend()
 
         # Draw scene.
-        self.vwr["2D"]["tzp"].draw()
+        self.vwr["2D"]["fpeTZP"].draw()
 
     def fillSltGUIX0(self, sltGUI):
         """Fill solution GUI : initial conditions"""
@@ -1983,21 +1983,21 @@ class planeTrackingExample:
         # Create push buttons.
         pltSOVBtn = QPushButton("Output variables", simGUI)
         pltSOVBtn.clicked.connect(self.onPltSOVBtnClick)
-        pltCHVBtn = QPushButton("Control law variables", simGUI)
-        pltCHVBtn.clicked.connect(self.onPltCHVBtnClick)
-        pltTscBtn = QPushButton("Time scheme", simGUI)
-        pltTscBtn.clicked.connect(self.onPltTScBtnClick)
-        pltCovBtn = QPushButton("Covariance", simGUI)
-        pltCovBtn.clicked.connect(self.onPltCovBtnClick)
+        pltSCLBtn = QPushButton("Control law variables", simGUI)
+        pltSCLBtn.clicked.connect(self.onPltSCLBtnClick)
+        pltSTSBtn = QPushButton("Time scheme", simGUI)
+        pltSTSBtn.clicked.connect(self.onPltSTSBtnClick)
+        pltSCvBtn = QPushButton("Covariance", simGUI)
+        pltSCvBtn.clicked.connect(self.onPltSCvBtnClick)
         pltSKGBtn = QPushButton("Kalman gain", simGUI)
         pltSKGBtn.clicked.connect(self.onPltSKGBtnClick)
 
         # Create simulation GUI: simulation post processing.
         gdlPpg = QGridLayout(simGUI)
         gdlPpg.addWidget(pltSOVBtn, 0, 0)
-        gdlPpg.addWidget(pltCHVBtn, 0, 1)
-        gdlPpg.addWidget(pltTscBtn, 0, 2)
-        gdlPpg.addWidget(pltCovBtn, 0, 3)
+        gdlPpg.addWidget(pltSCLBtn, 0, 1)
+        gdlPpg.addWidget(pltSTSBtn, 0, 2)
+        gdlPpg.addWidget(pltSCvBtn, 0, 3)
         gdlPpg.addWidget(pltSKGBtn, 0, 4)
 
         # Set group box layout.
@@ -2009,23 +2009,23 @@ class planeTrackingExample:
         return gpbPpg
 
     def onPltSOVBtnClick(self):
-        """Callback on plotting output variables of simulation"""
+        """Callback on plotting simulation output variables"""
 
         # Create or retrieve viewer.
-        if not self.vwr["2D"]["simOV"] or self.vwr["2D"]["simOV"].closed:
-            self.vwr["2D"]["simOV"] = viewer2DGUI(self.ctrGUI)
-            self.vwr["2D"]["simOV"].setUp(nrows=3, ncols=3)
-            self.vwr["2D"]["simOV"].setWindowTitle("Simulation: outputs")
-            self.vwr["2D"]["simOV"].show()
+        if not self.vwr["2D"]["simOVr"] or self.vwr["2D"]["simOVr"].closed:
+            self.vwr["2D"]["simOVr"] = viewer2DGUI(self.ctrGUI)
+            self.vwr["2D"]["simOVr"].setUp(nrows=3, ncols=3)
+            self.vwr["2D"]["simOVr"].setWindowTitle("Simulation: outputs")
+            self.vwr["2D"]["simOVr"].show()
 
         # Clear the viewer.
-        self.clearViewer(vwrId="simOV")
+        self.clearViewer(vwrId="simOVr")
 
         # Plot simulation output variables.
         self.plotSimulationOutputVariables()
 
         # Draw scene.
-        self.vwr["2D"]["simOV"].draw()
+        self.vwr["2D"]["simOVr"].draw()
 
     def plotSimulationOutputVariables(self):
         """Plot simulation output variables"""
@@ -2043,7 +2043,8 @@ class planeTrackingExample:
         """Plot simulation output variables: X"""
 
         # Plot simulation output variables.
-        axis = self.vwr["2D"]["simOV"].getAxis(0)
+        key = "simOVr"
+        axis = self.vwr["2D"][key].getAxis(0)
         axis.plot(self.slt["T"], self.slt["X"], label="slt: X",
                   marker="o", ms=3, c="b")
         axis.plot(self.kfm.time, self.kfm.outputs["X"], label="sim: X",
@@ -2060,7 +2061,7 @@ class planeTrackingExample:
         axis.set_xlabel("t")
         axis.set_ylabel("X")
         axis.legend()
-        axis = self.vwr["2D"]["simOV"].getAxis(1)
+        axis = self.vwr["2D"][key].getAxis(1)
         axis.plot(self.slt["T"], self.slt["Y"], label="slt: Y",
                   marker="o", ms=3, c="b")
         axis.plot(self.kfm.time, self.kfm.outputs["Y"], label="sim: Y",
@@ -2076,7 +2077,7 @@ class planeTrackingExample:
         axis.set_xlabel("t")
         axis.set_ylabel("Y")
         axis.legend()
-        axis = self.vwr["2D"]["simOV"].getAxis(2)
+        axis = self.vwr["2D"][key].getAxis(2)
         axis.plot(self.slt["T"], self.slt["Z"], label="slt: Z",
                   marker="o", ms=3, c="b")
         axis.plot(self.kfm.time, self.kfm.outputs["Z"], label="sim: Z",
@@ -2097,7 +2098,8 @@ class planeTrackingExample:
         """Plot simulation output variables: V"""
 
         # Plot simulation output variables.
-        axis = self.vwr["2D"]["simOV"].getAxis(3)
+        key = "simOVr"
+        axis = self.vwr["2D"][key].getAxis(3)
         axis.plot(self.slt["T"], self.slt["VX"], label="slt: VX",
                   marker="o", ms=3, c="b")
         axis.plot(self.kfm.time, self.kfm.outputs["VX"], label="sim: VX",
@@ -2114,7 +2116,7 @@ class planeTrackingExample:
         axis.set_xlabel("t")
         axis.set_ylabel("VX")
         axis.legend()
-        axis = self.vwr["2D"]["simOV"].getAxis(4)
+        axis = self.vwr["2D"][key].getAxis(4)
         axis.plot(self.slt["T"], self.slt["VY"], label="slt: VY",
                   marker="o", ms=3, c="b")
         axis.plot(self.kfm.time, self.kfm.outputs["VY"], label="sim: VY",
@@ -2130,7 +2132,7 @@ class planeTrackingExample:
         axis.set_xlabel("t")
         axis.set_ylabel("VY")
         axis.legend()
-        axis = self.vwr["2D"]["simOV"].getAxis(5)
+        axis = self.vwr["2D"][key].getAxis(5)
         axis.plot(self.slt["T"], self.slt["VZ"], label="slt: VZ",
                   marker="o", ms=3, c="b")
         axis.plot(self.kfm.time, self.kfm.outputs["VZ"], label="sim: VZ",
@@ -2151,7 +2153,8 @@ class planeTrackingExample:
         """Plot simulation output variables: A"""
 
         # Plot simulation output variables.
-        axis = self.vwr["2D"]["simOV"].getAxis(6)
+        key = "simOVr"
+        axis = self.vwr["2D"][key].getAxis(6)
         axis.plot(self.slt["T"], self.slt["AX"], label="slt: AX",
                   marker="o", ms=3, c="b")
         axis.plot(self.kfm.time, self.kfm.outputs["AX"], label="sim: AX",
@@ -2168,7 +2171,7 @@ class planeTrackingExample:
         axis.set_xlabel("t")
         axis.set_ylabel("AX")
         axis.legend()
-        axis = self.vwr["2D"]["simOV"].getAxis(7)
+        axis = self.vwr["2D"][key].getAxis(7)
         axis.plot(self.slt["T"], self.slt["AY"], label="slt: AY",
                   marker="o", ms=3, c="b")
         axis.plot(self.kfm.time, self.kfm.outputs["AY"], label="sim: AY",
@@ -2184,7 +2187,7 @@ class planeTrackingExample:
         axis.set_xlabel("t")
         axis.set_ylabel("AY")
         axis.legend()
-        axis = self.vwr["2D"]["simOV"].getAxis(8)
+        axis = self.vwr["2D"][key].getAxis(8)
         axis.plot(self.slt["T"], self.slt["AZ"], label="slt: AZ",
                   marker="o", ms=3, c="b")
         axis.plot(self.kfm.time, self.kfm.outputs["AZ"], label="sim: AZ",
@@ -2201,112 +2204,113 @@ class planeTrackingExample:
         axis.set_ylabel("AZ")
         axis.legend()
 
-    def onPltCHVBtnClick(self):
-        """Callback on plotting hidden variables of control law"""
+    def onPltSCLBtnClick(self):
+        """Callback on plotting control law variables"""
 
         # Create or retrieve viewer.
-        if not self.vwr["2D"]["ctlHV"] or self.vwr["2D"]["ctlHV"].closed:
-            self.vwr["2D"]["ctlHV"] = viewer2DGUI(self.ctrGUI)
-            self.vwr["2D"]["ctlHV"].setUp(nrows=3, ncols=3)
-            self.vwr["2D"]["ctlHV"].setWindowTitle("Simulation: control law")
-            self.vwr["2D"]["ctlHV"].show()
+        if not self.vwr["2D"]["simCLV"] or self.vwr["2D"]["simCLV"].closed:
+            self.vwr["2D"]["simCLV"] = viewer2DGUI(self.ctrGUI)
+            self.vwr["2D"]["simCLV"].setUp(nrows=3, ncols=3)
+            self.vwr["2D"]["simCLV"].setWindowTitle("Simulation: control law")
+            self.vwr["2D"]["simCLV"].show()
 
         # Clear the viewer.
-        self.clearViewer(vwrId="ctlHV")
+        self.clearViewer(vwrId="simCLV")
 
-        # Plot hidden variables.
-        self.plotControlLawHiddenVariables()
+        # Plot simulation control law variables.
+        self.plotSimulationControlLawVariables()
 
         # Draw scene.
-        self.vwr["2D"]["ctlHV"].draw()
+        self.vwr["2D"]["simCLV"].draw()
 
-    def plotControlLawHiddenVariables(self):
-        """Plot control law hidden variables"""
+    def plotSimulationControlLawVariables(self):
+        """Plot simulation control law variables"""
 
         # Don't plot if there's nothing to plot.
         if not self.kfm.isSolved():
             return
 
-        # Plot control law hidden variables.
+        # Plot simulation control law variables.
+        key = "simCLV"
         time = self.kfm.time
-        axis = self.vwr["2D"]["ctlHV"].getAxis(0)
-        axis.plot(time, self.kfm.sim["ctlHV"]["FoM"]["X"], label="F/m - X", marker="o", ms=3)
+        axis = self.vwr["2D"][key].getAxis(0)
+        axis.plot(time, self.kfm.sim[key]["FoM"]["X"], label="F/m - X", marker="o", ms=3)
         axis.set_xlabel("t")
         axis.set_ylabel("F/m")
         axis.legend()
-        axis = self.vwr["2D"]["ctlHV"].getAxis(1)
-        axis.plot(time, self.kfm.sim["ctlHV"]["FoM"]["Y"], label="F/m - Y", marker="o", ms=3)
+        axis = self.vwr["2D"][key].getAxis(1)
+        axis.plot(time, self.kfm.sim[key]["FoM"]["Y"], label="F/m - Y", marker="o", ms=3)
         axis.set_xlabel("t")
         axis.set_ylabel("F/m")
         axis.legend()
-        axis = self.vwr["2D"]["ctlHV"].getAxis(2)
-        axis.plot(time, self.kfm.sim["ctlHV"]["FoM"]["Z"], label="F/m - Z", marker="o", ms=3)
+        axis = self.vwr["2D"][key].getAxis(2)
+        axis.plot(time, self.kfm.sim[key]["FoM"]["Z"], label="F/m - Z", marker="o", ms=3)
         axis.set_xlabel("t")
         axis.set_ylabel("F/m")
         axis.legend()
-        axis = self.vwr["2D"]["ctlHV"].getAxis(3)
-        axis.plot(time, self.kfm.sim["ctlHV"]["d(FoM)/dt"]["X"], label="d(F/m)/dt - X",
+        axis = self.vwr["2D"][key].getAxis(3)
+        axis.plot(time, self.kfm.sim[key]["d(FoM)/dt"]["X"], label="d(F/m)/dt - X",
                   marker="o", ms=3)
         axis.set_xlabel("t")
         axis.set_ylabel("d(F/m)/dt")
         axis.legend()
-        axis = self.vwr["2D"]["ctlHV"].getAxis(4)
-        axis.plot(time, self.kfm.sim["ctlHV"]["d(FoM)/dt"]["Y"], label="d(F/m)/dt - Y",
+        axis = self.vwr["2D"][key].getAxis(4)
+        axis.plot(time, self.kfm.sim[key]["d(FoM)/dt"]["Y"], label="d(F/m)/dt - Y",
                   marker="o", ms=3)
         axis.set_xlabel("t")
         axis.set_ylabel("d(F/m)/dt")
         axis.legend()
-        axis = self.vwr["2D"]["ctlHV"].getAxis(5)
-        axis.plot(time, self.kfm.sim["ctlHV"]["d(FoM)/dt"]["Z"], label="d(F/m)/dt - Z",
+        axis = self.vwr["2D"][key].getAxis(5)
+        axis.plot(time, self.kfm.sim[key]["d(FoM)/dt"]["Z"], label="d(F/m)/dt - Z",
                   marker="o", ms=3)
         axis.set_xlabel("t")
         axis.set_ylabel("d(F/m)/dt")
         axis.legend()
-        axis = self.vwr["2D"]["ctlHV"].getAxis(6)
-        axis.plot(time, self.kfm.sim["ctlHV"]["roll"], label="roll", marker="o", ms=3)
+        axis = self.vwr["2D"][key].getAxis(6)
+        axis.plot(time, self.kfm.sim[key]["roll"], label="roll", marker="o", ms=3)
         axis.set_xlabel("t")
         axis.set_ylabel("roll")
         axis.legend()
-        axis = self.vwr["2D"]["ctlHV"].getAxis(7)
-        axis.plot(time, self.kfm.sim["ctlHV"]["pitch"], label="pitch", marker="o", ms=3)
+        axis = self.vwr["2D"][key].getAxis(7)
+        axis.plot(time, self.kfm.sim[key]["pitch"], label="pitch", marker="o", ms=3)
         axis.set_xlabel("t")
         axis.set_ylabel("pitch")
         axis.legend()
-        axis = self.vwr["2D"]["ctlHV"].getAxis(8)
-        axis.plot(time, self.kfm.sim["ctlHV"]["yaw"], label="yaw", marker="o", ms=3)
+        axis = self.vwr["2D"][key].getAxis(8)
+        axis.plot(time, self.kfm.sim[key]["yaw"], label="yaw", marker="o", ms=3)
         axis.set_xlabel("t")
         axis.set_ylabel("yaw")
         axis.legend()
 
-    def onPltTScBtnClick(self):
-        """Callback on plotting time scheme variables"""
+    def onPltSTSBtnClick(self):
+        """Callback on plotting simulation time scheme variables"""
 
         # Create or retrieve viewer.
-        if not self.vwr["2D"]["timSc"] or self.vwr["2D"]["timSc"].closed:
-            self.vwr["2D"]["timSc"] = viewer2DGUI(self.ctrGUI)
-            self.vwr["2D"]["timSc"].setUp(nrows=1, ncols=2)
-            self.vwr["2D"]["timSc"].setWindowTitle("Simulation: time scheme")
-            self.vwr["2D"]["timSc"].show()
+        if not self.vwr["2D"]["simTSV"] or self.vwr["2D"]["simTSV"].closed:
+            self.vwr["2D"]["simTSV"] = viewer2DGUI(self.ctrGUI)
+            self.vwr["2D"]["simTSV"].setUp(nrows=1, ncols=2)
+            self.vwr["2D"]["simTSV"].setWindowTitle("Simulation: time scheme")
+            self.vwr["2D"]["simTSV"].show()
 
         # Clear the viewer.
-        self.clearViewer(vwrId="timSc")
+        self.clearViewer(vwrId="simTSV")
 
-        # Plot hidden variables.
-        self.plotTimeSchemeVariables()
+        # Plot simulation time scheme variables.
+        self.plotSimulationTimeSchemeVariables()
 
         # Draw scene.
-        self.vwr["2D"]["timSc"].draw()
+        self.vwr["2D"]["simTSV"].draw()
 
-    def plotTimeSchemeVariables(self):
-        """Plot time scheme variables"""
+    def plotSimulationTimeSchemeVariables(self):
+        """Plot simulation time scheme variables"""
 
         # Don't plot if there's nothing to plot.
         if not self.kfm.isSolved():
             return
 
-        # Plot time scheme variables.
-        time = self.kfm.time
-        axis = self.vwr["2D"]["timSc"].getAxis(0)
+        # Plot simulation time scheme variables.
+        key = "simTSV"
+        axis = self.vwr["2D"][key].getAxis(0)
         cfl = np.array([], dtype=float)
         for idx in range(1, len(self.kfm.time)):
             deltaT = self.kfm.time[idx]-self.kfm.time[idx-1]
@@ -2316,38 +2320,38 @@ class planeTrackingExample:
             deltaVX = self.kfm.outputs["VX"][idx]-self.kfm.outputs["VX"][idx-1]
             deltaVY = self.kfm.outputs["VY"][idx]-self.kfm.outputs["VY"][idx-1]
             deltaVZ = self.kfm.outputs["VZ"][idx]-self.kfm.outputs["VZ"][idx-1]
-            dist = math.sqrt(deltaX*deltaX+deltaY*deltaY+deltaZ*deltaZ)
-            speed = math.sqrt(deltaVX*deltaVX+deltaVY*deltaVY+deltaVZ*deltaVZ)
-            cfl = np.append(cfl, speed*deltaT/dist)
-        axis.plot(time[1:], cfl, label="CFL", marker="o", ms=3)
+            deltaDist = math.sqrt(deltaX*deltaX+deltaY*deltaY+deltaZ*deltaZ)
+            deltaVel = math.sqrt(deltaVX*deltaVX+deltaVY*deltaVY+deltaVZ*deltaVZ)
+            cfl = np.append(cfl, deltaVel*deltaT/deltaDist)
+        axis.plot(self.kfm.time[1:], cfl, label="CFL", marker="o", ms=3)
         axis.set_xlabel("t")
         axis.set_ylabel("CFL")
         axis.legend()
-        axis = self.vwr["2D"]["timSc"].getAxis(1)
+        axis = self.vwr["2D"][key].getAxis(1)
         title = "Taylor expansion (exponential): last term magnitude"
-        axis.plot(time[1:], self.kfm.sim["taylorExpLTM"], label=title, marker="o", ms=3)
+        axis.plot(self.kfm.time[1:], self.kfm.sim["simTEM"], label=title, marker="o", ms=3)
         axis.set_xlabel("t")
         axis.set_ylabel("magnitude")
         axis.legend()
 
-    def onPltCovBtnClick(self):
-        """Callback on plotting covariance diagonal terms"""
+    def onPltSCvBtnClick(self):
+        """Callback on plotting simulation covariance diagonal terms"""
 
         # Create or retrieve viewer.
-        if not self.vwr["2D"]["matP"] or self.vwr["2D"]["matP"].closed:
-            self.vwr["2D"]["matP"] = viewer2DGUI(self.ctrGUI)
-            self.vwr["2D"]["matP"].setUp(nrows=3, ncols=3)
-            self.vwr["2D"]["matP"].setWindowTitle("Simulation: covariance")
-            self.vwr["2D"]["matP"].show()
+        if not self.vwr["2D"]["simDgP"] or self.vwr["2D"]["simDgP"].closed:
+            self.vwr["2D"]["simDgP"] = viewer2DGUI(self.ctrGUI)
+            self.vwr["2D"]["simDgP"].setUp(nrows=3, ncols=3)
+            self.vwr["2D"]["simDgP"].setWindowTitle("Simulation: covariance")
+            self.vwr["2D"]["simDgP"].show()
 
         # Clear the viewer.
-        self.clearViewer(vwrId="matP")
+        self.clearViewer(vwrId="simDgP")
 
-        # Plot hidden variables.
+        # Plot simulation covariance variables.
         self.plotSimulationCovarianceVariables()
 
         # Draw scene.
-        self.vwr["2D"]["matP"].draw()
+        self.vwr["2D"]["simDgP"].draw()
 
     def plotSimulationCovarianceVariables(self):
         """Plot covariance diagonal terms"""
@@ -2357,49 +2361,50 @@ class planeTrackingExample:
             return
 
         # Plot simulation covariance variables.
-        time = self.kfm.sim["matP"]["T"]
-        axis = self.vwr["2D"]["matP"].getAxis(0)
-        axis.plot(time, self.kfm.sim["matP"]["X"], label="$P_{xx}$", marker="o", ms=3)
+        key = "simDgP"
+        time = self.kfm.sim[key]["T"]
+        axis = self.vwr["2D"][key].getAxis(0)
+        axis.plot(time, self.kfm.sim[key]["X"], label="$P_{xx}$", marker="o", ms=3)
         axis.set_xlabel("t")
         axis.set_ylabel("$P_{xx}$")
         axis.legend()
-        axis = self.vwr["2D"]["matP"].getAxis(1)
-        axis.plot(time, self.kfm.sim["matP"]["Y"], label="$P_{yy}$", marker="o", ms=3)
+        axis = self.vwr["2D"][key].getAxis(1)
+        axis.plot(time, self.kfm.sim[key]["Y"], label="$P_{yy}$", marker="o", ms=3)
         axis.set_xlabel("t")
         axis.set_ylabel("$P_{yy}$")
         axis.legend()
-        axis = self.vwr["2D"]["matP"].getAxis(2)
-        axis.plot(time, self.kfm.sim["matP"]["Z"], label="$P_{zz}$", marker="o", ms=3)
+        axis = self.vwr["2D"][key].getAxis(2)
+        axis.plot(time, self.kfm.sim[key]["Z"], label="$P_{zz}$", marker="o", ms=3)
         axis.set_xlabel("t")
         axis.set_ylabel("$P_{zz}$")
         axis.legend()
-        axis = self.vwr["2D"]["matP"].getAxis(3)
-        axis.plot(time, self.kfm.sim["matP"]["VX"], label="$P_{vxvx}$", marker="o", ms=3)
+        axis = self.vwr["2D"][key].getAxis(3)
+        axis.plot(time, self.kfm.sim[key]["VX"], label="$P_{vxvx}$", marker="o", ms=3)
         axis.set_xlabel("t")
         axis.set_ylabel("$P_{vxvx}$")
         axis.legend()
-        axis = self.vwr["2D"]["matP"].getAxis(4)
-        axis.plot(time, self.kfm.sim["matP"]["VY"], label="$P_{vyvy}$", marker="o", ms=3)
+        axis = self.vwr["2D"][key].getAxis(4)
+        axis.plot(time, self.kfm.sim[key]["VY"], label="$P_{vyvy}$", marker="o", ms=3)
         axis.set_xlabel("t")
         axis.set_ylabel("$P_{vyvy}$")
         axis.legend()
-        axis = self.vwr["2D"]["matP"].getAxis(5)
-        axis.plot(time, self.kfm.sim["matP"]["VZ"], label="$P_{vzvz}$", marker="o", ms=3)
+        axis = self.vwr["2D"][key].getAxis(5)
+        axis.plot(time, self.kfm.sim[key]["VZ"], label="$P_{vzvz}$", marker="o", ms=3)
         axis.set_xlabel("t")
         axis.set_ylabel("$P_{vzvz}$")
         axis.legend()
-        axis = self.vwr["2D"]["matP"].getAxis(6)
-        axis.plot(time, self.kfm.sim["matP"]["AX"], label="$P_{axax}$", marker="o", ms=3)
+        axis = self.vwr["2D"][key].getAxis(6)
+        axis.plot(time, self.kfm.sim[key]["AX"], label="$P_{axax}$", marker="o", ms=3)
         axis.set_xlabel("t")
         axis.set_ylabel("$P_{axax}$")
         axis.legend()
-        axis = self.vwr["2D"]["matP"].getAxis(7)
-        axis.plot(time, self.kfm.sim["matP"]["AY"], label="$P_{ayay}$", marker="o", ms=3)
+        axis = self.vwr["2D"][key].getAxis(7)
+        axis.plot(time, self.kfm.sim[key]["AY"], label="$P_{ayay}$", marker="o", ms=3)
         axis.set_xlabel("t")
         axis.set_ylabel("$P_{ayay}$")
         axis.legend()
-        axis = self.vwr["2D"]["matP"].getAxis(8)
-        axis.plot(time, self.kfm.sim["matP"]["AZ"], label="$P_{azaz}$", marker="o", ms=3)
+        axis = self.vwr["2D"][key].getAxis(8)
+        axis.plot(time, self.kfm.sim[key]["AZ"], label="$P_{azaz}$", marker="o", ms=3)
         axis.set_xlabel("t")
         axis.set_ylabel("$P_{azaz}$")
         axis.legend()
@@ -2408,20 +2413,20 @@ class planeTrackingExample:
         """Callback on plotting Kalman gain diagonal terms"""
 
         # Create or retrieve viewer.
-        if not self.vwr["2D"]["matK"] or self.vwr["2D"]["matK"].closed:
-            self.vwr["2D"]["matK"] = viewer2DGUI(self.ctrGUI)
-            self.vwr["2D"]["matK"].setUp(nrows=3, ncols=3)
-            self.vwr["2D"]["matK"].setWindowTitle("Simulation: Kalman gain")
-            self.vwr["2D"]["matK"].show()
+        if not self.vwr["2D"]["simDgK"] or self.vwr["2D"]["simDgK"].closed:
+            self.vwr["2D"]["simDgK"] = viewer2DGUI(self.ctrGUI)
+            self.vwr["2D"]["simDgK"].setUp(nrows=3, ncols=3)
+            self.vwr["2D"]["simDgK"].setWindowTitle("Simulation: Kalman gain")
+            self.vwr["2D"]["simDgK"].show()
 
         # Clear the viewer.
-        self.clearViewer(vwrId="matK")
+        self.clearViewer(vwrId="simDgK")
 
-        # Plot hidden variables.
+        # Plot Kalman gain variables.
         self.plotSimulationKalmanGainVariables()
 
         # Draw scene.
-        self.vwr["2D"]["matK"].draw()
+        self.vwr["2D"]["simDgK"].draw()
 
     def plotSimulationKalmanGainVariables(self):
         """Plot Kalman gain diagonal terms"""
@@ -2431,49 +2436,50 @@ class planeTrackingExample:
             return
 
         # Plot simulation Kalman gain variables.
-        time = self.kfm.sim["matK"]["T"]
-        axis = self.vwr["2D"]["matK"].getAxis(0)
-        axis.plot(time, self.kfm.sim["matK"]["X"], label="$K_{xx}$", marker="o", ms=3)
+        key = "simDgK"
+        time = self.kfm.sim[key]["T"]
+        axis = self.vwr["2D"][key].getAxis(0)
+        axis.plot(time, self.kfm.sim[key]["X"], label="$K_{xx}$", marker="o", ms=3)
         axis.set_xlabel("t")
         axis.set_ylabel("$K_{xx}$")
         axis.legend()
-        axis = self.vwr["2D"]["matK"].getAxis(1)
-        axis.plot(time, self.kfm.sim["matK"]["Y"], label="$K_{yy}$", marker="o", ms=3)
+        axis = self.vwr["2D"][key].getAxis(1)
+        axis.plot(time, self.kfm.sim[key]["Y"], label="$K_{yy}$", marker="o", ms=3)
         axis.set_xlabel("t")
         axis.set_ylabel("$K_{yy}$")
         axis.legend()
-        axis = self.vwr["2D"]["matK"].getAxis(2)
-        axis.plot(time, self.kfm.sim["matK"]["Z"], label="$K_{zz}$", marker="o", ms=3)
+        axis = self.vwr["2D"][key].getAxis(2)
+        axis.plot(time, self.kfm.sim[key]["Z"], label="$K_{zz}$", marker="o", ms=3)
         axis.set_xlabel("t")
         axis.set_ylabel("$K_{zz}$")
         axis.legend()
-        axis = self.vwr["2D"]["matK"].getAxis(3)
-        axis.plot(time, self.kfm.sim["matK"]["VX"], label="$K_{vxvx}$", marker="o", ms=3)
+        axis = self.vwr["2D"][key].getAxis(3)
+        axis.plot(time, self.kfm.sim[key]["VX"], label="$K_{vxvx}$", marker="o", ms=3)
         axis.set_xlabel("t")
         axis.set_ylabel("$K_{vxvx}$")
         axis.legend()
-        axis = self.vwr["2D"]["matK"].getAxis(4)
-        axis.plot(time, self.kfm.sim["matK"]["VY"], label="$K_{vyvy}$", marker="o", ms=3)
+        axis = self.vwr["2D"][key].getAxis(4)
+        axis.plot(time, self.kfm.sim[key]["VY"], label="$K_{vyvy}$", marker="o", ms=3)
         axis.set_xlabel("t")
         axis.set_ylabel("$K_{vyvy}$")
         axis.legend()
-        axis = self.vwr["2D"]["matK"].getAxis(5)
-        axis.plot(time, self.kfm.sim["matK"]["VZ"], label="$K_{vzvz}$", marker="o", ms=3)
+        axis = self.vwr["2D"][key].getAxis(5)
+        axis.plot(time, self.kfm.sim[key]["VZ"], label="$K_{vzvz}$", marker="o", ms=3)
         axis.set_xlabel("t")
         axis.set_ylabel("$K_{vzvz}$")
         axis.legend()
-        axis = self.vwr["2D"]["matK"].getAxis(6)
-        axis.plot(time, self.kfm.sim["matK"]["AX"], label="$K_{axax}$", marker="o", ms=3)
+        axis = self.vwr["2D"][key].getAxis(6)
+        axis.plot(time, self.kfm.sim[key]["AX"], label="$K_{axax}$", marker="o", ms=3)
         axis.set_xlabel("t")
         axis.set_ylabel("$K_{axax}$")
         axis.legend()
-        axis = self.vwr["2D"]["matK"].getAxis(7)
-        axis.plot(time, self.kfm.sim["matK"]["AY"], label="$K_{ayay}$", marker="o", ms=3)
+        axis = self.vwr["2D"][key].getAxis(7)
+        axis.plot(time, self.kfm.sim[key]["AY"], label="$K_{ayay}$", marker="o", ms=3)
         axis.set_xlabel("t")
         axis.set_ylabel("$K_{ayay}$")
         axis.legend()
-        axis = self.vwr["2D"]["matK"].getAxis(8)
-        axis.plot(time, self.kfm.sim["matK"]["AZ"], label="$K_{azaz}$", marker="o", ms=3)
+        axis = self.vwr["2D"][key].getAxis(8)
+        axis.plot(time, self.kfm.sim[key]["AZ"], label="$K_{azaz}$", marker="o", ms=3)
         axis.set_xlabel("t")
         axis.set_ylabel("$K_{azaz}$")
         axis.legend()
@@ -2789,7 +2795,7 @@ class planeTrackingExample:
 
         # Save control law hidden variables.
         if save:
-            sim["ctlHV"]["roll"].append(roll)
+            sim["simCLV"]["roll"].append(roll)
 
         # Control roll.
         accTgt = accNow # Target acceleration.
@@ -2816,7 +2822,7 @@ class planeTrackingExample:
 
         # Save control law hidden variables.
         if save:
-            sim["ctlHV"]["pitch"].append(pitch)
+            sim["simCLV"]["pitch"].append(pitch)
 
         # Control pitch.
         accTgt = accNow # Target acceleration.
@@ -2843,7 +2849,7 @@ class planeTrackingExample:
 
         # Save control law hidden variables.
         if save:
-            sim["ctlHV"]["yaw"].append(yaw)
+            sim["simCLV"]["yaw"].append(yaw)
 
         # Control yaw.
         accTgt = accNow # Target acceleration.
@@ -2878,12 +2884,12 @@ class planeTrackingExample:
 
         # Save control law hidden variables.
         if save:
-            sim["ctlHV"]["FoM"]["X"].append(matU[1, 0])
-            sim["ctlHV"]["FoM"]["Y"].append(matU[4, 0])
-            sim["ctlHV"]["FoM"]["Z"].append(matU[7, 0])
-            sim["ctlHV"]["d(FoM)/dt"]["X"].append(matU[2, 0])
-            sim["ctlHV"]["d(FoM)/dt"]["Y"].append(matU[5, 0])
-            sim["ctlHV"]["d(FoM)/dt"]["Z"].append(matU[8, 0])
+            sim["simCLV"]["FoM"]["X"].append(matU[1, 0])
+            sim["simCLV"]["FoM"]["Y"].append(matU[4, 0])
+            sim["simCLV"]["FoM"]["Z"].append(matU[7, 0])
+            sim["simCLV"]["d(FoM)/dt"]["X"].append(matU[2, 0])
+            sim["simCLV"]["d(FoM)/dt"]["Y"].append(matU[5, 0])
+            sim["simCLV"]["d(FoM)/dt"]["Z"].append(matU[8, 0])
 
         return matU
 
