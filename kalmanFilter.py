@@ -394,6 +394,11 @@ class kalmanFilterModel():
         self.saveK(newTime, matK)
 
         # Update estimate with measurement: x_{n,n} = x_{n,n-1} + K_{n}*(z_{n} - H*x_{n,n-1}).
+        #
+        # The Kalman gain tells how much you need to change your estimate by given a measurement:
+        #   x_{n,n} = x_{n,n-1} + K_{n}*(z_{n} - H*x_{n,n-1})
+        #   x_{n,n} = (I - K_{n}*H)*x_{n,n-1} + (K_{n}*H)*x_{n,n-1} + (K_{n}*H)*v_{n}
+        #   x_{n,n} = (I -  alpha )*x_{n,n-1} +   alpha  *x_{n,n-1} +     constant
         matI = matZ-np.dot(matH, states) # Innovation.
         newStates = states+np.dot(matK, matI) # States correction = K_{n}*Innovation.
         if self.sim["prmVrb"] >= 2:
