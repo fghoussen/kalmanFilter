@@ -17,7 +17,7 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget
 from PyQt5.QtWidgets import QLabel, QComboBox, QPushButton, QHBoxLayout, QVBoxLayout
 from PyQt5.QtWidgets import QGroupBox, QGridLayout, QLineEdit
 from PyQt5.QtWidgets import QMessageBox
-from PyQt5.QtWidgets import QListWidget, QCheckBox
+from PyQt5.QtWidgets import QListWidget, QCheckBox, QRadioButton
 from PyQt5.QtCore import Qt
 
 matplotlib.use("Qt5Agg")
@@ -782,14 +782,6 @@ class planeTrackingExample:
         eqnVX, eqnVY, eqnVZ = self.getVelocEquations(eqnT)
         eqnAX, eqnAY, eqnAZ = self.getAccelEquations(eqnT)
 
-        # Update V0/A0 indicators.
-        self.slt["indVX0"].setText("%.3f" % eqnVX[0])
-        self.slt["indVY0"].setText("%.3f" % eqnVY[0])
-        self.slt["indVZ0"].setText("%.3f" % eqnVZ[0])
-        self.slt["indAX0"].setText("%.3f" % eqnAX[0])
-        self.slt["indAY0"].setText("%.3f" % eqnAY[0])
-        self.slt["indAZ0"].setText("%.3f" % eqnAZ[0])
-
         # Save analytic solution.
         self.slt["T"] = eqnT
         self.slt["X"] = eqnX
@@ -801,6 +793,25 @@ class planeTrackingExample:
         self.slt["AX"] = eqnAX
         self.slt["AY"] = eqnAY
         self.slt["AZ"] = eqnAZ
+
+        # Update V0/A0 indicators.
+        self.slt["indVX0"].setText("%.3f" % eqnVX[0])
+        self.slt["indVY0"].setText("%.3f" % eqnVY[0])
+        self.slt["indVZ0"].setText("%.3f" % eqnVZ[0])
+        self.slt["indAX0"].setText("%.3f" % eqnAX[0])
+        self.slt["indAY0"].setText("%.3f" % eqnAY[0])
+        self.slt["indAZ0"].setText("%.3f" % eqnAZ[0])
+
+        # Update min/max indicators.
+        eqnInd = np.sqrt(eqnX*eqnX+eqnY*eqnY+eqnZ*eqnZ)
+        self.slt["indXMin"].setText("%.3f" % np.min(eqnInd))
+        self.slt["indXMax"].setText("%.3f" % np.max(eqnInd))
+        eqnInd = np.sqrt(eqnVX*eqnVX+eqnVY*eqnVY+eqnVZ*eqnVZ)
+        self.slt["indVMin"].setText("%.3f" % np.min(eqnInd))
+        self.slt["indVMax"].setText("%.3f" % np.max(eqnInd))
+        eqnInd = np.sqrt(eqnAX*eqnAX+eqnAY*eqnAY+eqnAZ*eqnAZ)
+        self.slt["indAMin"].setText("%.3f" % np.min(eqnInd))
+        self.slt["indAMax"].setText("%.3f" % np.max(eqnInd))
 
     def updateViewerSltX(self):
         """Update viewer: plot displacement of the solution"""
@@ -1362,37 +1373,52 @@ class planeTrackingExample:
         sltGUI.setAlignment(Qt.AlignHCenter)
 
         # Store analytic parameters.
-        self.slt["fpeAx"] = QLineEdit("1.", self.ctrGUI)
-        self.slt["fpeAy"] = QLineEdit("2.", self.ctrGUI)
-        self.slt["fpeTx"] = QLineEdit("1.", self.ctrGUI)
-        self.slt["fpeTy"] = QLineEdit("1.", self.ctrGUI)
-        self.slt["fpePhix"] = QLineEdit("0.", self.ctrGUI)
-        self.slt["fpePhiy"] = QLineEdit("0.", self.ctrGUI)
-        self.slt["fpeTiZi"] = QLineEdit("0.1 0.1, 0.5 1.2, 1.5 0.8, 1.9 0.1, 2. 0.", self.ctrGUI)
-        self.slt["cdiX0"] = QLineEdit("0.", self.ctrGUI)
-        self.slt["cdiY0"] = QLineEdit("0.", self.ctrGUI)
-        self.slt["cdiZ0"] = QLineEdit("0.", self.ctrGUI)
+        self.slt["fpeAx"] = QLineEdit("N.A.", self.ctrGUI)
+        self.slt["fpeAy"] = QLineEdit("N.A.", self.ctrGUI)
+        self.slt["fpeTx"] = QLineEdit("N.A.", self.ctrGUI)
+        self.slt["fpeTy"] = QLineEdit("N.A.", self.ctrGUI)
+        self.slt["fpePhix"] = QLineEdit("N.A.", self.ctrGUI)
+        self.slt["fpePhiy"] = QLineEdit("N.A.", self.ctrGUI)
+        self.slt["fpeTiZi"] = QLineEdit("N.A.", self.ctrGUI)
+        self.slt["cdiX0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.slt["cdiY0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.slt["cdiZ0"] = QLineEdit("N.A.", self.ctrGUI)
         self.slt["indVX0"] = QLineEdit("N.A.", self.ctrGUI)
         self.slt["indVY0"] = QLineEdit("N.A.", self.ctrGUI)
         self.slt["indVZ0"] = QLineEdit("N.A.", self.ctrGUI)
         self.slt["indAX0"] = QLineEdit("N.A.", self.ctrGUI)
         self.slt["indAY0"] = QLineEdit("N.A.", self.ctrGUI)
         self.slt["indAZ0"] = QLineEdit("N.A.", self.ctrGUI)
-        self.slt["cdfTf"] = QLineEdit("2.", self.ctrGUI)
+        self.slt["cdfTf"] = QLineEdit("N.A.", self.ctrGUI)
+        self.slt["indXMin"] = QLineEdit("N.A.", self.ctrGUI)
+        self.slt["indXMax"] = QLineEdit("N.A.", self.ctrGUI)
+        self.slt["indVMin"] = QLineEdit("N.A.", self.ctrGUI)
+        self.slt["indVMax"] = QLineEdit("N.A.", self.ctrGUI)
+        self.slt["indAMin"] = QLineEdit("N.A.", self.ctrGUI)
+        self.slt["indAMax"] = QLineEdit("N.A.", self.ctrGUI)
         self.slt["vwrNbPt"] = QLineEdit("50", self.ctrGUI)
         self.slt["vwrLnWd"] = QLineEdit("1.", self.ctrGUI)
         self.slt["vwrPosMks"] = QLineEdit("5", self.ctrGUI)
-        self.slt["vwrVelLgh"] = QLineEdit("0.01", self.ctrGUI)
+        self.slt["vwrVelLgh"] = QLineEdit("0.1", self.ctrGUI)
         self.slt["vwrVelNrm"] = QCheckBox("Normalize", self.ctrGUI)
-        self.slt["vwrAccLgh"] = QLineEdit("0.001", self.ctrGUI)
+        self.slt["vwrAccLgh"] = QLineEdit("0.1", self.ctrGUI)
         self.slt["vwrAccNrm"] = QCheckBox("Normalize", self.ctrGUI)
 
+        # Set default GUI.
         self.slt["indVX0"].setEnabled(False)
         self.slt["indVY0"].setEnabled(False)
         self.slt["indVZ0"].setEnabled(False)
         self.slt["indAX0"].setEnabled(False)
         self.slt["indAY0"].setEnabled(False)
         self.slt["indAZ0"].setEnabled(False)
+        self.slt["indXMin"].setEnabled(False)
+        self.slt["indXMax"].setEnabled(False)
+        self.slt["indVMin"].setEnabled(False)
+        self.slt["indVMax"].setEnabled(False)
+        self.slt["indAMin"].setEnabled(False)
+        self.slt["indAMax"].setEnabled(False)
+        self.slt["vwrVelNrm"].setChecked(True)
+        self.slt["vwrAccNrm"].setChecked(True)
 
         # Fill solution GUI.
         self.fillSltGUI(sltGUI)
@@ -1546,8 +1572,23 @@ class planeTrackingExample:
 
         # Create analytic parameters GUI: final conditions.
         gdlTf = QGridLayout(sltGUI)
-        gdlTf.addWidget(QLabel("t<sub>f</sub>", sltGUI), 0, 0)
-        gdlTf.addWidget(self.slt["cdfTf"], 0, 1)
+        gdlTf.addWidget(QLabel("t<sub>f</sub>", sltGUI), 0, 1)
+        gdlTf.addWidget(self.slt["cdfTf"], 0, 2)
+        gdlTf.addWidget(QLabel("Position:", sltGUI), 1, 0)
+        gdlTf.addWidget(QLabel("min", sltGUI), 1, 1)
+        gdlTf.addWidget(self.slt["indXMin"], 1, 2)
+        gdlTf.addWidget(QLabel("max", sltGUI), 1, 3)
+        gdlTf.addWidget(self.slt["indXMax"], 1, 4)
+        gdlTf.addWidget(QLabel("Velocity:", sltGUI), 2, 0)
+        gdlTf.addWidget(QLabel("min", sltGUI), 2, 1)
+        gdlTf.addWidget(self.slt["indVMin"], 2, 2)
+        gdlTf.addWidget(QLabel("max", sltGUI), 2, 3)
+        gdlTf.addWidget(self.slt["indVMax"], 2, 4)
+        gdlTf.addWidget(QLabel("Acceleration:", sltGUI), 3, 0)
+        gdlTf.addWidget(QLabel("min", sltGUI), 3, 1)
+        gdlTf.addWidget(self.slt["indAMin"], 3, 2)
+        gdlTf.addWidget(QLabel("max", sltGUI), 3, 3)
+        gdlTf.addWidget(self.slt["indAMax"], 3, 4)
 
         # Set group box layout.
         gpbTf = QGroupBox(sltGUI)
@@ -1598,38 +1639,24 @@ class planeTrackingExample:
         self.msr["addType"] = QComboBox(self.ctrGUI)
         for msr in ["x", "v", "a"]:
             self.msr["addType"].addItem(msr)
-        self.msr["addT0"] = QLineEdit("0.05", self.ctrGUI)
-        finalTime = self.slt["cdfTf"].text()
-        self.msr["addTf"] = QLineEdit(str(float(finalTime)*0.95), self.ctrGUI)
-        self.msr["addDt"] = QLineEdit("0.2", self.ctrGUI)
-        self.msr["addSigma"] = QLineEdit("0.1", self.ctrGUI)
+        self.msr["addT0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.msr["addTf"] = QLineEdit("N.A.", self.ctrGUI)
+        self.msr["addDt"] = QLineEdit("N.A.", self.ctrGUI)
+        self.msr["addSigma"] = QLineEdit("N.A.", self.ctrGUI)
         self.msr["lstMsr"] = QListWidget(self.ctrGUI)
         self.msr["datMsr"] = {}
         self.msr["vwrPosMks"] = QLineEdit("15", self.ctrGUI)
         self.msr["vwrVelLgh"] = QLineEdit("0.1", self.ctrGUI)
         self.msr["vwrVelNrm"] = QCheckBox("Normalize", self.ctrGUI)
-        self.msr["vwrAccLgh"] = QLineEdit("0.01", self.ctrGUI)
+        self.msr["vwrAccLgh"] = QLineEdit("0.1", self.ctrGUI)
         self.msr["vwrAccNrm"] = QCheckBox("Normalize", self.ctrGUI)
+
+        # Set default GUI.
+        self.msr["vwrVelNrm"].setChecked(True)
+        self.msr["vwrAccNrm"].setChecked(True)
 
         # Fill measurement GUI.
         self.fillMsrGUI(msrGUI)
-
-        # Initialize the measurement list with GPS measurements (x, v).
-        self.onAddMsrBtnClick() # Adding "x" measurement.
-        self.msr["addType"].setCurrentIndex(1) # Set combo to "v" after adding "x" measurement.
-        self.msr["addSigma"].setText("0.2") # Better accuracy for "x" compared to "v".
-        self.onAddMsrBtnClick() # Adding "v" measurement.
-
-        # Initialize the measurement list with accelerometer measurements (a).
-        self.msr["addType"].setCurrentIndex(2) # Set combo to "a" after adding "v" measurement.
-        self.msr["addDt"].setText("0.05") # Sensors (shipped on plane) provide more data than GPS.
-        self.msr["addSigma"].setText("0.1")
-        self.onAddMsrBtnClick() # Adding "a" measurement.
-
-        # Reset measurement list options.
-        self.msr["addType"].setCurrentIndex(0)
-        self.msr["addDt"].setText("0.2")
-        self.msr["addSigma"].setText("0.1")
 
         return msrGUI
 
@@ -1765,39 +1792,43 @@ class planeTrackingExample:
         simGUI.setAlignment(Qt.AlignHCenter)
 
         # Store simulation parameters.
-        self.sim["prmM"] = QLineEdit("1000.", self.ctrGUI)
-        self.sim["prmC"] = QLineEdit("1.", self.ctrGUI)
-        self.sim["prmDt"] = QLineEdit("0.03", self.ctrGUI)
-        self.sim["prmExpOrd"] = QLineEdit("3", self.ctrGUI)
-        self.sim["prmProNseSig"] = QLineEdit("0.05", self.ctrGUI)
+        self.sim["prmM"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["prmC"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["prmDt"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["prmExpOrd"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["prmProNseSig"] = QLineEdit("N.A.", self.ctrGUI)
         self.sim["prmVrb"] = QLineEdit("1", self.ctrGUI)
-        self.sim["cdiX0"] = QLineEdit("0.1", self.ctrGUI)
-        self.sim["cdiY0"] = QLineEdit("0.1", self.ctrGUI)
-        self.sim["cdiZ0"] = QLineEdit("0.1", self.ctrGUI)
-        self.sim["cdiSigX0"] = QLineEdit("0.2", self.ctrGUI)
-        self.sim["cdiSigY0"] = QLineEdit("0.2", self.ctrGUI)
-        self.sim["cdiSigZ0"] = QLineEdit("0.2", self.ctrGUI)
-        self.sim["cdiVX0"] = QLineEdit("0.0", self.ctrGUI)
-        self.sim["cdiVY0"] = QLineEdit("12.5", self.ctrGUI)
-        self.sim["cdiVZ0"] = QLineEdit("0.2", self.ctrGUI)
-        self.sim["cdiSigVX0"] = QLineEdit("0.2", self.ctrGUI)
-        self.sim["cdiSigVY0"] = QLineEdit("0.2", self.ctrGUI)
-        self.sim["cdiSigVZ0"] = QLineEdit("0.2", self.ctrGUI)
-        self.sim["cdiAX0"] = QLineEdit("-39.5", self.ctrGUI)
-        self.sim["cdiAY0"] = QLineEdit("0.", self.ctrGUI)
-        self.sim["cdiAZ0"] = QLineEdit("19.7", self.ctrGUI)
-        self.sim["cdiSigAX0"] = QLineEdit("0.2", self.ctrGUI)
-        self.sim["cdiSigAY0"] = QLineEdit("0.2", self.ctrGUI)
-        self.sim["cdiSigAZ0"] = QLineEdit("0.2", self.ctrGUI)
-        self.sim["ctlRolMax"] = QLineEdit("30.", self.ctrGUI)
-        self.sim["ctlPtcMax"] = QLineEdit("5.", self.ctrGUI)
-        self.sim["ctlYawMax"] = QLineEdit("30.", self.ctrGUI)
+        self.sim["cdiX0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["cdiY0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["cdiZ0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["cdiSigX0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["cdiSigY0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["cdiSigZ0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["cdiVX0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["cdiVY0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["cdiVZ0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["cdiSigVX0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["cdiSigVY0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["cdiSigVZ0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["cdiAX0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["cdiAY0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["cdiAZ0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["cdiSigAX0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["cdiSigAY0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["cdiSigAZ0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["ctlRolMax"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["ctlPtcMax"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["ctlYawMax"] = QLineEdit("N.A.", self.ctrGUI)
         self.sim["vwrLnWd"] = QLineEdit("1.", self.ctrGUI)
         self.sim["vwrPosMks"] = QLineEdit("5", self.ctrGUI)
-        self.sim["vwrVelLgh"] = QLineEdit("0.01", self.ctrGUI)
+        self.sim["vwrVelLgh"] = QLineEdit("0.1", self.ctrGUI)
         self.sim["vwrVelNrm"] = QCheckBox("Normalize", self.ctrGUI)
-        self.sim["vwrAccLgh"] = QLineEdit("0.001", self.ctrGUI)
+        self.sim["vwrAccLgh"] = QLineEdit("0.1", self.ctrGUI)
         self.sim["vwrAccNrm"] = QCheckBox("Normalize", self.ctrGUI)
+
+        # Set default GUI.
+        self.sim["vwrVelNrm"].setChecked(True)
+        self.sim["vwrAccNrm"].setChecked(True)
 
         # Fill simulation GUI.
         self.fillSimGUI(simGUI)
@@ -2241,35 +2272,35 @@ class planeTrackingExample:
         axis = self.vwr["2D"][key].getAxis(0)
         axis.plot(time, self.kfm.sim[key]["FoM"]["X"], label="F/m - X", marker="o", ms=3)
         axis.set_xlabel("t")
-        axis.set_ylabel("F/m")
+        axis.set_ylabel("F/m - X")
         axis.legend()
         axis = self.vwr["2D"][key].getAxis(1)
         axis.plot(time, self.kfm.sim[key]["FoM"]["Y"], label="F/m - Y", marker="o", ms=3)
         axis.set_xlabel("t")
-        axis.set_ylabel("F/m")
+        axis.set_ylabel("F/m - Y")
         axis.legend()
         axis = self.vwr["2D"][key].getAxis(2)
         axis.plot(time, self.kfm.sim[key]["FoM"]["Z"], label="F/m - Z", marker="o", ms=3)
         axis.set_xlabel("t")
-        axis.set_ylabel("F/m")
+        axis.set_ylabel("F/m - Z")
         axis.legend()
         axis = self.vwr["2D"][key].getAxis(3)
         axis.plot(time, self.kfm.sim[key]["d(FoM)/dt"]["X"], label="d(F/m)/dt - X",
                   marker="o", ms=3)
         axis.set_xlabel("t")
-        axis.set_ylabel("d(F/m)/dt")
+        axis.set_ylabel("d(F/m)/dt - X")
         axis.legend()
         axis = self.vwr["2D"][key].getAxis(4)
         axis.plot(time, self.kfm.sim[key]["d(FoM)/dt"]["Y"], label="d(F/m)/dt - Y",
                   marker="o", ms=3)
         axis.set_xlabel("t")
-        axis.set_ylabel("d(F/m)/dt")
+        axis.set_ylabel("d(F/m)/dt - Y")
         axis.legend()
         axis = self.vwr["2D"][key].getAxis(5)
         axis.plot(time, self.kfm.sim[key]["d(FoM)/dt"]["Z"], label="d(F/m)/dt - Z",
                   marker="o", ms=3)
         axis.set_xlabel("t")
-        axis.set_ylabel("d(F/m)/dt")
+        axis.set_ylabel("d(F/m)/dt - Z")
         axis.legend()
         axis = self.vwr["2D"][key].getAxis(6)
         axis.plot(time, self.kfm.sim[key]["roll"], label="roll", marker="o", ms=3)
@@ -2488,6 +2519,261 @@ class planeTrackingExample:
         axis.set_xlabel("t")
         axis.set_ylabel("$K_{azaz}$")
         axis.legend()
+
+    def createExpGUI(self):
+        """Create examples GUI"""
+
+        # Create group box.
+        expGUI = QGroupBox(self.ctrGUI)
+        expGUI.setTitle("Examples")
+        expGUI.setAlignment(Qt.AlignHCenter)
+
+        # Set radio button.
+        qrbSL = QRadioButton("Straight line", self.ctrGUI)
+        qrbUD = QRadioButton("Up-down", self.ctrGUI)
+        qrbZZ = QRadioButton("Zig-zag", self.ctrGUI)
+        qrbRT = QRadioButton("Round trip", self.ctrGUI)
+        qrbSL.toggled.connect(self.onExampleClicked)
+        qrbUD.toggled.connect(self.onExampleClicked)
+        qrbZZ.toggled.connect(self.onExampleClicked)
+        qrbRT.toggled.connect(self.onExampleClicked)
+        qrbSL.setChecked(True)
+
+        # Set group box layout.
+        expLay = QHBoxLayout()
+        expLay.addWidget(qrbSL)
+        expLay.addWidget(qrbUD)
+        expLay.addWidget(qrbZZ)
+        expLay.addWidget(qrbRT)
+        expGUI.setLayout(expLay)
+
+        return expGUI
+
+    def onExampleClicked(self):
+        """Callback on click: example radio button"""
+
+        # Reset indicators.
+        self.slt["indVX0"].setText("N.A.")
+        self.slt["indVY0"].setText("N.A.")
+        self.slt["indVZ0"].setText("N.A.")
+        self.slt["indAX0"].setText("N.A.")
+        self.slt["indAY0"].setText("N.A.")
+        self.slt["indAZ0"].setText("N.A.")
+        self.slt["indXMin"].setText("N.A.")
+        self.slt["indXMax"].setText("N.A.")
+        self.slt["indVMin"].setText("N.A.")
+        self.slt["indVMax"].setText("N.A.")
+        self.slt["indAMin"].setText("N.A.")
+        self.slt["indAMax"].setText("N.A.")
+
+        # Set parameters according to example.
+        qrb = self.ctrGUI.sender()
+        if qrb.isChecked():
+            if qrb.text() == "Straight line":
+                self.onStraightLineExampleClicked()
+            if qrb.text() == "Up-down":
+                self.onUpDownExampleClicked()
+            if qrb.text() == "Zig-zag":
+                self.onZigZagExampleClicked()
+            if qrb.text() == "Round trip":
+                self.onRoundTripExampleClicked()
+            self.sim["ctlRolMax"].setText("45.")
+            self.sim["ctlPtcMax"].setText("30.")
+            self.sim["ctlYawMax"].setText("45.")
+
+        # Reset all previous measurements.
+        for idx in range(self.msr["lstMsr"].count()):
+            self.msr["lstMsr"].item(idx).setText("")
+
+        # Initialize the measurement list with GPS measurements (x, v).
+        sigPosGPS = 1. # GPS: sigma x = 1m.
+        self.msr["addType"].setCurrentIndex(0) # Set combo to "x".
+        self.msr["addT0"].setText("60.")
+        self.msr["addTf"].setText("3540.")
+        self.msr["addDt"].setText("60.")
+        self.msr["addSigma"].setText("%.3f" % sigPosGPS)
+        self.onAddMsrBtnClick() # Adding "x" measurement.
+        sigVelGPS = np.sqrt(3.*sigPosGPS*sigPosGPS) # GPS: sigma v deduced from x.
+        self.msr["addType"].setCurrentIndex(1) # Set combo to "v".
+        self.msr["addT0"].setText("60.")
+        self.msr["addTf"].setText("3540.")
+        self.msr["addDt"].setText("60.")
+        self.msr["addSigma"].setText("%.3f" % sigVelGPS)
+        self.onAddMsrBtnClick() # Adding "v" measurement.
+
+        # Initialize the measurement list with accelerometer measurements (a).
+        sigVelSensor = sigVelGPS / 2. # IMU sensors are more accurate than GPS.
+        sigAccSensor = np.sqrt(3.*sigVelSensor*sigVelSensor) # GPS: sigma a deduced from v.
+        self.msr["addType"].setCurrentIndex(2) # Set combo to "a".
+        self.msr["addT0"].setText("60.")
+        self.msr["addTf"].setText("3540.")
+        self.msr["addDt"].setText("30.") # IMU sensors provide more data than GPS.
+        self.msr["addSigma"].setText("%.3f" % sigAccSensor)
+        self.onAddMsrBtnClick() # Adding "a" measurement.
+
+    def onStraightLineExampleClicked(self):
+        """Callback on click: straight line example radio button"""
+
+        # Flight path equation: parameters.
+        self.slt["fpeAx"].setText("10000.")
+        self.slt["fpeAy"].setText("10000.")
+        self.slt["fpeTx"].setText("36000.")
+        self.slt["fpeTy"].setText("36000.")
+        self.slt["fpePhix"].setText("270.")
+        self.slt["fpePhiy"].setText("0.")
+        self.slt["fpeTiZi"].setText("3600 10000.")
+        self.slt["cdiX0"].setText("0.")
+        self.slt["cdiY0"].setText("0.")
+        self.slt["cdiZ0"].setText("0.")
+        self.slt["cdfTf"].setText("3600.")
+
+        # Simulation: parameters.
+        self.sim["prmM"].setText("1000.")
+        self.sim["prmC"].setText("200.")
+        self.sim["prmDt"].setText("5.")
+        self.sim["prmExpOrd"].setText("3")
+        self.sim["prmProNseSig"].setText("0.1")
+        self.sim["cdiX0"].setText("0.5")
+        self.sim["cdiY0"].setText("0.5")
+        self.sim["cdiZ0"].setText("0.")
+        self.sim["cdiSigX0"].setText("1.")
+        self.sim["cdiSigY0"].setText("1.")
+        self.sim["cdiSigZ0"].setText("1.")
+        self.sim["cdiVX0"].setText("2.")
+        self.sim["cdiVY0"].setText("2.")
+        self.sim["cdiVZ0"].setText("2.")
+        self.sim["cdiSigVX0"].setText("1.")
+        self.sim["cdiSigVY0"].setText("1.")
+        self.sim["cdiSigVZ0"].setText("1.")
+        self.sim["cdiAX0"].setText("0.5")
+        self.sim["cdiAY0"].setText("0.5")
+        self.sim["cdiAZ0"].setText("0.5")
+        self.sim["cdiSigAX0"].setText("1.")
+        self.sim["cdiSigAY0"].setText("1.")
+        self.sim["cdiSigAZ0"].setText("1.")
+
+    def onUpDownExampleClicked(self):
+        """Callback on click: up-down example radio button"""
+
+        # Flight path equation: parameters.
+        self.slt["fpeAx"].setText("10000.")
+        self.slt["fpeAy"].setText("10000.")
+        self.slt["fpeTx"].setText("36000.")
+        self.slt["fpeTy"].setText("36000.")
+        self.slt["fpePhix"].setText("270.")
+        self.slt["fpePhiy"].setText("0.")
+        self.slt["fpeTiZi"].setText("100 10., 3500 10., 3600 0.")
+        self.slt["cdiX0"].setText("0.")
+        self.slt["cdiY0"].setText("0.")
+        self.slt["cdiZ0"].setText("0.")
+        self.slt["cdfTf"].setText("3600.")
+
+        # Simulation: parameters.
+        self.sim["prmM"].setText("1000.")
+        self.sim["prmC"].setText("200.")
+        self.sim["prmDt"].setText("5.")
+        self.sim["prmExpOrd"].setText("3")
+        self.sim["prmProNseSig"].setText("0.1")
+        self.sim["cdiX0"].setText("0.5")
+        self.sim["cdiY0"].setText("0.5")
+        self.sim["cdiZ0"].setText("0.")
+        self.sim["cdiSigX0"].setText("1.")
+        self.sim["cdiSigY0"].setText("1.")
+        self.sim["cdiSigZ0"].setText("1.")
+        self.sim["cdiVX0"].setText("2.")
+        self.sim["cdiVY0"].setText("2.")
+        self.sim["cdiVZ0"].setText("0.5")
+        self.sim["cdiSigVX0"].setText("1.")
+        self.sim["cdiSigVY0"].setText("1.")
+        self.sim["cdiSigVZ0"].setText("1.")
+        self.sim["cdiAX0"].setText("0.5")
+        self.sim["cdiAY0"].setText("0.5")
+        self.sim["cdiAZ0"].setText("0.5")
+        self.sim["cdiSigAX0"].setText("1.")
+        self.sim["cdiSigAY0"].setText("1.")
+        self.sim["cdiSigAZ0"].setText("1.")
+
+    def onZigZagExampleClicked(self):
+        """Callback on click: zig-zag example radio button"""
+
+        # Flight path equation: parameters.
+        self.slt["fpeAx"].setText("10000.")
+        self.slt["fpeAy"].setText("10000.")
+        self.slt["fpeTx"].setText("36000.")
+        self.slt["fpeTy"].setText("1800.")
+        self.slt["fpePhix"].setText("270.")
+        self.slt["fpePhiy"].setText("0.")
+        self.slt["fpeTiZi"].setText("3600 10000.")
+        self.slt["cdiX0"].setText("0.")
+        self.slt["cdiY0"].setText("0.")
+        self.slt["cdiZ0"].setText("0.")
+        self.slt["cdfTf"].setText("3600.")
+
+        # Simulation: parameters.
+        self.sim["prmM"].setText("1000.")
+        self.sim["prmC"].setText("200.")
+        self.sim["prmDt"].setText("5.")
+        self.sim["prmExpOrd"].setText("3")
+        self.sim["prmProNseSig"].setText("0.1")
+        self.sim["cdiX0"].setText("0.5")
+        self.sim["cdiY0"].setText("0.5")
+        self.sim["cdiZ0"].setText("0.")
+        self.sim["cdiSigX0"].setText("1.")
+        self.sim["cdiSigY0"].setText("1.")
+        self.sim["cdiSigZ0"].setText("1.")
+        self.sim["cdiVX0"].setText("2.")
+        self.sim["cdiVY0"].setText("35.")
+        self.sim["cdiVZ0"].setText("2.")
+        self.sim["cdiSigVX0"].setText("1.")
+        self.sim["cdiSigVY0"].setText("1.")
+        self.sim["cdiSigVZ0"].setText("1.")
+        self.sim["cdiAX0"].setText("0.5")
+        self.sim["cdiAY0"].setText("0.5")
+        self.sim["cdiAZ0"].setText("0.5")
+        self.sim["cdiSigAX0"].setText("1.")
+        self.sim["cdiSigAY0"].setText("1.")
+        self.sim["cdiSigAZ0"].setText("1.")
+
+    def onRoundTripExampleClicked(self):
+        """Callback on click: round trip example radio button"""
+
+        # Flight path equation: parameters.
+        self.slt["fpeAx"].setText("10000.")
+        self.slt["fpeAy"].setText("20000.")
+        self.slt["fpeTx"].setText("3600.")
+        self.slt["fpeTy"].setText("3600.")
+        self.slt["fpePhix"].setText("0.")
+        self.slt["fpePhiy"].setText("0.")
+        self.slt["fpeTiZi"].setText("100 10, 3500 10, 3600 0")
+        self.slt["cdiX0"].setText("0.")
+        self.slt["cdiY0"].setText("0.")
+        self.slt["cdiZ0"].setText("0.")
+        self.slt["cdfTf"].setText("3600.")
+
+        # Simulation: parameters.
+        self.sim["prmM"].setText("1000.")
+        self.sim["prmC"].setText("200.")
+        self.sim["prmDt"].setText("5.")
+        self.sim["prmExpOrd"].setText("3")
+        self.sim["prmProNseSig"].setText("0.1")
+        self.sim["cdiX0"].setText("0.5")
+        self.sim["cdiY0"].setText("0.5")
+        self.sim["cdiZ0"].setText("0.")
+        self.sim["cdiSigX0"].setText("1.")
+        self.sim["cdiSigY0"].setText("1.")
+        self.sim["cdiSigZ0"].setText("1.")
+        self.sim["cdiVX0"].setText("0.5")
+        self.sim["cdiVY0"].setText("35.")
+        self.sim["cdiVZ0"].setText("0.5")
+        self.sim["cdiSigVX0"].setText("1.")
+        self.sim["cdiSigVY0"].setText("1.")
+        self.sim["cdiSigVZ0"].setText("1.")
+        self.sim["cdiAX0"].setText("0.5")
+        self.sim["cdiAY0"].setText("0.5")
+        self.sim["cdiAZ0"].setText("0.5")
+        self.sim["cdiSigAX0"].setText("1.")
+        self.sim["cdiSigAY0"].setText("1.")
+        self.sim["cdiSigAZ0"].setText("1.")
 
     def createVwrGUI(self, gdlVwr):
         """Create viewer GUI"""
@@ -2975,6 +3261,8 @@ class controllerGUI(QMainWindow):
                 layCtr.addWidget(msrGUI)
                 simGUI = example.createSimGUI()
                 layCtr.addWidget(simGUI)
+                expGUI = example.createExpGUI()
+                layCtr.addWidget(expGUI)
                 gdlVwrRow, gdlVwrSpan = example.createVwrGUI(gdlVwr)
                 break
 
@@ -2990,9 +3278,6 @@ class controllerGUI(QMainWindow):
         guiCtr = QWidget(self)
         guiCtr.setLayout(layCtr)
         self.setCentralWidget(guiCtr)
-
-        # Update the view.
-        self.onUpdateVwrBtnClick()
 
     def addUpdateVwrBtn(self):
         """Add button to update the viewer"""
