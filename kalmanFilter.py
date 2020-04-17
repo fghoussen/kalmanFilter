@@ -253,6 +253,7 @@ class kalmanFilterModel():
         # Order solver measurements.
         self.msr = []
         for time in sorted(msrDic, reverse=True): # Reverse: get data poped in order (corrector).
+            msrDic[time].sort(key=lambda t: t[4], reverse=True) # Small (accurate) sigma at the end.
             self.msr.append((time, msrDic[time]))
 
     @staticmethod
@@ -274,13 +275,12 @@ class kalmanFilterModel():
         for idx, time in enumerate(msrData["T"]):
             if time not in msrDic:
                 msrDic[time] = []
-            prmSig = "sigma "+str(prmSigma)
             if msrData["msrType"] == "x":
-                msrDic[time].append(("x", posX[idx], posY[idx], posZ[idx], prmSig))
+                msrDic[time].append(("x", posX[idx], posY[idx], posZ[idx], prmSigma))
             if msrData["msrType"] == "v":
-                msrDic[time].append(("v", eqnVX[idx], eqnVY[idx], eqnVZ[idx], prmSig))
+                msrDic[time].append(("v", eqnVX[idx], eqnVY[idx], eqnVZ[idx], prmSigma))
             if msrData["msrType"] == "a":
-                msrDic[time].append(("a", eqnAX[idx], eqnAY[idx], eqnAZ[idx], prmSig))
+                msrDic[time].append(("a", eqnAX[idx], eqnAY[idx], eqnAZ[idx], prmSigma))
 
     def computeDefaultMeasurementCovariance(self):
         """Compute default measurement covariance matrix"""
@@ -417,14 +417,17 @@ class kalmanFilterModel():
         prmN = self.example.getLTISystemSize()
         matZ = np.zeros((prmN, 1), dtype=float)
         matH = np.zeros((prmN, prmN), dtype=float)
-        for msrItem in msrLst:
+        for msrItem in msrLst: # Small (accurate) sigma at msrLst tail.
+            # Print out current measurement.
             if self.sim["prmVrb"] >= 2:
                 print("  "*3+msrItem[0]+":", end="")
                 print(" %.6f" % msrItem[1], end="")
                 print(" %.6f" % msrItem[2], end="")
                 print(" %.6f" % msrItem[3], end="")
-                print(" %s" % msrItem[4], end="")
+                print(" sigma %.3f" % msrItem[4], end="")
                 print("")
+
+            # Recover most accurate measurement: inaccurate sigma (msrLst head) are rewritten.
             if msrItem[0] == "x":
                 matZ[0, 0] = msrItem[1] # X.
                 matZ[3, 0] = msrItem[2] # Y.
@@ -474,7 +477,7 @@ class kalmanFilterModel():
         matR = self.mat["R"] # Start from default matrix (needed to avoid singular K matrix).
         for msrItem in msrLst:
             msrType = msrItem[0]
-            prmSigma = float(msrItem[4].split()[1])
+            prmSigma = msrItem[4]
             if msrType == "x":
                 matR[0, 0] = prmSigma*prmSigma
                 matR[3, 3] = prmSigma*prmSigma
