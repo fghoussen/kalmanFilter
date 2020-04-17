@@ -6,7 +6,6 @@ import sys
 import math
 import numpy as np
 import numpy.linalg as npl
-import scipy.linalg as spl
 import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -388,7 +387,7 @@ class kalmanFilterModel():
             self.printMat("Corrector - H", matH)
 
         # Compute Kalman gain K_{n}.
-        matK = self.computeKalmanGain(msrLst, matP, matH)
+        matR, matK = self.computeKalmanGain(msrLst, matP, matH)
         if self.sim["prmVrb"] >= 3:
             self.printMat("Corrector - K", matK)
         self.saveK(newTime, matK)
@@ -405,7 +404,7 @@ class kalmanFilterModel():
             self.printMat("Corrector - X", np.transpose(newStates))
 
         # Update covariance.
-        newMatP = self.updateCovariance(matK, matH, matP)
+        newMatP = self.updateCovariance(matK, matH, matP, matR)
         if self.sim["prmVrb"] >= 3:
             self.printMat("Corrector - P", newMatP)
 
@@ -466,7 +465,7 @@ class kalmanFilterModel():
         if self.sim["prmVrb"] >= 3:
             self.printMat("Corrector - K", matK)
 
-        return matK # https://www.kalmanfilter.net/kalmanGain.html.
+        return matR, matK # https://www.kalmanfilter.net/kalmanGain.html.
 
     def computeMeasurementCovariance(self, msrLst):
         """Compute measurement covariance"""
@@ -491,20 +490,19 @@ class kalmanFilterModel():
 
         return matR
 
-    def updateCovariance(self, matK, matH, matP):
+    def updateCovariance(self, matK, matH, matP, matR):
         """Update covariance"""
 
-        # Update covariance: P_{n,n} = (I-K_{n}*H)*P_{n,n-1}.
-        _, matL, matU = spl.lu(matK) # K_{n} = L*U (numerically unstable: use LU for stability).
-        if self.sim["prmVrb"] >= 4:
-            self.printMat("Corrector - L such that K = L*U", matL)
-            self.printMat("Corrector - U such that K = L*U", matU)
-        newMatP = np.dot(matL, np.dot(matU, matH)) # K_{n}*H = L*U*H.
+        # Update covariance using Joseph's formula (better numerical stability):
+        # P_{n,n} = (I-K_{n}*H)*P_{n,n-1}*(I-K_{n}*H)t + K_{n}*R*K_{n}t.
         prmN = self.example.getLTISystemSize()
-        newMatP = np.identity(prmN, dtype=float)-newMatP # I-K_{n}*H.
-        newMatP = np.dot(newMatP, matP)
+        matImKH = np.identity(prmN, dtype=float)-np.dot(matK, matH)
+        if self.sim["prmVrb"] >= 4:
+            self.printMat("Corrector - I-KH", matImKH)
+        newMatP = np.dot(matImKH, np.dot(matP, np.transpose(matImKH)))
+        newMatP = newMatP+np.dot(matK, np.dot(matR, np.transpose(matK)))
 
-        return newMatP # https://www.kalmanfilter.net/simpCovUpdate.html.
+        return newMatP
 
     def predictor(self, newTime, timeDt, states, matP):
         """Solve predictor step"""
