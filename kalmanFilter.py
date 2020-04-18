@@ -2919,7 +2919,7 @@ class planeTrackingExample:
         if float(self.sim["prmExpOrd"].text()) <= 0.:
             self.throwError(eId, "exp. taylor expansion order must be superior than 0.")
             return False
-        if float(self.sim["prmProNseSig"].text()) <= 0.:
+        if float(self.sim["prmProNseSig"].text()) < 0.:
             self.throwError(eId, "process noise std deviation must be superior than 0.")
             return False
 
