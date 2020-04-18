@@ -3059,14 +3059,17 @@ class planeTrackingExample:
         """Compute control law"""
 
         # Compute control law: get roll, pitch, yaw corrections.
-        deltaAccRolY, deltaAccRolZ = self.computeRoll(states, sim, save, vrb)
-        deltaAccPtcX, deltaAccPtcZ = self.computePitch(states, sim, save, vrb)
-        deltaAccYawX, deltaAccYawY = self.computeYaw(states, sim, save, vrb)
+        opts = {"save": save, "vrb": vrb}
+        velNow = np.array([states[1, 0], states[4, 0], states[7, 0]]) # Velocity.
+        accNow = np.array([states[2, 0], states[5, 0], states[8, 0]]) # Acceleration.
+        accNxt = self.computeRoll(velNow, accNow, sim, opts)
+        accNxt = self.computePitch(velNow, accNxt, sim, opts)
+        accNxt = self.computeYaw(velNow, accNxt, sim, opts)
 
         # Compute control law.
-        fomX = deltaAccPtcX+deltaAccYawX
-        fomY = deltaAccRolY+deltaAccYawY
-        fomZ = deltaAccRolZ+deltaAccPtcZ
+        fomX = accNxt[0]-accNow[0]
+        fomY = accNxt[1]-accNow[1]
+        fomZ = accNxt[2]-accNow[2]
         matU = self.computeControl((fomX, fomY, fomZ), sim, save)
 
         # Save F/m to compute d(F/m)/dt next time.
@@ -3077,104 +3080,96 @@ class planeTrackingExample:
 
         return matU
 
-    def computeRoll(self, states, sim, save, vrb):
+    def computeRoll(self, velNow, accNow, sim, opts):
         """Compute control law: roll"""
 
         # Compute roll around X axis.
-        velNow = np.array([0., states[4, 0], states[7, 0]]) # Velocity in YZ plane.
-        accNow = np.array([0., states[5, 0], states[8, 0]]) # Acceleration in YZ plane.
         prmDt = float(self.sim["prmDt"].text())
-        velNxt = velNow+accNow*prmDt # New velocity in YZ plane.
-        roll = self.getAngle(velNow, velNxt)
+        velNxt = velNow+accNow*prmDt # New velocity.
+        proj = np.array([0., 1., 1.]) # Projection in YZ plane.
+        roll = self.getAngle(velNow, velNxt, proj)
 
         # Save control law hidden variables.
-        if save:
+        if opts["save"]:
             sim["simCLV"]["roll"].append(roll)
 
         # Control roll.
-        accTgt = accNow # Target acceleration.
         ctlRolMax = float(self.sim["ctlRolMax"].text())
-        rollTgt = roll
+        accNxt, rollTgt = accNow, roll
         while np.abs(rollTgt) > ctlRolMax:
-            accTgt = accTgt*0.95 # Decrease acceleration by 5%.
-            velNxt = velNow+accTgt*prmDt # New velocity in YZ plane.
-            rollTgt = self.getAngle(velNow, velNxt)
-        deltaAcc = accTgt-accNow
+            accNxt = accNxt*0.95 # Decrease acceleration by 5%.
+            velNxt = velNow+accNxt*prmDt # New velocity.
+            rollTgt = self.getAngle(velNow, velNxt, proj)
 
         # Verbose on demand.
-        if vrb and sim["prmVrb"] >= 2:
+        if opts["vrb"] and sim["prmVrb"] >= 1:
             print("  "*3+"Control law - roll: current %.3f, target %.3f" % (roll, rollTgt))
 
-        return deltaAcc[1], deltaAcc[2]
+        return accNxt
 
-    def computePitch(self, states, sim, save, vrb):
+    def computePitch(self, velNow, accNow, sim, opts):
         """Compute control law: pitch"""
 
         # Compute pitch around Y axis.
-        velNow = np.array([states[1, 0], 0., states[7, 0]]) # Velocity in XZ plane.
-        accNow = np.array([states[2, 0], 0., states[8, 0]]) # Acceleration in XZ plane.
         prmDt = float(self.sim["prmDt"].text())
-        velNxt = velNow+accNow*prmDt # New velocity in XZ plane.
-        pitch = self.getAngle(velNow, velNxt)
+        velNxt = velNow+accNow*prmDt # New velocity.
+        proj = np.array([1., 0., 1.]) # Projection in XZ plane.
+        pitch = self.getAngle(velNow, velNxt, proj)
 
         # Save control law hidden variables.
-        if save:
+        if opts["save"]:
             sim["simCLV"]["pitch"].append(pitch)
 
         # Control pitch.
-        accTgt = accNow # Target acceleration.
         ctlPtcMax = float(self.sim["ctlPtcMax"].text())
-        pitchTgt = pitch
+        accNxt, pitchTgt = accNow, pitch
         while np.abs(pitchTgt) > ctlPtcMax:
-            accTgt = accTgt*0.95 # Decrease acceleration by 5%.
-            velNxt = velNow+accTgt*prmDt # New velocity in XZ plane.
-            pitchTgt = self.getAngle(velNow, velNxt)
-        deltaAcc = accTgt-accNow
+            accNxt = accNxt*0.95 # Decrease acceleration by 5%.
+            velNxt = velNow+accNxt*prmDt # New velocity.
+            pitchTgt = self.getAngle(velNow, velNxt, proj)
 
         # Verbose on demand.
-        if vrb and sim["prmVrb"] >= 2:
+        if opts["vrb"] and sim["prmVrb"] >= 1:
             print("  "*3+"Control law - pitch: current %.3f, target %.3f" % (pitch, pitchTgt))
 
-        return deltaAcc[0], deltaAcc[2]
+        return accNxt
 
-    def computeYaw(self, states, sim, save, vrb):
+    def computeYaw(self, velNow, accNow, sim, opts):
         """Compute control law: yaw"""
 
         # Compute yaw around Z axis.
-        velNow = np.array([states[1, 0], states[4, 0], 0.]) # Velocity in XY plane.
-        accNow = np.array([states[2, 0], states[5, 0], 0.]) # Acceleration in XY plane.
         prmDt = float(self.sim["prmDt"].text())
-        velNxt = velNow+accNow*prmDt # New velocity in XY plane.
-        yaw = self.getAngle(velNow, velNxt)
+        velNxt = velNow+accNow*prmDt # New velocity.
+        proj = np.array([1., 1., 0.]) # Projection in XY plane.
+        yaw = self.getAngle(velNow, velNxt, proj)
 
         # Save control law hidden variables.
-        if save:
+        if opts["save"]:
             sim["simCLV"]["yaw"].append(yaw)
 
         # Control yaw.
-        accTgt = accNow # Target acceleration.
         ctlYawMax = float(self.sim["ctlYawMax"].text())
-        yawTgt = yaw
+        accNxt, yawTgt = accNow, yaw
         while np.abs(yawTgt) > ctlYawMax:
-            accTgt = accTgt*0.95 # Decrease acceleration by 5%.
-            velNxt = velNow+accTgt*prmDt # New velocity in XY plane.
-            yawTgt = self.getAngle(velNow, velNxt)
-        deltaAcc = accTgt-accNow
+            accNxt = accNxt*0.95 # Decrease acceleration by 5%.
+            velNxt = velNow+accNxt*prmDt # New velocity.
+            yawTgt = self.getAngle(velNow, velNxt, proj)
 
         # Verbose on demand.
-        if vrb and sim["prmVrb"] >= 2:
+        if opts["vrb"] and sim["prmVrb"] >= 1:
             print("  "*3+"Control law - yaw: current %.3f, target %.3f" % (yaw, yawTgt))
 
-        return deltaAcc[0], deltaAcc[1]
+        return accNxt
 
     @staticmethod
-    def getAngle(velNow, velNxt):
+    def getAngle(velNow, velNxt, proj):
         """Get angle between 2 vectors"""
 
         theta = 0.
-        normVel = npl.norm(velNow)*npl.norm(velNxt)
-        if np.abs(normVel) > 1.e-6:
-            theta = np.arccos(np.dot(velNow, velNxt)/normVel)
+        velNowProj, velNxtProj = velNow*proj, velNxt*proj
+        normCoef = npl.norm(velNowProj)*npl.norm(velNxtProj)
+        if np.abs(normCoef) > 1.e-6:
+            theta = np.arccos(np.dot(velNowProj, velNxtProj)/normCoef)
             theta = theta*(180./np.pi) # Yaw angle in degrees.
 
         return theta
