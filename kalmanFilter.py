@@ -1755,6 +1755,9 @@ class planeTrackingExample:
         for item in items:
             for idx in range(self.msr["lstMsr"].count()):
                 if item == self.msr["lstMsr"].item(idx):
+                    txt = self.msr["lstMsr"].item(idx).text()
+                    if txt in self.msr["datMsr"]:
+                        del self.msr["datMsr"][txt]
                     self.msr["lstMsr"].item(idx).setText("")
                     self.msr["lstMsr"].sortItems(Qt.DescendingOrder)
                     break
