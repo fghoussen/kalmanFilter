@@ -332,9 +332,9 @@ class kalmanFilterModel():
         outputs = self.computeOutputs(states, matU)
         matP = self.example.initStateCovariance(self.sim)
         if self.sim["prmVrb"] >= 2:
-            self.printMat("Initialisation - X", np.transpose(states))
-            self.printMat("Initialisation - Y", np.transpose(outputs))
-            self.printMat("Initialisation - P", matP)
+            self.printMat("X", np.transpose(states))
+            self.printMat("Y", np.transpose(outputs))
+            self.printMat("P", matP)
         self.saveXY(time, states, outputs)
         self.saveP(time, matP)
 
@@ -381,15 +381,9 @@ class kalmanFilterModel():
 
         # Get measurement z_{n}.
         matZ, matH = self.getMeasurement(msrLst)
-        if self.sim["prmVrb"] >= 2:
-            self.printMat("Corrector - Z", np.transpose(matZ))
-        if self.sim["prmVrb"] >= 3:
-            self.printMat("Corrector - H", matH)
 
         # Compute Kalman gain K_{n}.
         matR, matK = self.computeKalmanGain(msrLst, matP, matH)
-        if self.sim["prmVrb"] >= 3:
-            self.printMat("Corrector - K", matK)
         self.saveK(newTime, matK)
 
         # Update estimate with measurement: x_{n,n} = x_{n,n-1} + K_{n}*(z_{n} - H*x_{n,n-1}).
@@ -401,12 +395,10 @@ class kalmanFilterModel():
         matI = matZ-np.dot(matH, states) # Innovation.
         newStates = states+np.dot(matK, matI) # States correction = K_{n}*Innovation.
         if self.sim["prmVrb"] >= 2:
-            self.printMat("Corrector - X", np.transpose(newStates))
+            self.printMat("X", np.transpose(newStates))
 
         # Update covariance.
         newMatP = self.updateCovariance(matK, matH, matP, matR)
-        if self.sim["prmVrb"] >= 3:
-            self.printMat("Corrector - P", newMatP)
 
         return newTime, newStates, newMatP
 
@@ -417,14 +409,16 @@ class kalmanFilterModel():
         prmN = self.example.getLTISystemSize()
         matZ = np.zeros((prmN, 1), dtype=float)
         matH = np.zeros((prmN, prmN), dtype=float)
+        if self.sim["prmVrb"] >= 2:
+            print("  "*3+"Measurements:")
         for msrItem in msrLst: # Small (accurate) sigma at msrLst tail.
             # Print out current measurement.
             if self.sim["prmVrb"] >= 2:
-                print("  "*3+msrItem[0]+":", end="")
+                print("  "*4+msrItem[0]+":", end="")
                 print(" %.6f" % msrItem[1], end="")
                 print(" %.6f" % msrItem[2], end="")
                 print(" %.6f" % msrItem[3], end="")
-                print(" sigma %.3f" % msrItem[4], end="")
+                print(", sigma %.3f" % msrItem[4], end="")
                 print("")
 
             # Recover most accurate measurement: inaccurate sigma (msrLst head) are rewritten.
@@ -450,6 +444,12 @@ class kalmanFilterModel():
                 matH[5, 5] = 1.
                 matH[8, 8] = 1.
 
+        # Verbose on demand.
+        if self.sim["prmVrb"] >= 2:
+            self.printMat("Z", np.transpose(matZ))
+        if self.sim["prmVrb"] >= 3:
+            self.printMat("H", matH)
+
         return matZ, matH
 
     def computeKalmanGain(self, msrLst, matP, matH):
@@ -457,16 +457,16 @@ class kalmanFilterModel():
 
         # Compute measurement covariance.
         matR = self.computeMeasurementCovariance(msrLst)
-        if self.sim["prmVrb"] >= 3:
-            self.printMat("Corrector - R", matR)
 
         # Compute Kalman gain: K_{n} = P_{n,n-1}*Ht*(H*P_{n,n-1}*Ht + R_{n})^-1.
         matK = np.dot(matH, np.dot(matP, np.transpose(matH)))+matR
         if self.sim["prmVrb"] >= 4:
-            self.printMat("Corrector - H*P*Ht+R", matK)
+            self.printMat("H*P*Ht+R", matK)
         matK = np.dot(matP, np.dot(np.transpose(matH), npl.inv(matK)))
+
+        # Verbose on demand.
         if self.sim["prmVrb"] >= 3:
-            self.printMat("Corrector - K", matK)
+            self.printMat("K", matK)
 
         return matR, matK # https://www.kalmanfilter.net/kalmanGain.html.
 
@@ -475,7 +475,7 @@ class kalmanFilterModel():
 
         # Get measurement covariance.
         matR = self.mat["R"] # Start from default matrix (needed to avoid singular K matrix).
-        for msrItem in msrLst:
+        for msrItem in msrLst: # Small (accurate) sigma at msrLst tail.
             msrType = msrItem[0]
             prmSigma = msrItem[4]
             if msrType == "x":
@@ -491,6 +491,10 @@ class kalmanFilterModel():
                 matR[5, 5] = prmSigma*prmSigma
                 matR[8, 8] = prmSigma*prmSigma
 
+        # Verbose on demand.
+        if self.sim["prmVrb"] >= 3:
+            self.printMat("R", matR)
+
         return matR
 
     def updateCovariance(self, matK, matH, matP, matR):
@@ -501,9 +505,13 @@ class kalmanFilterModel():
         prmN = self.example.getLTISystemSize()
         matImKH = np.identity(prmN, dtype=float)-np.dot(matK, matH)
         if self.sim["prmVrb"] >= 4:
-            self.printMat("Corrector - I-KH", matImKH)
+            self.printMat("I-KH", matImKH)
         newMatP = np.dot(matImKH, np.dot(matP, np.transpose(matImKH)))
         newMatP = newMatP+np.dot(matK, np.dot(matR, np.transpose(matK)))
+
+        # Verbose on demand.
+        if self.sim["prmVrb"] >= 3:
+            self.printMat("P", newMatP)
 
         return newMatP
 
@@ -512,14 +520,14 @@ class kalmanFilterModel():
 
         # Predict states.
         if self.sim["prmVrb"] >= 1:
-            print("  "*2+"Iteration: time %.3f" % newTime)
+            print("  "*2+"Prediction: time %.3f" % newTime)
         newStates, matF, matG = self.predictStates(timeDt, states)
 
         # Outputs equation: y_{n+1,n+1} = C*x_{n+1,n+1} + D*u_{n+1,n+1}.
-        newMatU = self.example.computeControlLaw(newStates, self.sim)
+        newMatU = self.example.computeControlLaw(newStates, self.sim, vrb=False)
         newOutputs = self.computeOutputs(newStates, newMatU)
         if self.sim["prmVrb"] >= 2:
-            self.printMat("Predictor - Y", np.transpose(newOutputs))
+            self.printMat("Y", np.transpose(newOutputs))
 
         # Save simulation results.
         self.saveXY(newTime, newStates, newOutputs)
@@ -543,8 +551,7 @@ class kalmanFilterModel():
             taylorExpLTM = np.amax(np.abs(taylorExp))
             matF = matF+taylorExp
         if self.sim["prmVrb"] >= 3:
-            msg = "Predictor - F"
-            self.printMat(msg, matF)
+            self.printMat("F", matF)
         self.sim["simTEM"] = np.append(self.sim["simTEM"], taylorExpLTM)
 
         # Compute G_{n,n}.
@@ -552,17 +559,15 @@ class kalmanFilterModel():
         if self.mat["B"] is not None:
             matG = np.dot(timeDt*matF, self.mat["B"])
             if self.sim["prmVrb"] >= 3:
-                self.printMat("Predictor - G", matG)
+                self.printMat("G", matG)
 
         # Compute process noise w_{n,n}.
         matW = self.getProcessNoise(states)
-        if self.sim["prmVrb"] >= 2:
-            self.printMat("Predictor - W", np.transpose(matW))
 
         # Compute control law u_{n,n}.
-        matU = self.example.computeControlLaw(states, self.sim, save=False, vrb=False)
+        matU = self.example.computeControlLaw(states, self.sim, save=False)
         if self.sim["prmVrb"] >= 2:
-            self.printMat("Predictor - U", np.transpose(matU))
+            self.printMat("U", np.transpose(matU))
 
         # Predictor equation: x_{n+1,n} = F*x_{n,n} + G*u_{n,n} + w_{n,n}.
         newStates = np.dot(matF, states)
@@ -570,7 +575,7 @@ class kalmanFilterModel():
             newStates = newStates+np.dot(matG, matU)
         newStates = newStates+matW
         if self.sim["prmVrb"] >= 2:
-            self.printMat("Predictor - X", np.transpose(newStates))
+            self.printMat("X", np.transpose(newStates))
 
         return newStates, matF, matG
 
@@ -581,12 +586,12 @@ class kalmanFilterModel():
         varQ = self.sim["prmProNseSig"]*self.sim["prmProNseSig"]
         matQ = matG*varQ*np.transpose(matG) # https://www.kalmanfilter.net/covextrap.html.
         if self.sim["prmVrb"] >= 3:
-            self.printMat("Predictor - Q", matQ)
+            self.printMat("Q", matQ)
 
         # Covariance equation: P_{n+1,n} = F_{n,n}*P_{n,n}*F_{n,n}t + Q_{n,n}.
         newMatP = np.dot(matF, np.dot(matP, np.transpose(matF)))+matQ
         if self.sim["prmVrb"] >= 3:
-            self.printMat("Predictor - P", newMatP)
+            self.printMat("P", newMatP)
 
         return newMatP
 
@@ -629,6 +634,10 @@ class kalmanFilterModel():
         prmMu, prmSigma = states, self.sim["prmProNseSig"]
         noisyStates = np.random.normal(prmMu, prmSigma)
         matW = noisyStates-states
+
+        # Verbose on demand.
+        if self.sim["prmVrb"] >= 2:
+            self.printMat("W", np.transpose(matW))
 
         return matW
 
@@ -3103,7 +3112,7 @@ class planeTrackingExample:
 
         # Verbose on demand.
         if opts["vrb"] and sim["prmVrb"] >= 1:
-            print("  "*3+"Control law - roll: current %.3f, target %.3f" % (roll, rollTgt))
+            print("  "*3+"Roll:\t current %.3f,\t target %.3f" % (roll, rollTgt))
 
         return accNxt
 
@@ -3130,7 +3139,7 @@ class planeTrackingExample:
 
         # Verbose on demand.
         if opts["vrb"] and sim["prmVrb"] >= 1:
-            print("  "*3+"Control law - pitch: current %.3f, target %.3f" % (pitch, pitchTgt))
+            print("  "*3+"Pitch:\t current %.3f,\t target %.3f" % (pitch, pitchTgt))
 
         return accNxt
 
@@ -3157,7 +3166,7 @@ class planeTrackingExample:
 
         # Verbose on demand.
         if opts["vrb"] and sim["prmVrb"] >= 1:
-            print("  "*3+"Control law - yaw: current %.3f, target %.3f" % (yaw, yawTgt))
+            print("  "*3+"Yaw:\t current %.3f,\t target %.3f" % (yaw, yawTgt))
 
         return accNxt
 
