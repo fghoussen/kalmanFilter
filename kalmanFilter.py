@@ -2618,9 +2618,9 @@ class planeTrackingExample:
         sigVelSensor = sigVelGPS / 2. # IMU sensors are more accurate than GPS.
         sigAccSensor = np.sqrt(3.*sigVelSensor*sigVelSensor) # GPS: sigma a deduced from v.
         self.msr["addType"].setCurrentIndex(2) # Set combo to "a".
-        self.msr["addT0"].setText("60.")
-        self.msr["addTf"].setText("3540.")
-        self.msr["addDt"].setText("30.") # IMU sensors provide more data than GPS.
+        self.msr["addT0"].setText("0.")
+        self.msr["addTf"].setText("3600.")
+        self.msr["addDt"].setText("20.") # IMU sensors provide more data than GPS.
         self.msr["addSigma"].setText("%.3f" % sigAccSensor)
         self.onAddMsrBtnClick() # Adding "a" measurement.
 
