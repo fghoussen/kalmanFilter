@@ -2546,10 +2546,12 @@ class planeTrackingExample:
         qrbUD = QRadioButton("Up-down", self.ctrGUI)
         qrbZZ = QRadioButton("Zig-zag", self.ctrGUI)
         qrbRT = QRadioButton("Round trip", self.ctrGUI)
+        qrbLP = QRadioButton("Looping", self.ctrGUI)
         qrbSL.toggled.connect(self.onExampleClicked)
         qrbUD.toggled.connect(self.onExampleClicked)
         qrbZZ.toggled.connect(self.onExampleClicked)
         qrbRT.toggled.connect(self.onExampleClicked)
+        qrbLP.toggled.connect(self.onExampleClicked)
         qrbSL.setChecked(True)
 
         # Set group box layout.
@@ -2558,6 +2560,7 @@ class planeTrackingExample:
         expLay.addWidget(qrbUD)
         expLay.addWidget(qrbZZ)
         expLay.addWidget(qrbRT)
+        expLay.addWidget(qrbLP)
         expGUI.setLayout(expLay)
 
         return expGUI
@@ -2566,18 +2569,10 @@ class planeTrackingExample:
         """Callback on click: example radio button"""
 
         # Reset indicators.
-        self.slt["indVX0"].setText("N.A.")
-        self.slt["indVY0"].setText("N.A.")
-        self.slt["indVZ0"].setText("N.A.")
-        self.slt["indAX0"].setText("N.A.")
-        self.slt["indAY0"].setText("N.A.")
-        self.slt["indAZ0"].setText("N.A.")
-        self.slt["indXMin"].setText("N.A.")
-        self.slt["indXMax"].setText("N.A.")
-        self.slt["indVMin"].setText("N.A.")
-        self.slt["indVMax"].setText("N.A.")
-        self.slt["indAMin"].setText("N.A.")
-        self.slt["indAMax"].setText("N.A.")
+        for key in ["indVX0", "indVY0", "indVZ0", "indAX0", "indAY0", "indAZ0"]:
+            self.slt[key].setText("N.A.")
+        for key in ["indXMin", "indXMax", "indVMin", "indVMax", "indAMin", "indAMax"]:
+            self.slt[key].setText("N.A.")
 
         # Set parameters according to example.
         sigPosGPS = 1. # GPS: sigma x = 1m.
@@ -2592,6 +2587,8 @@ class planeTrackingExample:
                 self.onZigZagExampleClicked(sigPosGPS, sigVelGPS)
             if qrb.text() == "Round trip":
                 self.onRoundTripExampleClicked(sigPosGPS, sigVelGPS)
+            if qrb.text() == "Looping":
+                self.onLoopingExampleClicked(sigPosGPS, sigVelGPS)
             self.sim["ctlRolMax"].setText("45.")
             self.sim["ctlPtcMax"].setText("30.")
             self.sim["ctlYawMax"].setText("45.")
@@ -2798,6 +2795,52 @@ class planeTrackingExample:
         self.sim["cdiVX0"].setText("0.5")
         self.sim["cdiVY0"].setText("35.")
         self.sim["cdiVZ0"].setText("0.5")
+        self.sim["cdiSigVX0"].setText("%.3f" % sigVelSim)
+        self.sim["cdiSigVY0"].setText("%.3f" % sigVelSim)
+        self.sim["cdiSigVZ0"].setText("%.3f" % sigVelSim)
+        self.sim["cdiAX0"].setText("0.5")
+        self.sim["cdiAY0"].setText("0.5")
+        self.sim["cdiAZ0"].setText("0.5")
+        self.sim["cdiSigAX0"].setText("%.3f" % sigAccSim)
+        self.sim["cdiSigAY0"].setText("%.3f" % sigAccSim)
+        self.sim["cdiSigAZ0"].setText("%.3f" % sigAccSim)
+
+    def onLoopingExampleClicked(self, sigPosGPS, sigVelGPS):
+        """Callback on click: looping example radio button"""
+
+        # Flight path equation: parameters.
+        self.slt["fpeAx"].setText("100.")
+        self.slt["fpeAy"].setText("100.")
+        self.slt["fpeTx"].setText("3650.")
+        self.slt["fpeTy"].setText("3550.")
+        self.slt["fpePhix"].setText("270.")
+        self.slt["fpePhiy"].setText("0.")
+        self.slt["fpeTiZi"].setText("300 5010., 2500 5150, 3400 5010., 3600 5000.")
+        self.slt["cdiX0"].setText("0.")
+        self.slt["cdiY0"].setText("0.")
+        self.slt["cdiZ0"].setText("5000.")
+        self.slt["cdfTf"].setText("3600.")
+
+        # Evaluate sigma: simulation sigma (less trusted) > GPS sigma (more trusted).
+        sigPosSim = 3.*sigPosGPS
+        sigVelSim = 3.*sigVelGPS
+        sigAccSim = 3.*np.sqrt(3.*sigVelSim*sigVelSim) # GPS: sigma a deduced from v.
+
+        # Simulation: parameters.
+        self.sim["prmM"].setText("1000.")
+        self.sim["prmC"].setText("200.")
+        self.sim["prmDt"].setText("5.")
+        self.sim["prmExpOrd"].setText("3")
+        self.sim["prmProNseSig"].setText("0.1")
+        self.sim["cdiX0"].setText("0.5")
+        self.sim["cdiY0"].setText("0.5")
+        self.sim["cdiZ0"].setText("5005.")
+        self.sim["cdiSigX0"].setText("%.3f" % sigPosSim)
+        self.sim["cdiSigY0"].setText("%.3f" % sigPosSim)
+        self.sim["cdiSigZ0"].setText("%.3f" % sigPosSim)
+        self.sim["cdiVX0"].setText("2.")
+        self.sim["cdiVY0"].setText("2.")
+        self.sim["cdiVZ0"].setText("2.")
         self.sim["cdiSigVX0"].setText("%.3f" % sigVelSim)
         self.sim["cdiSigVY0"].setText("%.3f" % sigVelSim)
         self.sim["cdiSigVZ0"].setText("%.3f" % sigVelSim)
