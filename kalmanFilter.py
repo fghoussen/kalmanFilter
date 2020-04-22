@@ -848,9 +848,11 @@ class planeTrackingExample:
         if vwrVelLgh == 0.:
             return
         vwrVelNrm = self.slt["vwrVelNrm"].isChecked()
+        vwrVelALR = float(self.slt["vwrVelALR"].text())
         axis = self.vwr["3D"].getAxis()
         axis.quiver3D(eqnX, eqnY, eqnZ, eqnVX, eqnVY, eqnVZ, color=clr,
-                      length=vwrVelLgh, normalize=vwrVelNrm, label="flight path: v")
+                      length=vwrVelLgh, normalize=vwrVelNrm, arrow_length_ratio=vwrVelALR,
+                      label="flight path: v")
 
     def updateViewerSltA(self):
         """Update viewer: plot acceleration of the solution"""
@@ -863,9 +865,11 @@ class planeTrackingExample:
         if vwrAccLgh == 0.:
             return
         vwrAccNrm = self.slt["vwrAccNrm"].isChecked()
+        vwrAccALR = float(self.slt["vwrAccALR"].text())
         axis = self.vwr["3D"].getAxis()
         axis.quiver3D(eqnX, eqnY, eqnZ, eqnAX, eqnAY, eqnAZ, colors=clr,
-                      length=vwrAccLgh, normalize=vwrAccNrm, label="flight path: a")
+                      length=vwrAccLgh, normalize=vwrAccNrm, arrow_length_ratio=vwrAccALR,
+                      label="flight path: a")
 
     def getSltId(self):
         """Get solution identity (track solution features)"""
@@ -902,7 +906,7 @@ class planeTrackingExample:
         print("  "*1+"Plot measurements")
         for txt in self.msr["datMsr"]:
             msrData = self.msr["datMsr"][txt]
-            self.viewMsrData(msrData)
+            self.updateViewerMsrData(msrData)
 
         # Track measurement features.
         self.msr["msrId"] = self.getMsrId()
@@ -1169,19 +1173,19 @@ class planeTrackingExample:
 
         return prmTi, prmZi
 
-    def viewMsrData(self, msrData):
-        """View measure data"""
+    def updateViewerMsrData(self, msrData):
+        """Update viewer: measurement data"""
 
         # View data measurements.
         if msrData["msrType"] == "x":
-            self.viewMsrDataX(msrData)
+            self.updateViewerMsrDataX(msrData)
         if msrData["msrType"] == "v":
-            self.viewMsrDataV(msrData)
+            self.updateViewerMsrDataV(msrData)
         if msrData["msrType"] == "a":
-            self.viewMsrDataA(msrData)
+            self.updateViewerMsrDataA(msrData)
 
-    def viewMsrDataX(self, msrData):
-        """View measure data: displacement"""
+    def updateViewerMsrDataX(self, msrData):
+        """Update viewer: displacement measurement data"""
 
         # View measure data: displacement.
         posX = msrData["X"]
@@ -1194,8 +1198,8 @@ class planeTrackingExample:
         axis.scatter3D(posX, posY, posZ, c="r", marker="^", alpha=1, s=vwrPosMks,
                        label="measure: x")
 
-    def viewMsrDataV(self, msrData):
-        """View measure data: velocity"""
+    def updateViewerMsrDataV(self, msrData):
+        """Update viewer: velocity measurement data"""
 
         # View measure data: velocity.
         posX = msrData["X"]
@@ -1209,13 +1213,14 @@ class planeTrackingExample:
         if vwrVelLgh == 0.:
             return
         vwrVelNrm = self.msr["vwrVelNrm"].isChecked()
+        vwrVelALR = float(self.msr["vwrVelALR"].text())
         axis = self.vwr["3D"].getAxis()
-        axis.quiver3D(posX, posY, posZ, eqnVX, eqnVY, eqnVZ,
-                      colors=clr, length=vwrVelLgh, normalize=vwrVelNrm,
+        axis.quiver3D(posX, posY, posZ, eqnVX, eqnVY, eqnVZ, colors=clr,
+                      length=vwrVelLgh, normalize=vwrVelNrm, arrow_length_ratio=vwrVelALR,
                       label="measure: v")
 
-    def viewMsrDataA(self, msrData):
-        """View measure data: acceleration"""
+    def updateViewerMsrDataA(self, msrData):
+        """Update viewer: acceleration measurement data"""
 
         # View measure data: acceleration.
         posX = msrData["X"]
@@ -1229,9 +1234,10 @@ class planeTrackingExample:
         if vwrAccLgh == 0.:
             return
         vwrAccNrm = self.msr["vwrAccNrm"].isChecked()
+        vwrAccALR = float(self.msr["vwrAccALR"].text())
         axis = self.vwr["3D"].getAxis()
-        axis.quiver3D(posX, posY, posZ, eqnAX, eqnAY, eqnAZ,
-                      colors=clr, length=vwrAccLgh, normalize=vwrAccNrm,
+        axis.quiver3D(posX, posY, posZ, eqnAX, eqnAY, eqnAZ, colors=clr,
+                      length=vwrAccLgh, normalize=vwrAccNrm, arrow_length_ratio=vwrAccALR,
                       label="measure: a")
 
     def getMsrId(self):
@@ -1336,9 +1342,11 @@ class planeTrackingExample:
         if vwrVelLgh == 0.:
             return
         vwrVelNrm = self.sim["vwrVelNrm"].isChecked()
+        vwrVelALR = float(self.sim["vwrVelALR"].text())
         axis = self.vwr["3D"].getAxis()
         axis.quiver3D(eqnX, eqnY, eqnZ, eqnVX, eqnVY, eqnVZ, color=clr,
-                      length=vwrVelLgh, normalize=vwrVelNrm, label="simulation: v")
+                      length=vwrVelLgh, normalize=vwrVelNrm, arrow_length_ratio=vwrVelALR,
+                      label="simulation: v")
 
     def updateViewerSimA(self):
         """Update viewer: plot acceleration of the simulation"""
@@ -1351,9 +1359,11 @@ class planeTrackingExample:
         if vwrAccLgh == 0.:
             return
         vwrAccNrm = self.sim["vwrAccNrm"].isChecked()
+        vwrAccALR = float(self.sim["vwrAccALR"].text())
         axis = self.vwr["3D"].getAxis()
         axis.quiver3D(eqnX, eqnY, eqnZ, eqnAX, eqnAY, eqnAZ, colors=clr,
-                      length=vwrAccLgh, normalize=vwrAccNrm, label="simulation: a")
+                      length=vwrAccLgh, normalize=vwrAccNrm, arrow_length_ratio=vwrAccALR,
+                      label="simulation: a")
 
     def throwError(self, eId, txt):
         """Throw an error message"""
@@ -1382,7 +1392,34 @@ class planeTrackingExample:
         sltGUI.setTitle("Analytic solution: targeting real flight path")
         sltGUI.setAlignment(Qt.AlignHCenter)
 
-        # Store analytic parameters.
+        # Create analytic parameters.
+        self.createSltGUIPrm()
+
+        # Set default GUI.
+        self.slt["indVX0"].setEnabled(False)
+        self.slt["indVY0"].setEnabled(False)
+        self.slt["indVZ0"].setEnabled(False)
+        self.slt["indAX0"].setEnabled(False)
+        self.slt["indAY0"].setEnabled(False)
+        self.slt["indAZ0"].setEnabled(False)
+        self.slt["indXMin"].setEnabled(False)
+        self.slt["indXMax"].setEnabled(False)
+        self.slt["indVMin"].setEnabled(False)
+        self.slt["indVMax"].setEnabled(False)
+        self.slt["indAMin"].setEnabled(False)
+        self.slt["indAMax"].setEnabled(False)
+        self.slt["vwrVelNrm"].setChecked(False)
+        self.slt["vwrAccNrm"].setChecked(False)
+
+        # Fill solution GUI.
+        self.fillSltGUI(sltGUI)
+
+        return sltGUI
+
+    def createSltGUIPrm(self):
+        """Create solution GUI: parameters"""
+
+        # Create analytic parameters.
         self.slt["fpeAx"] = QLineEdit("N.A.", self.ctrGUI)
         self.slt["fpeAy"] = QLineEdit("N.A.", self.ctrGUI)
         self.slt["fpeTx"] = QLineEdit("N.A.", self.ctrGUI)
@@ -1409,31 +1446,12 @@ class planeTrackingExample:
         self.slt["vwrNbPt"] = QLineEdit("50", self.ctrGUI)
         self.slt["vwrLnWd"] = QLineEdit("1.", self.ctrGUI)
         self.slt["vwrPosMks"] = QLineEdit("5", self.ctrGUI)
-        self.slt["vwrVelLgh"] = QLineEdit("0.1", self.ctrGUI)
+        self.slt["vwrVelLgh"] = QLineEdit("1.", self.ctrGUI)
+        self.slt["vwrVelALR"] = QLineEdit("0.1", self.ctrGUI)
         self.slt["vwrVelNrm"] = QCheckBox("Normalize", self.ctrGUI)
-        self.slt["vwrAccLgh"] = QLineEdit("0.1", self.ctrGUI)
+        self.slt["vwrAccLgh"] = QLineEdit("1.", self.ctrGUI)
+        self.slt["vwrAccALR"] = QLineEdit("0.1", self.ctrGUI)
         self.slt["vwrAccNrm"] = QCheckBox("Normalize", self.ctrGUI)
-
-        # Set default GUI.
-        self.slt["indVX0"].setEnabled(False)
-        self.slt["indVY0"].setEnabled(False)
-        self.slt["indVZ0"].setEnabled(False)
-        self.slt["indAX0"].setEnabled(False)
-        self.slt["indAY0"].setEnabled(False)
-        self.slt["indAZ0"].setEnabled(False)
-        self.slt["indXMin"].setEnabled(False)
-        self.slt["indXMax"].setEnabled(False)
-        self.slt["indVMin"].setEnabled(False)
-        self.slt["indVMax"].setEnabled(False)
-        self.slt["indAMin"].setEnabled(False)
-        self.slt["indAMax"].setEnabled(False)
-        self.slt["vwrVelNrm"].setChecked(True)
-        self.slt["vwrAccNrm"].setChecked(True)
-
-        # Fill solution GUI.
-        self.fillSltGUI(sltGUI)
-
-        return sltGUI
 
     def fillSltGUI(self, sltGUI):
         """Fill solution GUI"""
@@ -1623,11 +1641,15 @@ class planeTrackingExample:
         gdlVwr.addWidget(QLabel("Velocity:", sltGUI), 1, 0)
         gdlVwr.addWidget(QLabel("length", sltGUI), 1, 1)
         gdlVwr.addWidget(self.slt["vwrVelLgh"], 1, 2)
-        gdlVwr.addWidget(self.slt["vwrVelNrm"], 1, 3)
+        gdlVwr.addWidget(QLabel("arrow/length ratio", sltGUI), 1, 3)
+        gdlVwr.addWidget(self.slt["vwrVelALR"], 1, 4)
+        gdlVwr.addWidget(self.slt["vwrVelNrm"], 1, 5)
         gdlVwr.addWidget(QLabel("Acceleration:", sltGUI), 2, 0)
         gdlVwr.addWidget(QLabel("length", sltGUI), 2, 1)
         gdlVwr.addWidget(self.slt["vwrAccLgh"], 2, 2)
-        gdlVwr.addWidget(self.slt["vwrAccNrm"], 2, 3)
+        gdlVwr.addWidget(QLabel("arrow/length ratio", sltGUI), 2, 3)
+        gdlVwr.addWidget(self.slt["vwrAccALR"], 2, 4)
+        gdlVwr.addWidget(self.slt["vwrAccNrm"], 2, 5)
 
         # Set group box layout.
         gpbVwr = QGroupBox(sltGUI)
@@ -1645,7 +1667,22 @@ class planeTrackingExample:
         msrGUI.setTitle("Measurements: data received from sensors")
         msrGUI.setAlignment(Qt.AlignHCenter)
 
-        # Store measurement parameters.
+        # Create measurement parameters.
+        self.createMsrGUIPrm()
+
+        # Set default GUI.
+        self.msr["vwrVelNrm"].setChecked(False)
+        self.msr["vwrAccNrm"].setChecked(False)
+
+        # Fill measurement GUI.
+        self.fillMsrGUI(msrGUI)
+
+        return msrGUI
+
+    def createMsrGUIPrm(self):
+        """Create measurement GUI: parameters"""
+
+        # Create measurement parameters.
         self.msr["addType"] = QComboBox(self.ctrGUI)
         for msr in ["x", "v", "a"]:
             self.msr["addType"].addItem(msr)
@@ -1656,19 +1693,12 @@ class planeTrackingExample:
         self.msr["lstMsr"] = QListWidget(self.ctrGUI)
         self.msr["datMsr"] = {}
         self.msr["vwrPosMks"] = QLineEdit("15", self.ctrGUI)
-        self.msr["vwrVelLgh"] = QLineEdit("0.1", self.ctrGUI)
+        self.msr["vwrVelLgh"] = QLineEdit("1.", self.ctrGUI)
+        self.msr["vwrVelALR"] = QLineEdit("0.1", self.ctrGUI)
         self.msr["vwrVelNrm"] = QCheckBox("Normalize", self.ctrGUI)
-        self.msr["vwrAccLgh"] = QLineEdit("0.1", self.ctrGUI)
+        self.msr["vwrAccLgh"] = QLineEdit("1.", self.ctrGUI)
+        self.msr["vwrAccALR"] = QLineEdit("0.1", self.ctrGUI)
         self.msr["vwrAccNrm"] = QCheckBox("Normalize", self.ctrGUI)
-
-        # Set default GUI.
-        self.msr["vwrVelNrm"].setChecked(True)
-        self.msr["vwrAccNrm"].setChecked(True)
-
-        # Fill measurement GUI.
-        self.fillMsrGUI(msrGUI)
-
-        return msrGUI
 
     def fillMsrGUI(self, msrGUI):
         """Fill measurement GUI"""
@@ -1782,11 +1812,15 @@ class planeTrackingExample:
         gdlVwr.addWidget(QLabel("Velocity:", msrGUI), 1, 0)
         gdlVwr.addWidget(QLabel("length", msrGUI), 1, 1)
         gdlVwr.addWidget(self.msr["vwrVelLgh"], 1, 2)
-        gdlVwr.addWidget(self.msr["vwrVelNrm"], 1, 3)
+        gdlVwr.addWidget(QLabel("arrow/length ratio", msrGUI), 1, 3)
+        gdlVwr.addWidget(self.msr["vwrVelALR"], 1, 4)
+        gdlVwr.addWidget(self.msr["vwrVelNrm"], 1, 5)
         gdlVwr.addWidget(QLabel("Acceleration:", msrGUI), 2, 0)
         gdlVwr.addWidget(QLabel("length", msrGUI), 2, 1)
         gdlVwr.addWidget(self.msr["vwrAccLgh"], 2, 2)
-        gdlVwr.addWidget(self.msr["vwrAccNrm"], 2, 3)
+        gdlVwr.addWidget(QLabel("arrow/length ratio", msrGUI), 2, 3)
+        gdlVwr.addWidget(self.msr["vwrAccALR"], 2, 4)
+        gdlVwr.addWidget(self.msr["vwrAccNrm"], 2, 5)
 
         # Set group box layout.
         gpbVwr = QGroupBox(msrGUI)
@@ -1804,7 +1838,22 @@ class planeTrackingExample:
         simGUI.setTitle("Simulation")
         simGUI.setAlignment(Qt.AlignHCenter)
 
-        # Store simulation parameters.
+        # Create simulation parameters.
+        self.createSimGUIPrm()
+
+        # Set default GUI.
+        self.sim["vwrVelNrm"].setChecked(False)
+        self.sim["vwrAccNrm"].setChecked(False)
+
+        # Fill simulation GUI.
+        self.fillSimGUI(simGUI)
+
+        return simGUI
+
+    def createSimGUIPrm(self):
+        """Create simulation GUI: parameters"""
+
+        # Create simulation parameters.
         self.sim["prmM"] = QLineEdit("N.A.", self.ctrGUI)
         self.sim["prmC"] = QLineEdit("N.A.", self.ctrGUI)
         self.sim["prmDt"] = QLineEdit("N.A.", self.ctrGUI)
@@ -1834,19 +1883,12 @@ class planeTrackingExample:
         self.sim["ctlYawMax"] = QLineEdit("N.A.", self.ctrGUI)
         self.sim["vwrLnWd"] = QLineEdit("1.", self.ctrGUI)
         self.sim["vwrPosMks"] = QLineEdit("5", self.ctrGUI)
-        self.sim["vwrVelLgh"] = QLineEdit("0.1", self.ctrGUI)
+        self.sim["vwrVelLgh"] = QLineEdit("1.", self.ctrGUI)
+        self.sim["vwrVelALR"] = QLineEdit("0.1", self.ctrGUI)
         self.sim["vwrVelNrm"] = QCheckBox("Normalize", self.ctrGUI)
-        self.sim["vwrAccLgh"] = QLineEdit("0.1", self.ctrGUI)
+        self.sim["vwrAccLgh"] = QLineEdit("1.", self.ctrGUI)
+        self.sim["vwrAccALR"] = QLineEdit("0.1", self.ctrGUI)
         self.sim["vwrAccNrm"] = QCheckBox("Normalize", self.ctrGUI)
-
-        # Set default GUI.
-        self.sim["vwrVelNrm"].setChecked(True)
-        self.sim["vwrAccNrm"].setChecked(True)
-
-        # Fill simulation GUI.
-        self.fillSimGUI(simGUI)
-
-        return simGUI
 
     def fillSimGUI(self, simGUI):
         """Fill simulation GUI"""
@@ -2021,11 +2063,15 @@ class planeTrackingExample:
         gdlVwr.addWidget(QLabel("Velocity:", simGUI), 1, 0)
         gdlVwr.addWidget(QLabel("length", simGUI), 1, 1)
         gdlVwr.addWidget(self.sim["vwrVelLgh"], 1, 2)
-        gdlVwr.addWidget(self.sim["vwrVelNrm"], 1, 3)
+        gdlVwr.addWidget(QLabel("arrow/length ratio", simGUI), 1, 3)
+        gdlVwr.addWidget(self.sim["vwrVelALR"], 1, 4)
+        gdlVwr.addWidget(self.sim["vwrVelNrm"], 1, 5)
         gdlVwr.addWidget(QLabel("Acceleration:", simGUI), 2, 0)
         gdlVwr.addWidget(QLabel("length", simGUI), 2, 1)
         gdlVwr.addWidget(self.sim["vwrAccLgh"], 2, 2)
-        gdlVwr.addWidget(self.sim["vwrAccNrm"], 2, 3)
+        gdlVwr.addWidget(QLabel("arrow/length ratio", simGUI), 2, 3)
+        gdlVwr.addWidget(self.sim["vwrAccALR"], 2, 4)
+        gdlVwr.addWidget(self.sim["vwrAccNrm"], 2, 5)
 
         # Set group box layout.
         gpbVwr = QGroupBox(simGUI)
@@ -2667,6 +2713,14 @@ class planeTrackingExample:
         self.sim["cdiSigAY0"].setText("%.3f" % sigAccSim)
         self.sim["cdiSigAZ0"].setText("%.3f" % sigAccSim)
 
+        # Viewer options.
+        keys = [("vwrVelLgh", "20"), ("vwrVelALR", "0.2"),
+                ("vwrAccLgh", "20000"), ("vwrAccALR", "0.2")]
+        for key in keys:
+            self.slt[key[0]].setText(key[1])
+            self.msr[key[0]].setText(key[1])
+            self.sim[key[0]].setText(key[1])
+
     def onUpDownExampleClicked(self, sigPosGPS, sigVelGPS):
         """Callback on click: up-down example radio button"""
 
@@ -2712,6 +2766,14 @@ class planeTrackingExample:
         self.sim["cdiSigAX0"].setText("%.3f" % sigAccSim)
         self.sim["cdiSigAY0"].setText("%.3f" % sigAccSim)
         self.sim["cdiSigAZ0"].setText("%.3f" % sigAccSim)
+
+        # Viewer options.
+        keys = [("vwrVelLgh", "20"), ("vwrVelALR", "0.02"),
+                ("vwrAccLgh", "20000"), ("vwrAccALR", "0.02")]
+        for key in keys:
+            self.slt[key[0]].setText(key[1])
+            self.msr[key[0]].setText(key[1])
+            self.sim[key[0]].setText(key[1])
 
     def onZigZagExampleClicked(self, sigPosGPS, sigVelGPS):
         """Callback on click: zig-zag example radio button"""
@@ -2759,6 +2821,14 @@ class planeTrackingExample:
         self.sim["cdiSigAY0"].setText("%.3f" % sigAccSim)
         self.sim["cdiSigAZ0"].setText("%.3f" % sigAccSim)
 
+        # Viewer options.
+        keys = [("vwrVelLgh", "20"), ("vwrVelALR", "0.2"),
+                ("vwrAccLgh", "20000"), ("vwrAccALR", "0.2")]
+        for key in keys:
+            self.slt[key[0]].setText(key[1])
+            self.msr[key[0]].setText(key[1])
+            self.sim[key[0]].setText(key[1])
+
     def onRoundTripExampleClicked(self, sigPosGPS, sigVelGPS):
         """Callback on click: round trip example radio button"""
 
@@ -2805,6 +2875,14 @@ class planeTrackingExample:
         self.sim["cdiSigAY0"].setText("%.3f" % sigAccSim)
         self.sim["cdiSigAZ0"].setText("%.3f" % sigAccSim)
 
+        # Viewer options.
+        keys = [("vwrVelLgh", "20"), ("vwrVelALR", "0.002"),
+                ("vwrAccLgh", "20000"), ("vwrAccALR", "0.002")]
+        for key in keys:
+            self.slt[key[0]].setText(key[1])
+            self.msr[key[0]].setText(key[1])
+            self.sim[key[0]].setText(key[1])
+
     def onLoopingExampleClicked(self, sigPosGPS, sigVelGPS):
         """Callback on click: looping example radio button"""
 
@@ -2850,6 +2928,14 @@ class planeTrackingExample:
         self.sim["cdiSigAX0"].setText("%.3f" % sigAccSim)
         self.sim["cdiSigAY0"].setText("%.3f" % sigAccSim)
         self.sim["cdiSigAZ0"].setText("%.3f" % sigAccSim)
+
+        # Viewer options.
+        keys = [("vwrVelLgh", "20"), ("vwrVelALR", "0.2"),
+                ("vwrAccLgh", "20000"), ("vwrAccALR", "0.2")]
+        for key in keys:
+            self.slt[key[0]].setText(key[1])
+            self.msr[key[0]].setText(key[1])
+            self.sim[key[0]].setText(key[1])
 
     def createVwrGUI(self, gdlVwr):
         """Create viewer GUI"""
