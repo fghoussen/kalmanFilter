@@ -3261,7 +3261,7 @@ class planeTrackingExample:
 
         # Verbose on demand.
         if opts["vrb"] and sim["prmVrb"] >= 1:
-            print("  "*3+"Roll:\t current %.3f,\t target %.3f" % (roll, rollTgt))
+            print("  "*3+"Roll: current %.3f, target %.3f" % (roll, rollTgt))
 
         return accNxt
 
@@ -3288,7 +3288,7 @@ class planeTrackingExample:
 
         # Verbose on demand.
         if opts["vrb"] and sim["prmVrb"] >= 1:
-            print("  "*3+"Pitch:\t current %.3f,\t target %.3f" % (pitch, pitchTgt))
+            print("  "*3+"Pitch: current %.3f, target %.3f" % (pitch, pitchTgt))
 
         return accNxt
 
@@ -3315,7 +3315,7 @@ class planeTrackingExample:
 
         # Verbose on demand.
         if opts["vrb"] and sim["prmVrb"] >= 1:
-            print("  "*3+"Yaw:\t current %.3f,\t target %.3f" % (yaw, yawTgt))
+            print("  "*3+"Yaw: current %.3f, target %.3f" % (yaw, yawTgt))
 
         return accNxt
 
