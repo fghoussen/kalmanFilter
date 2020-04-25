@@ -3201,15 +3201,15 @@ class planeTrackingExample:
         # Initialize state covariance.
         prmN = self.getLTISystemSize()
         matP = np.zeros((prmN, prmN), dtype=float)
-        matP[0, 0] = sim["cdiSigX0"]
-        matP[1, 1] = sim["cdiSigVX0"]
-        matP[2, 2] = sim["cdiSigAX0"]
-        matP[3, 3] = sim["cdiSigY0"]
-        matP[4, 4] = sim["cdiSigVY0"]
-        matP[5, 5] = sim["cdiSigAY0"]
-        matP[6, 6] = sim["cdiSigZ0"]
-        matP[7, 7] = sim["cdiSigVZ0"]
-        matP[8, 8] = sim["cdiSigAZ0"]
+        matP[0, 0] = np.power(sim["cdiSigX0"], 2)
+        matP[1, 1] = np.power(sim["cdiSigVX0"], 2)
+        matP[2, 2] = np.power(sim["cdiSigAX0"], 2)
+        matP[3, 3] = np.power(sim["cdiSigY0"], 2)
+        matP[4, 4] = np.power(sim["cdiSigVY0"], 2)
+        matP[5, 5] = np.power(sim["cdiSigAY0"], 2)
+        matP[6, 6] = np.power(sim["cdiSigZ0"], 2)
+        matP[7, 7] = np.power(sim["cdiSigVZ0"], 2)
+        matP[8, 8] = np.power(sim["cdiSigAZ0"], 2)
 
         return matP
 
