@@ -2678,7 +2678,7 @@ class planeTrackingExample:
         qrb = self.ctrGUI.sender()
         if qrb.isChecked():
             self.sim["prmM"].setText("1000.")
-            self.sim["prmC"].setText("200.")
+            self.sim["prmC"].setText("50.")
             if qrb.text() == "Straight line":
                 self.onStraightLineExampleClicked(sigPosGPS, sigVelGPS)
             if qrb.text() == "Up-down":
