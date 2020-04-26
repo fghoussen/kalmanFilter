@@ -18,6 +18,7 @@ from PyQt5.QtWidgets import QGroupBox, QGridLayout, QLineEdit
 from PyQt5.QtWidgets import QMessageBox
 from PyQt5.QtWidgets import QListWidget, QCheckBox, QRadioButton
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QDoubleValidator
 
 matplotlib.use("Qt5Agg")
 
@@ -1489,6 +1490,11 @@ class planeTrackingExample:
         self.slt["vwrAccALR"] = QLineEdit("0.1", self.ctrGUI)
         self.slt["vwrAccNrm"] = QCheckBox("Normalize", self.ctrGUI)
 
+        # Allow only double in QLineEdit.
+        for key in self.slt:
+            if isinstance(self.slt[key], QLineEdit):
+                self.slt[key].setValidator(QDoubleValidator())
+
     def fillSltGUI(self, sltGUI):
         """Fill solution GUI"""
 
@@ -1736,6 +1742,11 @@ class planeTrackingExample:
         self.msr["vwrAccALR"] = QLineEdit("0.1", self.ctrGUI)
         self.msr["vwrAccNrm"] = QCheckBox("Normalize", self.ctrGUI)
 
+        # Allow only double in QLineEdit.
+        for key in self.msr:
+            if isinstance(self.msr[key], QLineEdit):
+                self.msr[key].setValidator(QDoubleValidator())
+
     def fillMsrGUI(self, msrGUI):
         """Fill measurement GUI"""
 
@@ -1925,6 +1936,11 @@ class planeTrackingExample:
         self.sim["vwrAccLgh"] = QLineEdit("1.", self.ctrGUI)
         self.sim["vwrAccALR"] = QLineEdit("0.1", self.ctrGUI)
         self.sim["vwrAccNrm"] = QCheckBox("Normalize", self.ctrGUI)
+
+        # Allow only double in QLineEdit.
+        for key in self.sim:
+            if isinstance(self.sim[key], QLineEdit):
+                self.sim[key].setValidator(QDoubleValidator())
 
     def fillSimGUI(self, simGUI):
         """Fill simulation GUI"""
