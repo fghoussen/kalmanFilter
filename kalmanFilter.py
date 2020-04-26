@@ -2661,6 +2661,8 @@ class planeTrackingExample:
         sigVelGPS = np.sqrt(3.*sigPosGPS*sigPosGPS) # GPS: sigma v deduced from x.
         qrb = self.ctrGUI.sender()
         if qrb.isChecked():
+            self.sim["prmM"].setText("1000.")
+            self.sim["prmC"].setText("200.")
             if qrb.text() == "Straight line":
                 self.onStraightLineExampleClicked(sigPosGPS, sigVelGPS)
             if qrb.text() == "Up-down":
@@ -2725,8 +2727,6 @@ class planeTrackingExample:
         sigAccSim = 3.*np.sqrt(3.*sigVelSim*sigVelSim) # GPS: sigma a deduced from v.
 
         # Simulation: parameters.
-        self.sim["prmM"].setText("1000.")
-        self.sim["prmC"].setText("200.")
         self.sim["prmDt"].setText("5.")
         self.sim["prmExpOrd"].setText("3")
         self.sim["prmProNseSig"].setText("0.1")
@@ -2779,8 +2779,6 @@ class planeTrackingExample:
         sigAccSim = 3.*np.sqrt(3.*sigVelSim*sigVelSim) # GPS: sigma a deduced from v.
 
         # Simulation: parameters.
-        self.sim["prmM"].setText("1000.")
-        self.sim["prmC"].setText("200.")
         self.sim["prmDt"].setText("5.")
         self.sim["prmExpOrd"].setText("3")
         self.sim["prmProNseSig"].setText("0.1")
@@ -2833,8 +2831,6 @@ class planeTrackingExample:
         sigAccSim = 3.*np.sqrt(3.*sigVelSim*sigVelSim) # GPS: sigma a deduced from v.
 
         # Simulation: parameters.
-        self.sim["prmM"].setText("1000.")
-        self.sim["prmC"].setText("200.")
         self.sim["prmDt"].setText("5.")
         self.sim["prmExpOrd"].setText("3")
         self.sim["prmProNseSig"].setText("0.1")
@@ -2887,8 +2883,6 @@ class planeTrackingExample:
         sigAccSim = 3.*np.sqrt(3.*sigVelSim*sigVelSim) # GPS: sigma a deduced from v.
 
         # Simulation: parameters.
-        self.sim["prmM"].setText("1000.")
-        self.sim["prmC"].setText("200.")
         self.sim["prmDt"].setText("5.")
         self.sim["prmExpOrd"].setText("3")
         self.sim["prmProNseSig"].setText("0.1")
@@ -2941,8 +2935,6 @@ class planeTrackingExample:
         sigAccSim = 3.*np.sqrt(3.*sigVelSim*sigVelSim) # GPS: sigma a deduced from v.
 
         # Simulation: parameters.
-        self.sim["prmM"].setText("1000.")
-        self.sim["prmC"].setText("200.")
         self.sim["prmDt"].setText("5.")
         self.sim["prmExpOrd"].setText("3")
         self.sim["prmProNseSig"].setText("0.1")
