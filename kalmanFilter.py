@@ -956,9 +956,10 @@ class planeTrackingExample:
         # Data.
         eqnX, eqnY, eqnZ = self.getDisplEquations(eqnT)
         prmSigma = float(txt.split(";")[4].split()[1])
-        msrData["X"] = self.addNoise(eqnX, prmSigma)
-        msrData["Y"] = self.addNoise(eqnY, prmSigma)
-        msrData["Z"] = self.addNoise(eqnZ, prmSigma)
+        eqnNoise = self.addNoise(prmSigma, eqnX, eqnY, eqnZ)
+        msrData["X"] = eqnX+eqnNoise[:, 0]
+        msrData["Y"] = eqnY+eqnNoise[:, 1]
+        msrData["Z"] = eqnZ+eqnNoise[:, 2]
 
     def getMsrDataV(self, txt, msrData):
         """Get measure data: velocity"""
@@ -972,15 +973,13 @@ class planeTrackingExample:
         msrData["T"] = eqnT
 
         # Data.
-        eqnX, eqnY, eqnZ = self.getDisplEquations(eqnT)
-        msrData["X"] = eqnX
-        msrData["Y"] = eqnY
-        msrData["Z"] = eqnZ
+        msrData["X"], msrData["Y"], msrData["Z"] = self.getDisplEquations(eqnT)
         eqnVX, eqnVY, eqnVZ = self.getVelocEquations(eqnT)
         prmSigma = float(txt.split(";")[4].split()[1])
-        msrData["VX"] = self.addNoise(eqnVX, prmSigma)
-        msrData["VY"] = self.addNoise(eqnVY, prmSigma)
-        msrData["VZ"] = self.addNoise(eqnVZ, prmSigma)
+        eqnNoise = self.addNoise(prmSigma, eqnVX, eqnVY, eqnVZ)
+        msrData["VX"] = eqnVX+eqnNoise[:, 0]
+        msrData["VY"] = eqnVY+eqnNoise[:, 1]
+        msrData["VZ"] = eqnVZ+eqnNoise[:, 2]
 
     def getMsrDataA(self, txt, msrData):
         """Get measure data: acceleration"""
@@ -994,25 +993,62 @@ class planeTrackingExample:
         msrData["T"] = eqnT
 
         # Data.
-        eqnX, eqnY, eqnZ = self.getDisplEquations(eqnT)
-        msrData["X"] = eqnX
-        msrData["Y"] = eqnY
-        msrData["Z"] = eqnZ
+        msrData["X"], msrData["Y"], msrData["Z"] = self.getDisplEquations(eqnT)
         eqnAX, eqnAY, eqnAZ = self.getAccelEquations(eqnT)
         prmSigma = float(txt.split(";")[4].split()[1])
-        msrData["AX"] = self.addNoise(eqnAX, prmSigma)
-        msrData["AY"] = self.addNoise(eqnAY, prmSigma)
-        msrData["AZ"] = self.addNoise(eqnAZ, prmSigma)
+        eqnNoise = self.addNoise(prmSigma, eqnAX, eqnAY, eqnAZ)
+        msrData["AX"] = eqnAX+eqnNoise[:, 0]
+        msrData["AY"] = eqnAY+eqnNoise[:, 1]
+        msrData["AZ"] = eqnAZ+eqnNoise[:, 2]
 
     @staticmethod
-    def addNoise(eqn, prmSigma):
+    def addNoise(prmSigma, eqnX, eqnY, eqnZ):
         """Add (gaussian) noise"""
 
         # Add noise to data: v_{n} such that z_{n} = H*x_{n} + v_{n}.
-        prmMu = eqn
-        noisyEqn = np.random.normal(prmMu, prmSigma)
+        eqnNorm = np.sqrt(eqnX*eqnX+eqnY*eqnY+eqnZ*eqnZ)
+        eqnNoise = np.zeros((len(eqnNorm), 3), dtype=float)
+        for idx, norm in enumerate(eqnNorm):
+            # Skip values too close from zero.
+            if np.abs(norm) < 1.e-03:
+                continue
 
-        return noisyEqn
+            # Generate noise.
+            normNoise = np.random.normal(norm, prmSigma)
+            addedNoise = normNoise-norm
+            if np.abs(addedNoise) > 0.25*norm: # Cut off if too much noise.
+                if addedNoise > 0.:
+                    normNoise = norm*1.25
+                else:
+                    normNoise = norm*0.75
+                addedNoise = normNoise-norm
+
+            # Spread noise accross axis.
+            eqnXYZ = np.array([eqnX[idx], eqnY[idx], eqnZ[idx]])
+            noise = (eqnXYZ/norm)*addedNoise
+            for axis, coord in zip([0, 1, 2], [eqnX, eqnY, eqnZ]): # X, Y, Z
+                # Spread noise.
+                spreadCoef = 0.
+                if coord[idx] > 0.:
+                    spreadCoef = np.random.uniform(0., coord[idx]/norm)
+                else:
+                    spreadCoef = np.random.uniform(coord[idx]/norm, 0.)
+                noise[axis] = noise[axis]*(1.+spreadCoef)
+
+                # Normalize noise.
+                normNoise = np.sqrt(noise[0]*noise[0]+noise[1]*noise[1]+noise[2]*noise[2])
+                noise = (noise/normNoise)*addedNoise
+
+            # Orient noise.
+            if np.dot(eqnXYZ, noise) < 0. < addedNoise:
+                noise = -1.*noise
+            elif addedNoise < 0. < np.dot(eqnXYZ, noise):
+                noise = -1.*noise
+
+            # Save noise.
+            eqnNoise[idx, :] = noise
+
+        return eqnNoise
 
     def getDisplEquations(self, eqnT):
         """Get displacement equations"""
