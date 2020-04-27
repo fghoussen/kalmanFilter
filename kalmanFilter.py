@@ -1957,9 +1957,9 @@ class planeTrackingExample:
         simSubLay1 = QHBoxLayout()
         simSubLay1.addWidget(gpbPrm)
         simSubLay1.addWidget(gpbX0)
-        simSubLay1.addWidget(gpbFCL)
-        simSubLay1.addWidget(gpbVwr)
         simSubLay2 = QHBoxLayout()
+        simSubLay2.addWidget(gpbFCL)
+        simSubLay2.addWidget(gpbVwr)
         simSubLay2.addWidget(gpbPpg)
         simRootLay = QVBoxLayout(simGUI)
         simRootLay.addLayout(simSubLay1)
@@ -2152,10 +2152,10 @@ class planeTrackingExample:
         # Create simulation GUI: simulation post processing.
         gdlPpg = QGridLayout(simGUI)
         gdlPpg.addWidget(pltSOVBtn, 0, 0)
-        gdlPpg.addWidget(pltSCLBtn, 0, 1)
-        gdlPpg.addWidget(pltSTSBtn, 0, 2)
-        gdlPpg.addWidget(pltSCvBtn, 0, 3)
-        gdlPpg.addWidget(pltSKGBtn, 0, 4)
+        gdlPpg.addWidget(pltSCLBtn, 1, 0)
+        gdlPpg.addWidget(pltSTSBtn, 2, 0)
+        gdlPpg.addWidget(pltSCvBtn, 3, 0)
+        gdlPpg.addWidget(pltSKGBtn, 4, 0)
 
         # Set group box layout.
         gpbPpg = QGroupBox(simGUI)
