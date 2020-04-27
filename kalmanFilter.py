@@ -17,6 +17,7 @@ from PyQt5.QtWidgets import QLabel, QComboBox, QPushButton, QHBoxLayout, QVBoxLa
 from PyQt5.QtWidgets import QGroupBox, QGridLayout, QLineEdit
 from PyQt5.QtWidgets import QMessageBox
 from PyQt5.QtWidgets import QListWidget, QCheckBox, QRadioButton
+from PyQt5.QtWidgets import QScrollArea
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QDoubleValidator
 
@@ -3499,7 +3500,14 @@ class controllerGUI(QMainWindow):
         # Set up controls GUI.
         guiCtr = QWidget(self)
         guiCtr.setLayout(layCtr)
-        self.setCentralWidget(guiCtr)
+
+        # Add vertical and horizontal scroll bars to GUI.
+        scrollWidget = QScrollArea()
+        scrollWidget.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+        scrollWidget.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+        scrollWidget.setWidget(guiCtr)
+        scrollWidget.setWidgetResizable(True)
+        self.setCentralWidget(scrollWidget)
 
     def addUpdateVwrBtn(self):
         """Add button to update the viewer"""
