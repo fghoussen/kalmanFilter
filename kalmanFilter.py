@@ -330,7 +330,7 @@ class kalmanFilterModel():
             print("  "*2+"Initialisation:")
         time = 0.
         states = self.example.initStates(self.sim)
-        matU = self.example.computeControlLaw(states, self.sim)
+        matU = self.example.computeControlLaw(states, time, self.sim)
         outputs = self.computeOutputs(states, matU)
         matP = self.example.initStateCovariance(self.sim)
         if self.sim["prmVrb"] >= 2:
@@ -523,10 +523,10 @@ class kalmanFilterModel():
         # Predict states.
         if self.sim["prmVrb"] >= 1:
             print("  "*2+"Prediction: time %.3f" % newTime)
-        newStates, matF, matG = self.predictStates(timeDt, states)
+        newStates, matF, matG = self.predictStates(timeDt, newTime, states)
 
         # Outputs equation: y_{n+1,n+1} = C*x_{n+1,n+1} + D*u_{n+1,n+1}.
-        newMatU = self.example.computeControlLaw(newStates, self.sim, vrb=False)
+        newMatU = self.example.computeControlLaw(newStates, newTime, self.sim)
         newOutputs = self.computeOutputs(newStates, newMatU)
         if self.sim["prmVrb"] >= 2:
             self.printMat("Y", np.transpose(newOutputs))
@@ -540,7 +540,7 @@ class kalmanFilterModel():
 
         return newStates, newMatP
 
-    def predictStates(self, timeDt, states):
+    def predictStates(self, timeDt, newTime, states):
         """Predict states"""
 
         # Compute F_{n,n}.
@@ -567,7 +567,7 @@ class kalmanFilterModel():
         matW = self.getProcessNoise(states)
 
         # Compute control law u_{n,n}.
-        matU = self.example.computeControlLaw(states, self.sim, save=False)
+        matU = self.example.computeControlLaw(states, newTime, self.sim, save=False)
         if self.sim["prmVrb"] >= 2:
             self.printMat("U", np.transpose(matU))
 
@@ -1929,6 +1929,11 @@ class planeTrackingExample:
         self.sim["ctlRolMax"] = QLineEdit("N.A.", self.ctrGUI)
         self.sim["ctlPtcMax"] = QLineEdit("N.A.", self.ctrGUI)
         self.sim["ctlYawMax"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["ctlThfTkoK"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["ctlThfTkoDt"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["ctlThfFlgK"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["ctlThfLdgK"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["ctlThfLdgDt"] = QLineEdit("N.A.", self.ctrGUI)
         self.sim["vwrLnWd"] = QLineEdit("1.", self.ctrGUI)
         self.sim["vwrPosMks"] = QLineEdit("5", self.ctrGUI)
         self.sim["vwrVelLgh"] = QLineEdit("1.", self.ctrGUI)
@@ -2094,6 +2099,17 @@ class planeTrackingExample:
         gdlFCL.addWidget(self.sim["ctlPtcMax"], 2, 1)
         gdlFCL.addWidget(QLabel("Yaw:", simGUI), 3, 0)
         gdlFCL.addWidget(self.sim["ctlYawMax"], 3, 1)
+        gdlFCL.addWidget(QLabel("Throttle force: F = (k/m)*V", simGUI), 0, 2, 1, 4)
+        gdlFCL.addWidget(QLabel("Take-off k:", simGUI), 1, 2)
+        gdlFCL.addWidget(self.sim["ctlThfTkoK"], 1, 3)
+        gdlFCL.addWidget(QLabel("<em>&Delta;t</em>:", simGUI), 1, 4)
+        gdlFCL.addWidget(self.sim["ctlThfTkoDt"], 1, 5)
+        gdlFCL.addWidget(QLabel("Flight k:", simGUI), 2, 2)
+        gdlFCL.addWidget(self.sim["ctlThfFlgK"], 2, 3)
+        gdlFCL.addWidget(QLabel("Landing k:", simGUI), 3, 2)
+        gdlFCL.addWidget(self.sim["ctlThfLdgK"], 3, 3)
+        gdlFCL.addWidget(QLabel("<em>&Delta;t</em>:", simGUI), 3, 4)
+        gdlFCL.addWidget(self.sim["ctlThfLdgDt"], 3, 5)
 
         # Set group box layout.
         gpbFCL = QGroupBox(simGUI)
@@ -2152,10 +2168,10 @@ class planeTrackingExample:
         # Create simulation GUI: simulation post processing.
         gdlPpg = QGridLayout(simGUI)
         gdlPpg.addWidget(pltSOVBtn, 0, 0)
-        gdlPpg.addWidget(pltSCLBtn, 1, 0)
-        gdlPpg.addWidget(pltSTSBtn, 2, 0)
-        gdlPpg.addWidget(pltSCvBtn, 3, 0)
-        gdlPpg.addWidget(pltSKGBtn, 4, 0)
+        gdlPpg.addWidget(pltSTSBtn, 0, 1)
+        gdlPpg.addWidget(pltSCLBtn, 1, 0, 1, 2)
+        gdlPpg.addWidget(pltSCvBtn, 2, 0)
+        gdlPpg.addWidget(pltSKGBtn, 2, 1)
 
         # Set group box layout.
         gpbPpg = QGroupBox(simGUI)
@@ -2680,6 +2696,11 @@ class planeTrackingExample:
         if qrb.isChecked():
             self.sim["prmM"].setText("1000.")
             self.sim["prmC"].setText("50.")
+            self.sim["ctlThfTkoK"].setText("60")
+            self.sim["ctlThfTkoDt"].setText("300.")
+            self.sim["ctlThfFlgK"].setText("55")
+            self.sim["ctlThfLdgDt"].setText("300.")
+            self.sim["ctlThfLdgK"].setText("40")
             if qrb.text() == "Straight line":
                 self.onStraightLineExampleClicked(sigPosGPS, sigVelGPS)
             if qrb.text() == "Up-down":
@@ -3148,6 +3169,18 @@ class planeTrackingExample:
         if ctlYawMax < 0. or ctlYawMax > 90.:
             self.throwError(eId, "max yaw must stay between 0° and 90°.")
             return False
+        ctlThfTkoK = float(self.sim["ctlThfTkoK"].text())
+        ctlThfFlgK = float(self.sim["ctlThfFlgK"].text())
+        ctlThfLdgK = float(self.sim["ctlThfLdgK"].text())
+        if ctlThfTkoK < 0 or ctlThfFlgK < 0 or ctlThfLdgK < 0:
+            self.throwError(eId, "throttle coefficients must be superior than 0.")
+            return False
+        cdfTf = float(self.slt["cdfTf"].text())
+        ctlThfTkoDt = float(self.sim["ctlThfTkoDt"].text())
+        ctlThfLdgDt = float(self.sim["ctlThfLdgDt"].text())
+        if not 0. < ctlThfTkoDt < cdfTf or not 0. < ctlThfLdgDt < cdfTf:
+            self.throwError(eId, "throttle time slot must belong to [0., t<sub>f</sub>].")
+            return False
 
         return True
 
@@ -3258,22 +3291,24 @@ class planeTrackingExample:
 
         return matP
 
-    def computeControlLaw(self, states, sim, save=True, vrb=True):
+    def computeControlLaw(self, states, time, sim, save=True):
         """Compute control law"""
 
-        # Compute control law: get roll, pitch, yaw corrections.
-        opts = {"save": save, "vrb": vrb}
+        # Compute throttle force.
         velNow = np.array([states[1, 0], states[4, 0], states[7, 0]]) # Velocity.
+        thfX, thfY, thfZ = self.computeThrottleForce(velNow, time)
+
+        # Compute control law: get roll, pitch, yaw corrections.
         accNow = np.array([states[2, 0], states[5, 0], states[8, 0]]) # Acceleration.
-        accNxt = self.computeRoll(velNow, accNow, sim, opts)
-        accNxt = self.computePitch(velNow, accNxt, sim, opts)
-        accNxt = self.computeYaw(velNow, accNxt, sim, opts)
+        accNxt = self.computeRoll(velNow, accNow, sim, save)
+        accNxt = self.computePitch(velNow, accNxt, sim, save)
+        accNxt = self.computeYaw(velNow, accNxt, sim, save)
 
         # Compute control law.
         fomX = accNxt[0]-accNow[0]
         fomY = accNxt[1]-accNow[1]
         fomZ = accNxt[2]-accNow[2]
-        matU = self.computeControl((fomX, fomY, fomZ), sim, save)
+        matU = self.computeControl((thfX+fomX, thfY+fomY, thfZ+fomZ), sim, save)
 
         # Save F/m to compute d(F/m)/dt next time.
         if save:
@@ -3283,7 +3318,28 @@ class planeTrackingExample:
 
         return matU
 
-    def computeRoll(self, velNow, accNow, sim, opts):
+    def computeThrottleForce(self, velNow, time):
+        """Compute throttle force"""
+
+        # Get throttle parameters.
+        ctlThfK = 0.
+        cdfTf = float(self.slt["cdfTf"].text())
+        ctlThfTkoDt = float(self.sim["ctlThfTkoDt"].text())
+        ctlThfLdgDt = float(self.sim["ctlThfLdgDt"].text())
+        if 0. < time <= ctlThfTkoDt:
+            ctlThfK = float(self.sim["ctlThfTkoK"].text())
+        elif cdfTf-ctlThfLdgDt < time <= cdfTf:
+            ctlThfK = float(self.sim["ctlThfLdgK"].text())
+        else:
+            ctlThfK = float(self.sim["ctlThfFlgK"].text())
+
+        # Compute throttle force F = (k/m)*V.
+        prmM = float(self.sim["prmM"].text())
+        thrForce = ctlThfK/prmM*velNow
+
+        return thrForce[0], thrForce[1], thrForce[2]
+
+    def computeRoll(self, velNow, accNow, sim, save):
         """Compute control law: roll"""
 
         # Compute roll around X axis.
@@ -3293,7 +3349,7 @@ class planeTrackingExample:
         roll = self.getAngle(velNow, velNxt, proj)
 
         # Save control law hidden variables.
-        if opts["save"]:
+        if save:
             sim["simCLV"]["roll"].append(roll)
 
         # Control roll.
@@ -3304,13 +3360,9 @@ class planeTrackingExample:
             velNxt = velNow+accNxt*prmDt # New velocity.
             rollTgt = self.getAngle(velNow, velNxt, proj)
 
-        # Verbose on demand.
-        if opts["vrb"] and sim["prmVrb"] >= 1:
-            print("  "*3+"Roll: current %.3f, target %.3f" % (roll, rollTgt))
-
         return accNxt
 
-    def computePitch(self, velNow, accNow, sim, opts):
+    def computePitch(self, velNow, accNow, sim, save):
         """Compute control law: pitch"""
 
         # Compute pitch around Y axis.
@@ -3320,7 +3372,7 @@ class planeTrackingExample:
         pitch = self.getAngle(velNow, velNxt, proj)
 
         # Save control law hidden variables.
-        if opts["save"]:
+        if save:
             sim["simCLV"]["pitch"].append(pitch)
 
         # Control pitch.
@@ -3331,13 +3383,9 @@ class planeTrackingExample:
             velNxt = velNow+accNxt*prmDt # New velocity.
             pitchTgt = self.getAngle(velNow, velNxt, proj)
 
-        # Verbose on demand.
-        if opts["vrb"] and sim["prmVrb"] >= 1:
-            print("  "*3+"Pitch: current %.3f, target %.3f" % (pitch, pitchTgt))
-
         return accNxt
 
-    def computeYaw(self, velNow, accNow, sim, opts):
+    def computeYaw(self, velNow, accNow, sim, save):
         """Compute control law: yaw"""
 
         # Compute yaw around Z axis.
@@ -3347,7 +3395,7 @@ class planeTrackingExample:
         yaw = self.getAngle(velNow, velNxt, proj)
 
         # Save control law hidden variables.
-        if opts["save"]:
+        if save:
             sim["simCLV"]["yaw"].append(yaw)
 
         # Control yaw.
@@ -3357,10 +3405,6 @@ class planeTrackingExample:
             accNxt = accNxt*0.95 # Decrease acceleration by 5%.
             velNxt = velNow+accNxt*prmDt # New velocity.
             yawTgt = self.getAngle(velNow, velNxt, proj)
-
-        # Verbose on demand.
-        if opts["vrb"] and sim["prmVrb"] >= 1:
-            print("  "*3+"Yaw: current %.3f, target %.3f" % (yaw, yawTgt))
 
         return accNxt
 
