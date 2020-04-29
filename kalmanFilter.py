@@ -2721,15 +2721,15 @@ class planeTrackingExample:
 
         # Initialize the measurement list with GPS measurements (x, v).
         self.msr["addType"].setCurrentIndex(0) # Set combo to "x".
-        self.msr["addT0"].setText("60.")
-        self.msr["addTf"].setText("3540.")
-        self.msr["addDt"].setText("60.")
+        self.msr["addT0"].setText("0.")
+        self.msr["addTf"].setText("3600.")
+        self.msr["addDt"].setText("10.")
         self.msr["addSigma"].setText("%.3f" % sigPosGPS)
         self.onAddMsrBtnClick() # Adding "x" measurement.
         self.msr["addType"].setCurrentIndex(1) # Set combo to "v".
-        self.msr["addT0"].setText("60.")
-        self.msr["addTf"].setText("3540.")
-        self.msr["addDt"].setText("60.")
+        self.msr["addT0"].setText("0.")
+        self.msr["addTf"].setText("3600.")
+        self.msr["addDt"].setText("10.")
         self.msr["addSigma"].setText("%.3f" % sigVelGPS)
         self.onAddMsrBtnClick() # Adding "v" measurement.
 
@@ -2739,7 +2739,7 @@ class planeTrackingExample:
         self.msr["addType"].setCurrentIndex(2) # Set combo to "a".
         self.msr["addT0"].setText("0.")
         self.msr["addTf"].setText("3600.")
-        self.msr["addDt"].setText("20.") # IMU sensors provide more data than GPS.
+        self.msr["addDt"].setText("3.") # IMU sensors provide more data than GPS.
         self.msr["addSigma"].setText("%.3f" % sigAccSensor)
         self.onAddMsrBtnClick() # Adding "a" measurement.
 
