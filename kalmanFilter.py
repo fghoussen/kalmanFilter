@@ -2749,8 +2749,8 @@ class planeTrackingExample:
         # Flight path equation: parameters.
         self.slt["fpeAx"].setText("10000.")
         self.slt["fpeAy"].setText("10000.")
-        self.slt["fpeTx"].setText("36000.")
-        self.slt["fpeTy"].setText("36000.")
+        self.slt["fpeTx"].setText("360000.")
+        self.slt["fpeTy"].setText("360000.")
         self.slt["fpePhix"].setText("270.")
         self.slt["fpePhiy"].setText("0.")
         self.slt["fpeTiZi"].setText("3600 10000.")
