@@ -2788,8 +2788,8 @@ class planeTrackingExample:
         self.sim["cdiSigAZ0"].setText("%.3f" % sigAccSim)
 
         # Viewer options.
-        keys = [("vwrVelLgh", "20"), ("vwrVelALR", "0.2"),
-                ("vwrAccLgh", "20000"), ("vwrAccALR", "0.2")]
+        keys = [("vwrVelLgh", "10"), ("vwrVelALR", "0.3"),
+                ("vwrAccLgh", "1"), ("vwrAccALR", "0.3")]
         for key in keys:
             self.slt[key[0]].setText(key[1])
             self.msr[key[0]].setText(key[1])
@@ -2840,8 +2840,8 @@ class planeTrackingExample:
         self.sim["cdiSigAZ0"].setText("%.3f" % sigAccSim)
 
         # Viewer options.
-        keys = [("vwrVelLgh", "20"), ("vwrVelALR", "0.02"),
-                ("vwrAccLgh", "20000"), ("vwrAccALR", "0.02")]
+        keys = [("vwrVelLgh", "10"), ("vwrVelALR", "0.3"),
+                ("vwrAccLgh", "1"), ("vwrAccALR", "0.3")]
         for key in keys:
             self.slt[key[0]].setText(key[1])
             self.msr[key[0]].setText(key[1])
@@ -2892,8 +2892,8 @@ class planeTrackingExample:
         self.sim["cdiSigAZ0"].setText("%.3f" % sigAccSim)
 
         # Viewer options.
-        keys = [("vwrVelLgh", "20"), ("vwrVelALR", "0.2"),
-                ("vwrAccLgh", "20000"), ("vwrAccALR", "0.2")]
+        keys = [("vwrVelLgh", "10"), ("vwrVelALR", "0.3"),
+                ("vwrAccLgh", "1"), ("vwrAccALR", "0.3")]
         for key in keys:
             self.slt[key[0]].setText(key[1])
             self.msr[key[0]].setText(key[1])
@@ -2944,8 +2944,8 @@ class planeTrackingExample:
         self.sim["cdiSigAZ0"].setText("%.3f" % sigAccSim)
 
         # Viewer options.
-        keys = [("vwrVelLgh", "20"), ("vwrVelALR", "0.002"),
-                ("vwrAccLgh", "20000"), ("vwrAccALR", "0.002")]
+        keys = [("vwrVelLgh", "10"), ("vwrVelALR", "0.1"),
+                ("vwrAccLgh", "1"), ("vwrAccALR", "0.1")]
         for key in keys:
             self.slt[key[0]].setText(key[1])
             self.msr[key[0]].setText(key[1])
@@ -2996,8 +2996,8 @@ class planeTrackingExample:
         self.sim["cdiSigAZ0"].setText("%.3f" % sigAccSim)
 
         # Viewer options.
-        keys = [("vwrVelLgh", "20"), ("vwrVelALR", "0.2"),
-                ("vwrAccLgh", "20000"), ("vwrAccALR", "0.2")]
+        keys = [("vwrVelLgh", "10"), ("vwrVelALR", "0.3"),
+                ("vwrAccLgh", "1"), ("vwrAccALR", "0.3")]
         for key in keys:
             self.slt[key[0]].setText(key[1])
             self.msr[key[0]].setText(key[1])
