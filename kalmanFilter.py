@@ -2690,8 +2690,9 @@ class planeTrackingExample:
             self.slt[key].setText("N.A.")
 
         # Set parameters according to example.
-        sigPosGPS = 1. # GPS: sigma x = 1m.
-        sigVelGPS = np.sqrt(3.*sigPosGPS*sigPosGPS) # GPS: sigma v deduced from x.
+        sigPosGPS = 2. # GPS: sigma x.
+        sigVelGPS = 0.5 # GPS: sigma v.
+        sigAccSensor = 0.0001 # IMU accelerometers: sigma a.
         qrb = self.ctrGUI.sender()
         if qrb.isChecked():
             self.sim["prmM"].setText("1000.")
@@ -2702,15 +2703,15 @@ class planeTrackingExample:
             self.sim["ctlThfLdgDt"].setText("300.")
             self.sim["ctlThfLdgK"].setText("40")
             if qrb.text() == "Straight line":
-                self.onStraightLineExampleClicked(sigPosGPS, sigVelGPS)
+                self.onStraightLineExampleClicked(sigPosGPS, sigVelGPS, sigAccSensor)
             if qrb.text() == "Up-down":
-                self.onUpDownExampleClicked(sigPosGPS, sigVelGPS)
+                self.onUpDownExampleClicked(sigPosGPS, sigVelGPS, sigAccSensor)
             if qrb.text() == "Zig-zag":
-                self.onZigZagExampleClicked(sigPosGPS, sigVelGPS)
+                self.onZigZagExampleClicked(sigPosGPS, sigVelGPS, sigAccSensor)
             if qrb.text() == "Round trip":
-                self.onRoundTripExampleClicked(sigPosGPS, sigVelGPS)
+                self.onRoundTripExampleClicked(sigPosGPS, sigVelGPS, sigAccSensor)
             if qrb.text() == "Looping":
-                self.onLoopingExampleClicked(sigPosGPS, sigVelGPS)
+                self.onLoopingExampleClicked(sigPosGPS, sigVelGPS, sigAccSensor)
             self.sim["ctlRolMax"].setText("45.")
             self.sim["ctlPtcMax"].setText("30.")
             self.sim["ctlYawMax"].setText("45.")
@@ -2724,26 +2725,24 @@ class planeTrackingExample:
         self.msr["addT0"].setText("0.")
         self.msr["addTf"].setText("3600.")
         self.msr["addDt"].setText("10.")
-        self.msr["addSigma"].setText("%.3f" % sigPosGPS)
+        self.msr["addSigma"].setText("%.6f" % sigPosGPS)
         self.onAddMsrBtnClick() # Adding "x" measurement.
         self.msr["addType"].setCurrentIndex(1) # Set combo to "v".
         self.msr["addT0"].setText("0.")
         self.msr["addTf"].setText("3600.")
         self.msr["addDt"].setText("10.")
-        self.msr["addSigma"].setText("%.3f" % sigVelGPS)
+        self.msr["addSigma"].setText("%.6f" % sigVelGPS)
         self.onAddMsrBtnClick() # Adding "v" measurement.
 
         # Initialize the measurement list with accelerometer measurements (a).
-        sigVelSensor = sigVelGPS / 2. # IMU sensors are more accurate than GPS.
-        sigAccSensor = np.sqrt(3.*sigVelSensor*sigVelSensor) # GPS: sigma a deduced from v.
         self.msr["addType"].setCurrentIndex(2) # Set combo to "a".
         self.msr["addT0"].setText("0.")
         self.msr["addTf"].setText("3600.")
         self.msr["addDt"].setText("3.") # IMU sensors provide more data than GPS.
-        self.msr["addSigma"].setText("%.3f" % sigAccSensor)
+        self.msr["addSigma"].setText("%.6f" % sigAccSensor)
         self.onAddMsrBtnClick() # Adding "a" measurement.
 
-    def onStraightLineExampleClicked(self, sigPosGPS, sigVelGPS):
+    def onStraightLineExampleClicked(self, sigPosGPS, sigVelGPS, sigAccSensor):
         """Callback on click: straight line example radio button"""
 
         # Flight path equation: parameters.
@@ -2760,9 +2759,9 @@ class planeTrackingExample:
         self.slt["cdfTf"].setText("3600.")
 
         # Evaluate sigma: simulation sigma (less trusted) > GPS sigma (more trusted).
-        sigPosSim = 3.*sigPosGPS
-        sigVelSim = 3.*sigVelGPS
-        sigAccSim = 3.*np.sqrt(3.*sigVelSim*sigVelSim) # GPS: sigma a deduced from v.
+        sigPosSim = 2.*sigPosGPS
+        sigVelSim = 2.*sigVelGPS
+        sigAccSim = 2.*sigAccSensor
 
         # Simulation: parameters.
         self.sim["prmDt"].setText("5.")
@@ -2771,21 +2770,21 @@ class planeTrackingExample:
         self.sim["cdiX0"].setText("0.5")
         self.sim["cdiY0"].setText("0.5")
         self.sim["cdiZ0"].setText("0.")
-        self.sim["cdiSigX0"].setText("%.3f" % sigPosSim)
-        self.sim["cdiSigY0"].setText("%.3f" % sigPosSim)
-        self.sim["cdiSigZ0"].setText("%.3f" % sigPosSim)
-        self.sim["cdiVX0"].setText("2.")
-        self.sim["cdiVY0"].setText("2.")
-        self.sim["cdiVZ0"].setText("2.")
-        self.sim["cdiSigVX0"].setText("%.3f" % sigVelSim)
-        self.sim["cdiSigVY0"].setText("%.3f" % sigVelSim)
-        self.sim["cdiSigVZ0"].setText("%.3f" % sigVelSim)
-        self.sim["cdiAX0"].setText("0.5")
-        self.sim["cdiAY0"].setText("0.5")
-        self.sim["cdiAZ0"].setText("0.5")
-        self.sim["cdiSigAX0"].setText("%.3f" % sigAccSim)
-        self.sim["cdiSigAY0"].setText("%.3f" % sigAccSim)
-        self.sim["cdiSigAZ0"].setText("%.3f" % sigAccSim)
+        self.sim["cdiSigX0"].setText("%.6f" % sigPosSim)
+        self.sim["cdiSigY0"].setText("%.6f" % sigPosSim)
+        self.sim["cdiSigZ0"].setText("%.6f" % sigPosSim)
+        self.sim["cdiVX0"].setText("0.")
+        self.sim["cdiVY0"].setText("0.")
+        self.sim["cdiVZ0"].setText("3.")
+        self.sim["cdiSigVX0"].setText("%.6f" % sigVelSim)
+        self.sim["cdiSigVY0"].setText("%.6f" % sigVelSim)
+        self.sim["cdiSigVZ0"].setText("%.6f" % sigVelSim)
+        self.sim["cdiAX0"].setText("0.")
+        self.sim["cdiAY0"].setText("0.")
+        self.sim["cdiAZ0"].setText("0.")
+        self.sim["cdiSigAX0"].setText("%.6f" % sigAccSim)
+        self.sim["cdiSigAY0"].setText("%.6f" % sigAccSim)
+        self.sim["cdiSigAZ0"].setText("%.6f" % sigAccSim)
 
         # Viewer options.
         keys = [("vwrVelLgh", "10"), ("vwrVelALR", "0.3"),
@@ -2795,7 +2794,7 @@ class planeTrackingExample:
             self.msr[key[0]].setText(key[1])
             self.sim[key[0]].setText(key[1])
 
-    def onUpDownExampleClicked(self, sigPosGPS, sigVelGPS):
+    def onUpDownExampleClicked(self, sigPosGPS, sigVelGPS, sigAccSensor):
         """Callback on click: up-down example radio button"""
 
         # Flight path equation: parameters.
@@ -2812,9 +2811,9 @@ class planeTrackingExample:
         self.slt["cdfTf"].setText("3600.")
 
         # Evaluate sigma: simulation sigma (less trusted) > GPS sigma (more trusted).
-        sigPosSim = 3.*sigPosGPS
-        sigVelSim = 3.*sigVelGPS
-        sigAccSim = 3.*np.sqrt(3.*sigVelSim*sigVelSim) # GPS: sigma a deduced from v.
+        sigPosSim = 2.*sigPosGPS
+        sigVelSim = 2.*sigVelGPS
+        sigAccSim = 2.*sigAccSensor
 
         # Simulation: parameters.
         self.sim["prmDt"].setText("5.")
@@ -2823,21 +2822,21 @@ class planeTrackingExample:
         self.sim["cdiX0"].setText("0.5")
         self.sim["cdiY0"].setText("0.5")
         self.sim["cdiZ0"].setText("0.")
-        self.sim["cdiSigX0"].setText("%.3f" % sigPosSim)
-        self.sim["cdiSigY0"].setText("%.3f" % sigPosSim)
-        self.sim["cdiSigZ0"].setText("%.3f" % sigPosSim)
+        self.sim["cdiSigX0"].setText("%.6f" % sigPosSim)
+        self.sim["cdiSigY0"].setText("%.6f" % sigPosSim)
+        self.sim["cdiSigZ0"].setText("%.6f" % sigPosSim)
         self.sim["cdiVX0"].setText("2.")
         self.sim["cdiVY0"].setText("2.")
         self.sim["cdiVZ0"].setText("0.5")
-        self.sim["cdiSigVX0"].setText("%.3f" % sigVelSim)
-        self.sim["cdiSigVY0"].setText("%.3f" % sigVelSim)
-        self.sim["cdiSigVZ0"].setText("%.3f" % sigVelSim)
-        self.sim["cdiAX0"].setText("0.5")
-        self.sim["cdiAY0"].setText("0.5")
-        self.sim["cdiAZ0"].setText("0.5")
-        self.sim["cdiSigAX0"].setText("%.3f" % sigAccSim)
-        self.sim["cdiSigAY0"].setText("%.3f" % sigAccSim)
-        self.sim["cdiSigAZ0"].setText("%.3f" % sigAccSim)
+        self.sim["cdiSigVX0"].setText("%.6f" % sigVelSim)
+        self.sim["cdiSigVY0"].setText("%.6f" % sigVelSim)
+        self.sim["cdiSigVZ0"].setText("%.6f" % sigVelSim)
+        self.sim["cdiAX0"].setText("0.")
+        self.sim["cdiAY0"].setText("0.")
+        self.sim["cdiAZ0"].setText("0.")
+        self.sim["cdiSigAX0"].setText("%.6f" % sigAccSim)
+        self.sim["cdiSigAY0"].setText("%.6f" % sigAccSim)
+        self.sim["cdiSigAZ0"].setText("%.6f" % sigAccSim)
 
         # Viewer options.
         keys = [("vwrVelLgh", "10"), ("vwrVelALR", "0.3"),
@@ -2847,7 +2846,7 @@ class planeTrackingExample:
             self.msr[key[0]].setText(key[1])
             self.sim[key[0]].setText(key[1])
 
-    def onZigZagExampleClicked(self, sigPosGPS, sigVelGPS):
+    def onZigZagExampleClicked(self, sigPosGPS, sigVelGPS, sigAccSensor):
         """Callback on click: zig-zag example radio button"""
 
         # Flight path equation: parameters.
@@ -2864,9 +2863,9 @@ class planeTrackingExample:
         self.slt["cdfTf"].setText("3600.")
 
         # Evaluate sigma: simulation sigma (less trusted) > GPS sigma (more trusted).
-        sigPosSim = 3.*sigPosGPS
-        sigVelSim = 3.*sigVelGPS
-        sigAccSim = 3.*np.sqrt(3.*sigVelSim*sigVelSim) # GPS: sigma a deduced from v.
+        sigPosSim = 2.*sigPosGPS
+        sigVelSim = 2.*sigVelGPS
+        sigAccSim = 2.*sigAccSensor
 
         # Simulation: parameters.
         self.sim["prmDt"].setText("5.")
@@ -2875,21 +2874,21 @@ class planeTrackingExample:
         self.sim["cdiX0"].setText("0.5")
         self.sim["cdiY0"].setText("0.5")
         self.sim["cdiZ0"].setText("0.")
-        self.sim["cdiSigX0"].setText("%.3f" % sigPosSim)
-        self.sim["cdiSigY0"].setText("%.3f" % sigPosSim)
-        self.sim["cdiSigZ0"].setText("%.3f" % sigPosSim)
+        self.sim["cdiSigX0"].setText("%.6f" % sigPosSim)
+        self.sim["cdiSigY0"].setText("%.6f" % sigPosSim)
+        self.sim["cdiSigZ0"].setText("%.6f" % sigPosSim)
         self.sim["cdiVX0"].setText("2.")
         self.sim["cdiVY0"].setText("35.")
         self.sim["cdiVZ0"].setText("2.")
-        self.sim["cdiSigVX0"].setText("%.3f" % sigVelSim)
-        self.sim["cdiSigVY0"].setText("%.3f" % sigVelSim)
-        self.sim["cdiSigVZ0"].setText("%.3f" % sigVelSim)
-        self.sim["cdiAX0"].setText("0.5")
-        self.sim["cdiAY0"].setText("0.5")
-        self.sim["cdiAZ0"].setText("0.5")
-        self.sim["cdiSigAX0"].setText("%.3f" % sigAccSim)
-        self.sim["cdiSigAY0"].setText("%.3f" % sigAccSim)
-        self.sim["cdiSigAZ0"].setText("%.3f" % sigAccSim)
+        self.sim["cdiSigVX0"].setText("%.6f" % sigVelSim)
+        self.sim["cdiSigVY0"].setText("%.6f" % sigVelSim)
+        self.sim["cdiSigVZ0"].setText("%.6f" % sigVelSim)
+        self.sim["cdiAX0"].setText("0.")
+        self.sim["cdiAY0"].setText("0.")
+        self.sim["cdiAZ0"].setText("0.")
+        self.sim["cdiSigAX0"].setText("%.6f" % sigAccSim)
+        self.sim["cdiSigAY0"].setText("%.6f" % sigAccSim)
+        self.sim["cdiSigAZ0"].setText("%.6f" % sigAccSim)
 
         # Viewer options.
         keys = [("vwrVelLgh", "10"), ("vwrVelALR", "0.3"),
@@ -2899,7 +2898,7 @@ class planeTrackingExample:
             self.msr[key[0]].setText(key[1])
             self.sim[key[0]].setText(key[1])
 
-    def onRoundTripExampleClicked(self, sigPosGPS, sigVelGPS):
+    def onRoundTripExampleClicked(self, sigPosGPS, sigVelGPS, sigAccSensor):
         """Callback on click: round trip example radio button"""
 
         # Flight path equation: parameters.
@@ -2916,9 +2915,9 @@ class planeTrackingExample:
         self.slt["cdfTf"].setText("3600.")
 
         # Evaluate sigma: simulation sigma (less trusted) > GPS sigma (more trusted).
-        sigPosSim = 3.*sigPosGPS
-        sigVelSim = 3.*sigVelGPS
-        sigAccSim = 3.*np.sqrt(3.*sigVelSim*sigVelSim) # GPS: sigma a deduced from v.
+        sigPosSim = 2.*sigPosGPS
+        sigVelSim = 2.*sigVelGPS
+        sigAccSim = 2.*sigAccSensor
 
         # Simulation: parameters.
         self.sim["prmDt"].setText("5.")
@@ -2927,21 +2926,21 @@ class planeTrackingExample:
         self.sim["cdiX0"].setText("0.5")
         self.sim["cdiY0"].setText("0.5")
         self.sim["cdiZ0"].setText("0.")
-        self.sim["cdiSigX0"].setText("%.3f" % sigPosSim)
-        self.sim["cdiSigY0"].setText("%.3f" % sigPosSim)
-        self.sim["cdiSigZ0"].setText("%.3f" % sigPosSim)
+        self.sim["cdiSigX0"].setText("%.6f" % sigPosSim)
+        self.sim["cdiSigY0"].setText("%.6f" % sigPosSim)
+        self.sim["cdiSigZ0"].setText("%.6f" % sigPosSim)
         self.sim["cdiVX0"].setText("0.5")
         self.sim["cdiVY0"].setText("35.")
         self.sim["cdiVZ0"].setText("0.5")
-        self.sim["cdiSigVX0"].setText("%.3f" % sigVelSim)
-        self.sim["cdiSigVY0"].setText("%.3f" % sigVelSim)
-        self.sim["cdiSigVZ0"].setText("%.3f" % sigVelSim)
-        self.sim["cdiAX0"].setText("0.5")
-        self.sim["cdiAY0"].setText("0.5")
-        self.sim["cdiAZ0"].setText("0.5")
-        self.sim["cdiSigAX0"].setText("%.3f" % sigAccSim)
-        self.sim["cdiSigAY0"].setText("%.3f" % sigAccSim)
-        self.sim["cdiSigAZ0"].setText("%.3f" % sigAccSim)
+        self.sim["cdiSigVX0"].setText("%.6f" % sigVelSim)
+        self.sim["cdiSigVY0"].setText("%.6f" % sigVelSim)
+        self.sim["cdiSigVZ0"].setText("%.6f" % sigVelSim)
+        self.sim["cdiAX0"].setText("0.")
+        self.sim["cdiAY0"].setText("0.")
+        self.sim["cdiAZ0"].setText("0.")
+        self.sim["cdiSigAX0"].setText("%.6f" % sigAccSim)
+        self.sim["cdiSigAY0"].setText("%.6f" % sigAccSim)
+        self.sim["cdiSigAZ0"].setText("%.6f" % sigAccSim)
 
         # Viewer options.
         keys = [("vwrVelLgh", "10"), ("vwrVelALR", "0.1"),
@@ -2951,7 +2950,7 @@ class planeTrackingExample:
             self.msr[key[0]].setText(key[1])
             self.sim[key[0]].setText(key[1])
 
-    def onLoopingExampleClicked(self, sigPosGPS, sigVelGPS):
+    def onLoopingExampleClicked(self, sigPosGPS, sigVelGPS, sigAccSensor):
         """Callback on click: looping example radio button"""
 
         # Flight path equation: parameters.
@@ -2968,9 +2967,9 @@ class planeTrackingExample:
         self.slt["cdfTf"].setText("3600.")
 
         # Evaluate sigma: simulation sigma (less trusted) > GPS sigma (more trusted).
-        sigPosSim = 3.*sigPosGPS
-        sigVelSim = 3.*sigVelGPS
-        sigAccSim = 3.*np.sqrt(3.*sigVelSim*sigVelSim) # GPS: sigma a deduced from v.
+        sigPosSim = 2.*sigPosGPS
+        sigVelSim = 2.*sigVelGPS
+        sigAccSim = 2.*sigAccSensor
 
         # Simulation: parameters.
         self.sim["prmDt"].setText("5.")
@@ -2978,22 +2977,22 @@ class planeTrackingExample:
         self.sim["prmProNseSig"].setText("0.1")
         self.sim["cdiX0"].setText("0.5")
         self.sim["cdiY0"].setText("0.5")
-        self.sim["cdiZ0"].setText("5005.")
-        self.sim["cdiSigX0"].setText("%.3f" % sigPosSim)
-        self.sim["cdiSigY0"].setText("%.3f" % sigPosSim)
-        self.sim["cdiSigZ0"].setText("%.3f" % sigPosSim)
-        self.sim["cdiVX0"].setText("2.")
-        self.sim["cdiVY0"].setText("2.")
-        self.sim["cdiVZ0"].setText("2.")
-        self.sim["cdiSigVX0"].setText("%.3f" % sigVelSim)
-        self.sim["cdiSigVY0"].setText("%.3f" % sigVelSim)
-        self.sim["cdiSigVZ0"].setText("%.3f" % sigVelSim)
-        self.sim["cdiAX0"].setText("0.5")
-        self.sim["cdiAY0"].setText("0.5")
-        self.sim["cdiAZ0"].setText("0.5")
-        self.sim["cdiSigAX0"].setText("%.3f" % sigAccSim)
-        self.sim["cdiSigAY0"].setText("%.3f" % sigAccSim)
-        self.sim["cdiSigAZ0"].setText("%.3f" % sigAccSim)
+        self.sim["cdiZ0"].setText("5000.")
+        self.sim["cdiSigX0"].setText("%.6f" % sigPosSim)
+        self.sim["cdiSigY0"].setText("%.6f" % sigPosSim)
+        self.sim["cdiSigZ0"].setText("%.6f" % sigPosSim)
+        self.sim["cdiVX0"].setText("0.")
+        self.sim["cdiVY0"].setText("0.")
+        self.sim["cdiVZ0"].setText("0.")
+        self.sim["cdiSigVX0"].setText("%.6f" % sigVelSim)
+        self.sim["cdiSigVY0"].setText("%.6f" % sigVelSim)
+        self.sim["cdiSigVZ0"].setText("%.6f" % sigVelSim)
+        self.sim["cdiAX0"].setText("0.")
+        self.sim["cdiAY0"].setText("0.")
+        self.sim["cdiAZ0"].setText("0.")
+        self.sim["cdiSigAX0"].setText("%.6f" % sigAccSim)
+        self.sim["cdiSigAY0"].setText("%.6f" % sigAccSim)
+        self.sim["cdiSigAZ0"].setText("%.6f" % sigAccSim)
 
         # Viewer options.
         keys = [("vwrVelLgh", "10"), ("vwrVelALR", "0.3"),
