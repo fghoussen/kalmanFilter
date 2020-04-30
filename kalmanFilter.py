@@ -420,7 +420,7 @@ class kalmanFilterModel():
                 print(" %.6f" % msrItem[1], end="")
                 print(" %.6f" % msrItem[2], end="")
                 print(" %.6f" % msrItem[3], end="")
-                print(", sigma %.3f" % msrItem[4], end="")
+                print(", sigma %.6f" % msrItem[4], end="")
                 print("")
 
             # Recover most accurate measurement: inaccurate sigma (msrLst head) are rewritten.
@@ -522,7 +522,7 @@ class kalmanFilterModel():
 
         # Predict states.
         if self.sim["prmVrb"] >= 1:
-            print("  "*2+"Prediction: time %.3f" % newTime)
+            print("  "*2+"Predictor: time %.3f" % newTime)
         newStates, matF, matG = self.predictStates(timeDt, newTime, states)
 
         # Outputs equation: y_{n+1,n+1} = C*x_{n+1,n+1} + D*u_{n+1,n+1}.
@@ -807,23 +807,23 @@ class planeTrackingExample:
         self.slt["AZ"] = eqnAZ
 
         # Update V0/A0 indicators.
-        self.slt["indVX0"].setText("%.3f" % eqnVX[0])
-        self.slt["indVY0"].setText("%.3f" % eqnVY[0])
-        self.slt["indVZ0"].setText("%.3f" % eqnVZ[0])
-        self.slt["indAX0"].setText("%.3f" % eqnAX[0])
-        self.slt["indAY0"].setText("%.3f" % eqnAY[0])
-        self.slt["indAZ0"].setText("%.3f" % eqnAZ[0])
+        self.slt["indVX0"].setText("%.6f" % eqnVX[0])
+        self.slt["indVY0"].setText("%.6f" % eqnVY[0])
+        self.slt["indVZ0"].setText("%.6f" % eqnVZ[0])
+        self.slt["indAX0"].setText("%.6f" % eqnAX[0])
+        self.slt["indAY0"].setText("%.6f" % eqnAY[0])
+        self.slt["indAZ0"].setText("%.6f" % eqnAZ[0])
 
         # Update min/max indicators.
         eqnInd = np.sqrt(eqnX*eqnX+eqnY*eqnY+eqnZ*eqnZ)
-        self.slt["indXMin"].setText("%.3f" % np.min(eqnInd))
-        self.slt["indXMax"].setText("%.3f" % np.max(eqnInd))
+        self.slt["indXMin"].setText("%.6f" % np.min(eqnInd))
+        self.slt["indXMax"].setText("%.6f" % np.max(eqnInd))
         eqnInd = np.sqrt(eqnVX*eqnVX+eqnVY*eqnVY+eqnVZ*eqnVZ)
-        self.slt["indVMin"].setText("%.3f" % np.min(eqnInd))
-        self.slt["indVMax"].setText("%.3f" % np.max(eqnInd))
+        self.slt["indVMin"].setText("%.6f" % np.min(eqnInd))
+        self.slt["indVMax"].setText("%.6f" % np.max(eqnInd))
         eqnInd = np.sqrt(eqnAX*eqnAX+eqnAY*eqnAY+eqnAZ*eqnAZ)
-        self.slt["indAMin"].setText("%.3f" % np.min(eqnInd))
-        self.slt["indAMax"].setText("%.3f" % np.max(eqnInd))
+        self.slt["indAMin"].setText("%.6f" % np.min(eqnInd))
+        self.slt["indAMax"].setText("%.6f" % np.max(eqnInd))
 
     def updateViewerSltX(self):
         """Update viewer: plot displacement of the solution"""
