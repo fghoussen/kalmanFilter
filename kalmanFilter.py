@@ -2690,9 +2690,9 @@ class planeTrackingExample:
             self.slt[key].setText("N.A.")
 
         # Set parameters according to example.
-        sigPosGPS = 2. # GPS: sigma x.
-        sigVelGPS = 0.5 # GPS: sigma v.
-        sigAccSensor = 0.0001 # IMU accelerometers: sigma a.
+        sigPosGPS = 2. # GPS: sigma x (5 m but often more precise).
+        sigVelGPS = 0.5 # GPS: sigma v (0.5 m/s).
+        sigAccSensor = 0.0001 # IMU accelerometers: sigma a (from 10 mg to 1µg).
         qrb = self.ctrGUI.sender()
         if qrb.isChecked():
             self.sim["prmM"].setText("1000.")
@@ -2724,13 +2724,13 @@ class planeTrackingExample:
         self.msr["addType"].setCurrentIndex(0) # Set combo to "x".
         self.msr["addT0"].setText("0.")
         self.msr["addTf"].setText("3600.")
-        self.msr["addDt"].setText("10.")
+        self.msr["addDt"].setText("1.") # GPS frequency: 1 s.
         self.msr["addSigma"].setText("%.6f" % sigPosGPS)
         self.onAddMsrBtnClick() # Adding "x" measurement.
         self.msr["addType"].setCurrentIndex(1) # Set combo to "v".
         self.msr["addT0"].setText("0.")
         self.msr["addTf"].setText("3600.")
-        self.msr["addDt"].setText("10.")
+        self.msr["addDt"].setText("1.") # GPS frequency: 1 s.
         self.msr["addSigma"].setText("%.6f" % sigVelGPS)
         self.onAddMsrBtnClick() # Adding "v" measurement.
 
@@ -2738,7 +2738,7 @@ class planeTrackingExample:
         self.msr["addType"].setCurrentIndex(2) # Set combo to "a".
         self.msr["addT0"].setText("0.")
         self.msr["addTf"].setText("3600.")
-        self.msr["addDt"].setText("3.") # IMU sensors provide more data than GPS.
+        self.msr["addDt"].setText("0.1") # IMU sensors provide more data than GPS.
         self.msr["addSigma"].setText("%.6f" % sigAccSensor)
         self.onAddMsrBtnClick() # Adding "a" measurement.
 
