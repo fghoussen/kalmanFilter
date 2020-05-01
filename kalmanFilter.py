@@ -3556,7 +3556,7 @@ class controllerGUI(QMainWindow):
         """Add button to update the viewer"""
 
         # Add button to update the viewer.
-        updateBtn = QPushButton("Update viewer", self)
+        updateBtn = QPushButton("Update", self)
         updateBtn.clicked.connect(self.onUpdateVwrBtnClick)
 
         return updateBtn
@@ -3589,6 +3589,7 @@ if __name__ == "__main__":
     # Create application and controls GUI.
     app = QApplication(sys.argv)
     ctrWin = controllerGUI()
+    ctrWin.showMaximized()
 
     # End main program.
     sys.exit(app.exec_())
