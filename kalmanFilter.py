@@ -1555,6 +1555,10 @@ class planeTrackingExample:
     def onPltTZPBtnClick(self):
         """Callback on plotting lagrange T-Z polynomial"""
 
+        # Check validity.
+        if not self.checkValiditySlt():
+            return
+
         # Create or retrieve viewer.
         if not self.vwr["2D"]["fpeTZP"] or self.vwr["2D"]["fpeTZP"].closed:
             self.vwr["2D"]["fpeTZP"] = viewer2DGUI(self.ctrGUI)
