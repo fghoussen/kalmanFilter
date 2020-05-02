@@ -901,7 +901,7 @@ class planeTrackingExample:
         okMsr = 1 if self.msr["msrId"] == self.getMsrId() else 0
         if not okSlt or not okMsr:
             if not okSlt:
-                self.msr["datMsr"].clear()
+                self.msr["msrDat"].clear()
             self.computeMsr()
         self.msr["sltId"] = self.slt["sltId"]
 
@@ -910,8 +910,8 @@ class planeTrackingExample:
 
         # Plot measurements.
         print("  "*1+"View measurements")
-        for txt in self.msr["datMsr"]:
-            msrData = self.msr["datMsr"][txt]
+        for txt in self.msr["msrDat"]:
+            msrData = self.msr["msrDat"][txt]
             self.updateViewerMsrData(msrData)
         if self.vwr["2D"]["msrDat"] and not self.vwr["2D"]["msrDat"].closed:
             self.onPltMsrBtnClick()
@@ -921,16 +921,16 @@ class planeTrackingExample:
 
         # Compute measurements.
         print("  "*1+"Compute measurements from analytic solution")
-        for idx in range(self.msr["lstMsr"].count()):
+        for idx in range(self.msr["msrLst"].count()):
             # Skip unused items.
-            txt = self.msr["lstMsr"].item(idx).text()
+            txt = self.msr["msrLst"].item(idx).text()
             if txt == "":
                 continue
 
             # Create measure data if needed.
-            if txt not in self.msr["datMsr"]:
+            if txt not in self.msr["msrDat"]:
                 print("  "*2+"Measurement: "+txt)
-                self.msr["datMsr"][txt] = self.getMsrData(txt)
+                self.msr["msrDat"][txt] = self.getMsrData(txt)
 
     def getMsrData(self, txt):
         """Get measure data"""
@@ -1286,8 +1286,8 @@ class planeTrackingExample:
 
         # Get measurements identity.
         msrId = ""
-        for idx in range(self.msr["lstMsr"].count()):
-            txt = self.msr["lstMsr"].item(idx).text()
+        for idx in range(self.msr["msrLst"].count()):
+            txt = self.msr["msrLst"].item(idx).text()
             if txt == "":
                 continue
             msrId += ":"+txt
@@ -1337,7 +1337,7 @@ class planeTrackingExample:
         print("  "*1+"Run simulation based on Kalman filter")
         self.kfm.clear()
         self.kfm.setUpSimPrm(self.sim, self.slt["cdfTf"].text())
-        self.kfm.setUpMsrPrm(self.msr["datMsr"])
+        self.kfm.setUpMsrPrm(self.msr["msrDat"])
         matA, matB, matC, matD = self.getLTISystem()
         self.kfm.setLTI(matA, matB, matC, matD)
         self.kfm.solve()
@@ -1741,8 +1741,8 @@ class planeTrackingExample:
         self.msr["addTf"] = QLineEdit("N.A.", self.ctrGUI)
         self.msr["addDt"] = QLineEdit("N.A.", self.ctrGUI)
         self.msr["addSigma"] = QLineEdit("N.A.", self.ctrGUI)
-        self.msr["lstMsr"] = QListWidget(self.ctrGUI)
-        self.msr["datMsr"] = {}
+        self.msr["msrLst"] = QListWidget(self.ctrGUI)
+        self.msr["msrDat"] = {}
         self.msr["vwrPosMks"] = QLineEdit("15", self.ctrGUI)
         self.msr["vwrVelLgh"] = QLineEdit("1.", self.ctrGUI)
         self.msr["vwrVelALR"] = QLineEdit("0.1", self.ctrGUI)
@@ -1854,20 +1854,20 @@ class planeTrackingExample:
 
         # Add new item.
         added = False
-        for idx in range(self.msr["lstMsr"].count()):
-            if self.msr["lstMsr"].item(idx).text() == "": # Unused item.
-                self.msr["lstMsr"].item(idx).setText(item)
+        for idx in range(self.msr["msrLst"].count()):
+            if self.msr["msrLst"].item(idx).text() == "": # Unused item.
+                self.msr["msrLst"].item(idx).setText(item)
                 added = True
                 break
         if not added:
-            self.msr["lstMsr"].addItem(item)
+            self.msr["msrLst"].addItem(item)
 
     def fillMsrGUILstMsr(self, msrGUI):
         """Fill measurement GUI: list measurements"""
 
         # Create measurement parameters GUI: list measurements.
         gdlLst = QGridLayout(msrGUI)
-        gdlLst.addWidget(self.msr["lstMsr"], 0, 0)
+        gdlLst.addWidget(self.msr["msrLst"], 0, 0)
         rmvMsrBtn = QPushButton("Remove selected measure", msrGUI)
         rmvMsrBtn.setToolTip("Remove selected measure from list")
         rmvMsrBtn.clicked.connect(self.onRmvMsrBtnClick)
@@ -1885,19 +1885,19 @@ class planeTrackingExample:
         """Callback on removing selected measure from list"""
 
         # Remove item.
-        items = self.msr["lstMsr"].selectedItems()
+        items = self.msr["msrLst"].selectedItems()
         if len(items) == 0:
             eId = "measurement list"
             self.throwError(eId, "select a measure to remove from the list")
             return
         for item in items:
-            for idx in range(self.msr["lstMsr"].count()):
-                if item == self.msr["lstMsr"].item(idx):
-                    txt = self.msr["lstMsr"].item(idx).text()
-                    if txt in self.msr["datMsr"]:
-                        del self.msr["datMsr"][txt]
-                    self.msr["lstMsr"].item(idx).setText("")
-                    self.msr["lstMsr"].sortItems(Qt.DescendingOrder)
+            for idx in range(self.msr["msrLst"].count()):
+                if item == self.msr["msrLst"].item(idx):
+                    txt = self.msr["msrLst"].item(idx).text()
+                    if txt in self.msr["msrDat"]:
+                        del self.msr["msrDat"][txt]
+                    self.msr["msrLst"].item(idx).setText("")
+                    self.msr["msrLst"].sortItems(Qt.DescendingOrder)
                     break
 
     def fillMsrGUIVwrMsr(self, msrGUI):
@@ -2303,8 +2303,8 @@ class planeTrackingExample:
             vwrPosMks = float(self.msr["vwrPosMks"].text())
             if vwrPosMks > 0:
                 eqnT, posX = np.array([]), np.array([])
-                for txt in self.msr["datMsr"]:
-                    msrData = self.msr["datMsr"][txt]
+                for txt in self.msr["msrDat"]:
+                    msrData = self.msr["msrDat"][txt]
                     if var in msrData:
                         eqnT = np.append(eqnT, msrData["T"])
                         posX = np.append(posX, msrData[var])
@@ -2668,8 +2668,8 @@ class planeTrackingExample:
             self.sim["ctlYawMax"].setText("45.")
 
         # Reset all previous measurements.
-        for idx in range(self.msr["lstMsr"].count()):
-            self.msr["lstMsr"].item(idx).setText("")
+        for idx in range(self.msr["msrLst"].count()):
+            self.msr["msrLst"].item(idx).setText("")
 
         # Initialize the measurement list with GPS measurements (x, v).
         self.msr["addType"].setCurrentIndex(0) # Set combo to "x".
@@ -3026,8 +3026,8 @@ class planeTrackingExample:
 
         # Check measurements validity.
         eId = "measurements"
-        for idx in range(self.msr["lstMsr"].count()):
-            txt = self.msr["lstMsr"].item(idx).text()
+        for idx in range(self.msr["msrLst"].count()):
+            txt = self.msr["msrLst"].item(idx).text()
             if txt == "":
                 continue
             prmT0 = float(txt.split(";")[1].split()[1])
