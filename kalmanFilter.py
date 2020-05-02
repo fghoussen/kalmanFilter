@@ -679,6 +679,7 @@ class planeTrackingExample:
         self.sim = {"sltId": "", "msrId": "", "simId": ""}
         self.vwr = {"2D": {}, "3D": None}
         self.vwr["2D"]["fpeTZP"] = None
+        self.vwr["2D"]["msrDat"] = None
         self.vwr["2D"]["simCLV"] = None
         self.vwr["2D"]["simOVr"] = None
         self.vwr["2D"]["simTSV"] = None
@@ -733,7 +734,7 @@ class planeTrackingExample:
                 axis.set_xlabel("t")
                 axis.set_ylabel("z")
                 self.vwr["2D"]["fpeTZP"].draw()
-        for key in ["simOVr", "simCLV", "simDgP", "simDgK"]:
+        for key in ["msrDat", "simOVr", "simCLV", "simDgP", "simDgK"]:
             if vwrId in ("all", key):
                 if self.vwr["2D"][key]:
                     for idx in [0, 1, 2, 3, 4, 5, 6, 7, 8]:
@@ -769,16 +770,16 @@ class planeTrackingExample:
         if not okSlt:
             self.computeSlt()
 
+        # Track solution features.
+        self.slt["sltId"] = self.getSltId()
+
         # Plot solution.
-        print("  "*1+"Plot analytic solution")
+        print("  "*1+"View analytic solution")
         self.updateViewerSltX()
         self.updateViewerSltV()
         self.updateViewerSltA()
         if self.vwr["2D"]["fpeTZP"] and not self.vwr["2D"]["fpeTZP"].closed:
             self.onPltTZPBtnClick()
-
-        # Track solution features.
-        self.slt["sltId"] = self.getSltId()
 
     def computeSlt(self):
         """Compute solution"""
@@ -904,14 +905,16 @@ class planeTrackingExample:
             self.computeMsr()
         self.msr["sltId"] = self.slt["sltId"]
 
+        # Track measurement features.
+        self.msr["msrId"] = self.getMsrId()
+
         # Plot measurements.
-        print("  "*1+"Plot measurements")
+        print("  "*1+"View measurements")
         for txt in self.msr["datMsr"]:
             msrData = self.msr["datMsr"][txt]
             self.updateViewerMsrData(msrData)
-
-        # Track measurement features.
-        self.msr["msrId"] = self.getMsrId()
+        if self.vwr["2D"]["msrDat"] and not self.vwr["2D"]["msrDat"].closed:
+            self.onPltMsrBtnClick()
 
     def computeMsr(self):
         """Compute measurements"""
@@ -1308,8 +1311,11 @@ class planeTrackingExample:
         self.sim["sltId"] = self.slt["sltId"]
         self.sim["msrId"] = self.msr["msrId"]
 
+        # Track simulation features.
+        self.sim["simId"] = self.getSimId()
+
         # Plot solver results.
-        print("  "*1+"Plot simulation results")
+        print("  "*1+"View simulation results")
         self.updateViewerSimX()
         self.updateViewerSimV()
         self.updateViewerSimA()
@@ -1323,9 +1329,6 @@ class planeTrackingExample:
             self.onPltSCvBtnClick()
         if self.vwr["2D"]["simDgK"] and not self.vwr["2D"]["simDgK"].closed:
             self.onPltSKGBtnClick()
-
-        # Track simulation features.
-        self.sim["simId"] = self.getSimId()
 
     def computeSim(self):
         """Compute simulation"""
@@ -1560,6 +1563,7 @@ class planeTrackingExample:
             return
 
         # Create or retrieve viewer.
+        print("Plot Lagrange T-Z polynomial")
         if not self.vwr["2D"]["fpeTZP"] or self.vwr["2D"]["fpeTZP"].closed:
             self.vwr["2D"]["fpeTZP"] = viewer2DGUI(self.ctrGUI)
             self.vwr["2D"]["fpeTZP"].setUp()
@@ -1786,6 +1790,9 @@ class planeTrackingExample:
         gdlAdd.addWidget(self.msr["addDt"], 1, 3)
         gdlAdd.addWidget(QLabel("<em>&sigma;</em>:", msrGUI), 1, 4)
         gdlAdd.addWidget(self.msr["addSigma"], 1, 5)
+        pltMsrBtn = QPushButton("plot measurements", msrGUI)
+        pltMsrBtn.clicked.connect(self.onPltMsrBtnClick)
+        gdlAdd.addWidget(pltMsrBtn, 2, 0, 1, 6)
 
         # Set group box layout.
         gpbAdd = QGroupBox(msrGUI)
@@ -1794,6 +1801,46 @@ class planeTrackingExample:
         gpbAdd.setLayout(gdlAdd)
 
         return gpbAdd
+
+    def onPltMsrBtnClick(self):
+        """Callback on plotting measurement data"""
+
+        # Check validity.
+        if not self.checkValidityMsr():
+            return
+
+        # Create or retrieve viewer.
+        print("Plot measurement data")
+        if not self.vwr["2D"]["msrDat"] or self.vwr["2D"]["msrDat"].closed:
+            self.vwr["2D"]["msrDat"] = viewer2DGUI(self.ctrGUI)
+            self.vwr["2D"]["msrDat"].setUp(nrows=3, ncols=3)
+            self.vwr["2D"]["msrDat"].setWindowTitle("Measurements: data")
+            self.vwr["2D"]["msrDat"].show()
+
+        # Clear the viewer.
+        self.clearViewer(vwrId="msrDat")
+
+        # Plot simulation output variables.
+        self.plotMeasurementData()
+
+        # Draw scene.
+        self.vwr["2D"]["msrDat"].draw()
+
+    def plotMeasurementData(self):
+        """Plot measurement data"""
+
+        # Compute measurements if needed.
+        okSlt = 1 if self.msr["sltId"] == self.getSltId() else 0
+        okMsr = 1 if self.msr["msrId"] == self.getMsrId() else 0
+        if not okSlt:
+            self.computeSlt()
+        if not okMsr:
+            self.computeMsr()
+
+        # Plot measurement data.
+        self.plotSltMsrSimVariablesX("msrDat", pltMsr=True)
+        self.plotSltMsrSimVariablesV("msrDat", pltMsr=True)
+        self.plotSltMsrSimVariablesA("msrDat", pltMsr=True)
 
     def onAddMsrBtnClick(self):
         """Callback on adding measure in list"""
@@ -2189,6 +2236,7 @@ class planeTrackingExample:
         """Callback on plotting simulation output variables"""
 
         # Create or retrieve viewer.
+        print("Plot simulation output variables")
         if not self.vwr["2D"]["simOVr"] or self.vwr["2D"]["simOVr"].closed:
             self.vwr["2D"]["simOVr"] = viewer2DGUI(self.ctrGUI)
             self.vwr["2D"]["simOVr"].setUp(nrows=3, ncols=3)
@@ -2212,170 +2260,66 @@ class planeTrackingExample:
             return
 
         # Plot simulation output variables.
-        self.plotSimulationOutputVariablesX()
-        self.plotSimulationOutputVariablesV()
-        self.plotSimulationOutputVariablesA()
+        self.plotSltMsrSimVariablesX("simOVr", pltSim=True)
+        self.plotSltMsrSimVariablesV("simOVr", pltSim=True)
+        self.plotSltMsrSimVariablesA("simOVr", pltSim=True)
 
-    def plotSimulationOutputVariablesX(self):
-        """Plot simulation output variables: X"""
+    def plotSltMsrSimVariablesX(self, key, pltMsr=False, pltSim=False):
+        """Plot variables: X"""
 
-        # Plot simulation output variables.
-        key = "simOVr"
-        axis = self.vwr["2D"][key].getAxis(0)
-        axis.plot(self.kfm.time, self.kfm.outputs["X"], label="sim: X", marker="o", ms=3, c="g")
-        if self.vwr["ckbSlt"].isChecked():
-            axis.plot(self.slt["T"], self.slt["X"], label="slt: X", marker="o", ms=3, c="b")
-        vwrPosMks = float(self.msr["vwrPosMks"].text())
-        if vwrPosMks > 0 and self.vwr["ckbMsr"].isChecked():
-            eqnT, posX = np.array([]), np.array([])
-            for txt in self.msr["datMsr"]:
-                msrData = self.msr["datMsr"][txt]
-                if msrData["msrType"] == "x":
-                    eqnT = np.append(eqnT, msrData["T"])
-                    posX = np.append(posX, msrData["X"])
-            axis.scatter(eqnT, posX, c="r", marker="^", alpha=1, s=vwrPosMks, label="msr: X")
-        axis.set_xlabel("t")
-        axis.set_ylabel("X")
-        axis.legend()
-        axis = self.vwr["2D"][key].getAxis(1)
-        axis.plot(self.kfm.time, self.kfm.outputs["Y"], label="sim: Y", marker="o", ms=3, c="g")
-        if self.vwr["ckbSlt"].isChecked():
-            axis.plot(self.slt["T"], self.slt["Y"], label="slt: Y", marker="o", ms=3, c="b")
-        if vwrPosMks > 0 and self.vwr["ckbMsr"].isChecked():
-            eqnT, posY = np.array([]), np.array([])
-            for txt in self.msr["datMsr"]:
-                msrData = self.msr["datMsr"][txt]
-                if msrData["msrType"] == "x":
-                    eqnT = np.append(eqnT, msrData["T"])
-                    posY = np.append(posY, msrData["Y"])
-            axis.scatter(eqnT, posY, c="r", marker="^", alpha=1, s=vwrPosMks, label="msr: Y")
-        axis.set_xlabel("t")
-        axis.set_ylabel("Y")
-        axis.legend()
-        axis = self.vwr["2D"][key].getAxis(2)
-        axis.plot(self.kfm.time, self.kfm.outputs["Z"], label="sim: Z", marker="o", ms=3, c="g")
-        if self.vwr["ckbSlt"].isChecked():
-            axis.plot(self.slt["T"], self.slt["Z"], label="slt: Z", marker="o", ms=3, c="b")
-        if vwrPosMks > 0 and self.vwr["ckbMsr"].isChecked():
-            eqnT, posZ = np.array([]), np.array([])
-            for txt in self.msr["datMsr"]:
-                msrData = self.msr["datMsr"][txt]
-                if msrData["msrType"] == "x":
-                    eqnT = np.append(eqnT, msrData["T"])
-                    posZ = np.append(posZ, msrData["Z"])
-            axis.scatter(eqnT, posZ, c="r", marker="^", alpha=1, s=vwrPosMks, label="msr: Z")
-        axis.set_xlabel("t")
-        axis.set_ylabel("Z")
-        axis.legend()
+        # Plot variables.
+        opts = {"pltMsr": pltMsr, "pltSim": pltSim}
+        self.plotSltMsrSimVariables(key, 0, "X", opts)
+        self.plotSltMsrSimVariables(key, 1, "Y", opts)
+        self.plotSltMsrSimVariables(key, 2, "Z", opts)
 
-    def plotSimulationOutputVariablesV(self):
-        """Plot simulation output variables: V"""
+    def plotSltMsrSimVariablesV(self, key, pltMsr=False, pltSim=False):
+        """Plot variables: V"""
 
-        # Plot simulation output variables.
-        key = "simOVr"
-        axis = self.vwr["2D"][key].getAxis(3)
-        axis.plot(self.kfm.time, self.kfm.outputs["VX"], label="sim: VX", marker="o", ms=3, c="g")
-        if self.vwr["ckbSlt"].isChecked():
-            axis.plot(self.slt["T"], self.slt["VX"], label="slt: VX", marker="o", ms=3, c="b")
-        vwrPosMks = float(self.msr["vwrPosMks"].text())
-        if vwrPosMks > 0 and self.vwr["ckbMsr"].isChecked():
-            eqnT, eqnVX = np.array([]), np.array([])
-            for txt in self.msr["datMsr"]:
-                msrData = self.msr["datMsr"][txt]
-                if msrData["msrType"] == "v":
-                    eqnT = np.append(eqnT, msrData["T"])
-                    eqnVX = np.append(eqnVX, msrData["VX"])
-            axis.scatter(eqnT, eqnVX, c="r", marker="o", alpha=1, s=vwrPosMks, label="msr: VX")
-        axis.set_xlabel("t")
-        axis.set_ylabel("VX")
-        axis.legend()
-        axis = self.vwr["2D"][key].getAxis(4)
-        axis.plot(self.kfm.time, self.kfm.outputs["VY"], label="sim: VY", marker="o", ms=3, c="g")
-        if self.vwr["ckbSlt"].isChecked():
-            axis.plot(self.slt["T"], self.slt["VY"], label="slt: VY", marker="o", ms=3, c="b")
-        if vwrPosMks > 0 and self.vwr["ckbMsr"].isChecked():
-            eqnT, eqnVY = np.array([]), np.array([])
-            for txt in self.msr["datMsr"]:
-                msrData = self.msr["datMsr"][txt]
-                if msrData["msrType"] == "v":
-                    eqnT = np.append(eqnT, msrData["T"])
-                    eqnVY = np.append(eqnVY, msrData["VY"])
-            axis.scatter(eqnT, eqnVY, c="r", marker="o", alpha=1, s=vwrPosMks, label="msr: VY")
-        axis.set_xlabel("t")
-        axis.set_ylabel("VY")
-        axis.legend()
-        axis = self.vwr["2D"][key].getAxis(5)
-        axis.plot(self.kfm.time, self.kfm.outputs["VZ"], label="sim: VZ", marker="o", ms=3, c="g")
-        if self.vwr["ckbSlt"].isChecked():
-            axis.plot(self.slt["T"], self.slt["VZ"], label="slt: VZ", marker="o", ms=3, c="b")
-        if vwrPosMks > 0 and self.vwr["ckbMsr"].isChecked():
-            eqnT, eqnVZ = np.array([]), np.array([])
-            for txt in self.msr["datMsr"]:
-                msrData = self.msr["datMsr"][txt]
-                if msrData["msrType"] == "v":
-                    eqnT = np.append(eqnT, msrData["T"])
-                    eqnVZ = np.append(eqnVZ, msrData["VZ"])
-            axis.scatter(eqnT, eqnVZ, c="r", marker="o", alpha=1, s=vwrPosMks, label="msr: VZ")
-        axis.set_xlabel("t")
-        axis.set_ylabel("VZ")
-        axis.legend()
+        # Plot variables.
+        opts = {"pltMsr": pltMsr, "pltSim": pltSim}
+        self.plotSltMsrSimVariables(key, 3, "VX", opts)
+        self.plotSltMsrSimVariables(key, 4, "VY", opts)
+        self.plotSltMsrSimVariables(key, 5, "VZ", opts)
 
-    def plotSimulationOutputVariablesA(self):
-        """Plot simulation output variables: A"""
+    def plotSltMsrSimVariablesA(self, key, pltMsr=False, pltSim=False):
+        """Plot variables: A"""
 
-        # Plot simulation output variables.
-        key = "simOVr"
-        axis = self.vwr["2D"][key].getAxis(6)
-        axis.plot(self.kfm.time, self.kfm.outputs["AX"], label="sim: AX", marker="o", ms=3, c="g")
+        # Plot variables.
+        opts = {"pltMsr": pltMsr, "pltSim": pltSim}
+        self.plotSltMsrSimVariables(key, 6, "AX", opts)
+        self.plotSltMsrSimVariables(key, 7, "AY", opts)
+        self.plotSltMsrSimVariables(key, 8, "AZ", opts)
+
+    def plotSltMsrSimVariables(self, key, axisId, var, opts):
+        """Plot variables"""
+
+        # Plot variables.
+        axis = self.vwr["2D"][key].getAxis(axisId)
+        if opts["pltSim"]:
+            time = self.kfm.time
+            axis.plot(time, self.kfm.outputs[var], label="sim: "+var, marker="o", ms=3, c="g")
+        if opts["pltMsr"] or self.vwr["ckbMsr"].isChecked():
+            vwrPosMks = float(self.msr["vwrPosMks"].text())
+            if vwrPosMks > 0:
+                eqnT, posX = np.array([]), np.array([])
+                for txt in self.msr["datMsr"]:
+                    msrData = self.msr["datMsr"][txt]
+                    if var in msrData:
+                        eqnT = np.append(eqnT, msrData["T"])
+                        posX = np.append(posX, msrData[var])
+                axis.scatter(eqnT, posX, c="r", marker="^", alpha=1, s=vwrPosMks, label="msr: "+var)
         if self.vwr["ckbSlt"].isChecked():
-            axis.plot(self.slt["T"], self.slt["AX"], label="slt: AX", marker="o", ms=3, c="b")
-        vwrPosMks = float(self.msr["vwrPosMks"].text())
-        if vwrPosMks > 0 and self.vwr["ckbMsr"].isChecked():
-            eqnT, eqnAX = np.array([]), np.array([])
-            for txt in self.msr["datMsr"]:
-                msrData = self.msr["datMsr"][txt]
-                if msrData["msrType"] == "a":
-                    eqnT = np.append(eqnT, msrData["T"])
-                    eqnAX = np.append(eqnAX, msrData["AX"])
-            axis.scatter(eqnT, eqnAX, c="r", marker="s", alpha=1, s=vwrPosMks, label="msr: AX")
+            axis.plot(self.slt["T"], self.slt[var], label="slt: "+var, marker="o", ms=3, c="b")
         axis.set_xlabel("t")
-        axis.set_ylabel("AX")
-        axis.legend()
-        axis = self.vwr["2D"][key].getAxis(7)
-        axis.plot(self.kfm.time, self.kfm.outputs["AY"], label="sim: AY", marker="o", ms=3, c="g")
-        if self.vwr["ckbSlt"].isChecked():
-            axis.plot(self.slt["T"], self.slt["AY"], label="slt: AY", marker="o", ms=3, c="b")
-        if vwrPosMks > 0 and self.vwr["ckbMsr"].isChecked():
-            eqnT, eqnAY = np.array([]), np.array([])
-            for txt in self.msr["datMsr"]:
-                msrData = self.msr["datMsr"][txt]
-                if msrData["msrType"] == "a":
-                    eqnT = np.append(eqnT, msrData["T"])
-                    eqnAY = np.append(eqnAY, msrData["AY"])
-            axis.scatter(eqnT, eqnAY, c="r", marker="s", alpha=1, s=vwrPosMks, label="msr: AY")
-        axis.set_xlabel("t")
-        axis.set_ylabel("AY")
-        axis.legend()
-        axis = self.vwr["2D"][key].getAxis(8)
-        axis.plot(self.kfm.time, self.kfm.outputs["AZ"], label="sim: AZ", marker="o", ms=3, c="g")
-        if self.vwr["ckbSlt"].isChecked():
-            axis.plot(self.slt["T"], self.slt["AZ"], label="slt: AZ", marker="o", ms=3, c="b")
-        if vwrPosMks > 0 and self.vwr["ckbMsr"].isChecked():
-            eqnT, eqnAZ = np.array([]), np.array([])
-            for txt in self.msr["datMsr"]:
-                msrData = self.msr["datMsr"][txt]
-                if msrData["msrType"] == "a":
-                    eqnT = np.append(eqnT, msrData["T"])
-                    eqnAZ = np.append(eqnAZ, msrData["AZ"])
-            axis.scatter(eqnT, eqnAZ, c="r", marker="s", alpha=1, s=vwrPosMks, label="msr: AZ")
-        axis.set_xlabel("t")
-        axis.set_ylabel("AZ")
+        axis.set_ylabel(var)
         axis.legend()
 
     def onPltSCLBtnClick(self):
-        """Callback on plotting control law variables"""
+        """Callback on plotting simulation control law variables"""
 
         # Create or retrieve viewer.
+        print("Plot simulation control law variables")
         if not self.vwr["2D"]["simCLV"] or self.vwr["2D"]["simCLV"].closed:
             self.vwr["2D"]["simCLV"] = viewer2DGUI(self.ctrGUI)
             self.vwr["2D"]["simCLV"].setUp(nrows=3, ncols=3)
@@ -2454,6 +2398,7 @@ class planeTrackingExample:
         """Callback on plotting simulation time scheme variables"""
 
         # Create or retrieve viewer.
+        print("Plot simulation time scheme variables")
         if not self.vwr["2D"]["simTSV"] or self.vwr["2D"]["simTSV"].closed:
             self.vwr["2D"]["simTSV"] = viewer2DGUI(self.ctrGUI)
             self.vwr["2D"]["simTSV"].setUp(nrows=1, ncols=2)
@@ -2506,6 +2451,7 @@ class planeTrackingExample:
         """Callback on plotting simulation covariance diagonal terms"""
 
         # Create or retrieve viewer.
+        print("Plot simulation covariance diagonal terms")
         if not self.vwr["2D"]["simDgP"] or self.vwr["2D"]["simDgP"].closed:
             self.vwr["2D"]["simDgP"] = viewer2DGUI(self.ctrGUI)
             self.vwr["2D"]["simDgP"].setUp(nrows=3, ncols=3)
@@ -2578,9 +2524,10 @@ class planeTrackingExample:
         axis.legend()
 
     def onPltSKGBtnClick(self):
-        """Callback on plotting Kalman gain diagonal terms"""
+        """Callback on plotting simulation Kalman gain diagonal terms"""
 
         # Create or retrieve viewer.
+        print("Plot simulation Kalman gain diagonal terms")
         if not self.vwr["2D"]["simDgK"] or self.vwr["2D"]["simDgK"].closed:
             self.vwr["2D"]["simDgK"] = viewer2DGUI(self.ctrGUI)
             self.vwr["2D"]["simDgK"].setUp(nrows=3, ncols=3)
@@ -3569,7 +3516,7 @@ class controllerGUI(QMainWindow):
         """Callback on update viewer button click"""
 
         # Update the view.
-        print("********** Update viewer **********")
+        print("********** Update : begin **********")
         for example in self.examples:
             if example.getName() == self.comboEx.currentText():
                 # Create viewer GUI.
@@ -3583,7 +3530,7 @@ class controllerGUI(QMainWindow):
                 # Update the view.
                 example.updateViewer()
                 break
-        print("End of update")
+        print("********** Update : end **********")
 
 # Main program.
 if __name__ == "__main__":
