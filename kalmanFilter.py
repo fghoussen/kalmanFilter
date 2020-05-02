@@ -73,27 +73,66 @@ class viewer2DGUI(QMainWindow):
         self.nrows = 0
         self.ncols = 0
         self.toolbar = NavigationToolbar(self.mcvs, self)
+        self.rangeMin = QLineEdit("N.A.", self)
+        self.rangeMax = QLineEdit("N.A.", self)
+        self.rangeMin.setValidator(QDoubleValidator())
+        self.rangeMax.setValidator(QDoubleValidator())
 
         # Set window as non modal.
         self.setWindowModality(Qt.NonModal)
 
         # Set the layout
-        layout = QVBoxLayout()
-        layout.addWidget(self.toolbar)
-        layout.addWidget(self.mcvs)
+        subLayout1 = QVBoxLayout()
+        subLayout1.addWidget(self.toolbar)
+        subLayout1.addWidget(self.mcvs)
+        subLayout2 = QHBoxLayout()
+        subLayout2.addWidget(QLabel("time min:", self))
+        subLayout2.addWidget(self.rangeMin)
+        subLayout2.addWidget(QLabel("time max:", self))
+        subLayout2.addWidget(self.rangeMax)
+        pltTRGBtn = QPushButton("Set range", self)
+        pltTRGBtn.clicked.connect(self.onPltTRGBtnClick)
+        subLayout2.addWidget(pltTRGBtn)
+        rootLayout = QVBoxLayout()
+        rootLayout.addLayout(subLayout1)
+        rootLayout.addLayout(subLayout2)
 
         # Build the GUI.
         vwrGUI = QWidget(self)
-        vwrGUI.setLayout(layout)
+        vwrGUI.setLayout(rootLayout)
         self.setCentralWidget(vwrGUI)
 
-    def setUp(self, nrows=1, ncols=1):
+    def onPltTRGBtnClick(self):
+        """Callback on changing plot time range"""
+
+        # Check validity.
+        rangeMin = float(self.rangeMin.text())
+        rangeMax = float(self.rangeMax.text())
+        if rangeMin >= rangeMax:
+            msg = QMessageBox(self)
+            msg.setIcon(QMessageBox.Critical)
+            msg.setText("Error - plot: min >= max")
+            msg.exec_()
+            return
+
+        # Set range for all axis.
+        for row in range(self.nrows):
+            for col in range(self.ncols):
+                axis = self.getAxis(col+row*self.ncols)
+                axis.set_xlim(rangeMin, rangeMax)
+
+        # Draw scene.
+        self.mcvs.draw()
+
+    def setUp(self, rangeMax, rangeMin="0.", nrows=1, ncols=1):
         """Set up"""
 
         # Set up.
         self.nrows = nrows
         self.ncols = ncols
         self.mcvs.setUp(nrows, ncols)
+        self.rangeMin.setText(rangeMin)
+        self.rangeMax.setText(rangeMax)
 
     def getAxis(self, idx=0):
         """Get viewer axis"""
@@ -106,8 +145,8 @@ class viewer2DGUI(QMainWindow):
     def draw(self):
         """Force draw of the scene"""
 
-        # Draw scene.
-        self.mcvs.draw()
+        # Set range and draw scene.
+        self.onPltTRGBtnClick()
 
     def closeEvent(self, event):
         """Callback on closing window"""
@@ -1412,7 +1451,6 @@ class planeTrackingExample:
         # Create error message box.
         msg = QMessageBox(self.ctrGUI)
         msg.setIcon(QMessageBox.Critical)
-        msg.setText("Error")
         msg.setText("Error"+" - "+eId+": "+txt)
         msg.exec_()
 
@@ -1566,7 +1604,7 @@ class planeTrackingExample:
         print("Plot Lagrange T-Z polynomial")
         if not self.vwr["2D"]["fpeTZP"] or self.vwr["2D"]["fpeTZP"].closed:
             self.vwr["2D"]["fpeTZP"] = viewer2DGUI(self.ctrGUI)
-            self.vwr["2D"]["fpeTZP"].setUp()
+            self.vwr["2D"]["fpeTZP"].setUp(self.slt["cdfTf"].text())
             self.vwr["2D"]["fpeTZP"].setWindowTitle("Flight path equation: Lagrange T-Z polynomial")
             self.vwr["2D"]["fpeTZP"].show()
 
@@ -1813,7 +1851,7 @@ class planeTrackingExample:
         print("Plot measurement data")
         if not self.vwr["2D"]["msrDat"] or self.vwr["2D"]["msrDat"].closed:
             self.vwr["2D"]["msrDat"] = viewer2DGUI(self.ctrGUI)
-            self.vwr["2D"]["msrDat"].setUp(nrows=3, ncols=3)
+            self.vwr["2D"]["msrDat"].setUp(self.slt["cdfTf"].text(), nrows=3, ncols=3)
             self.vwr["2D"]["msrDat"].setWindowTitle("Measurements: data")
             self.vwr["2D"]["msrDat"].show()
 
@@ -2239,7 +2277,7 @@ class planeTrackingExample:
         print("Plot simulation output variables")
         if not self.vwr["2D"]["simOVr"] or self.vwr["2D"]["simOVr"].closed:
             self.vwr["2D"]["simOVr"] = viewer2DGUI(self.ctrGUI)
-            self.vwr["2D"]["simOVr"].setUp(nrows=3, ncols=3)
+            self.vwr["2D"]["simOVr"].setUp(self.slt["cdfTf"].text(), nrows=3, ncols=3)
             self.vwr["2D"]["simOVr"].setWindowTitle("Simulation: outputs")
             self.vwr["2D"]["simOVr"].show()
 
@@ -2322,7 +2360,7 @@ class planeTrackingExample:
         print("Plot simulation control law variables")
         if not self.vwr["2D"]["simCLV"] or self.vwr["2D"]["simCLV"].closed:
             self.vwr["2D"]["simCLV"] = viewer2DGUI(self.ctrGUI)
-            self.vwr["2D"]["simCLV"].setUp(nrows=3, ncols=3)
+            self.vwr["2D"]["simCLV"].setUp(self.slt["cdfTf"].text(), nrows=3, ncols=3)
             self.vwr["2D"]["simCLV"].setWindowTitle("Simulation: control law")
             self.vwr["2D"]["simCLV"].show()
 
@@ -2364,7 +2402,7 @@ class planeTrackingExample:
         print("Plot simulation time scheme variables")
         if not self.vwr["2D"]["simTSV"] or self.vwr["2D"]["simTSV"].closed:
             self.vwr["2D"]["simTSV"] = viewer2DGUI(self.ctrGUI)
-            self.vwr["2D"]["simTSV"].setUp(nrows=1, ncols=2)
+            self.vwr["2D"]["simTSV"].setUp(self.slt["cdfTf"].text(), nrows=1, ncols=2)
             self.vwr["2D"]["simTSV"].setWindowTitle("Simulation: time scheme")
             self.vwr["2D"]["simTSV"].show()
 
@@ -2417,7 +2455,7 @@ class planeTrackingExample:
         print("Plot simulation covariance diagonal terms")
         if not self.vwr["2D"]["simDgP"] or self.vwr["2D"]["simDgP"].closed:
             self.vwr["2D"]["simDgP"] = viewer2DGUI(self.ctrGUI)
-            self.vwr["2D"]["simDgP"].setUp(nrows=3, ncols=3)
+            self.vwr["2D"]["simDgP"].setUp(self.slt["cdfTf"].text(), nrows=3, ncols=3)
             self.vwr["2D"]["simDgP"].setWindowTitle("Simulation: covariance")
             self.vwr["2D"]["simDgP"].show()
 
@@ -2455,7 +2493,7 @@ class planeTrackingExample:
         print("Plot simulation Kalman gain diagonal terms")
         if not self.vwr["2D"]["simDgK"] or self.vwr["2D"]["simDgK"].closed:
             self.vwr["2D"]["simDgK"] = viewer2DGUI(self.ctrGUI)
-            self.vwr["2D"]["simDgK"].setUp(nrows=3, ncols=3)
+            self.vwr["2D"]["simDgK"].setUp(self.slt["cdfTf"].text(), nrows=3, ncols=3)
             self.vwr["2D"]["simDgK"].setWindowTitle("Simulation: Kalman gain")
             self.vwr["2D"]["simDgK"].show()
 
