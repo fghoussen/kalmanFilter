@@ -3,6 +3,7 @@
 """Kalman filter MVC (Model-View-Controller)"""
 
 import sys
+import datetime
 import math
 import numpy as np
 import numpy.linalg as npl
@@ -521,6 +522,7 @@ class kalmanFilterModel():
             return
 
         # Initialize states.
+        start = datetime.datetime.now()
         if self.sim["prmVrb"] >= 1:
             print("  "*2+"Initialisation:")
         time = 0.
@@ -548,6 +550,9 @@ class kalmanFilterModel():
 
             # Increase time.
             time = time+timeDt
+        if self.sim["prmVrb"] >= 1:
+            stop = datetime.datetime.now()
+            print("  "*2+"Elapsed time:", str(stop-start))
 
     def corrector(self, time, prmDt, matP, states):
         """Solve corrector step"""
