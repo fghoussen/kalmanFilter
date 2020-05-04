@@ -806,10 +806,10 @@ class kalmanFilterModel():
         # Save states and outputs.
         keys = self.example.getStateKeys()
         for idx, key in enumerate(keys):
-            self.states[key] = np.append(self.states[key], newStates[idx, 0])
+            self.states[key] = np.append(self.states[key], newStates[idx])
         keys = self.example.getOutputKeys()
         for idx, key in enumerate(keys):
-            self.outputs[key] = np.append(self.outputs[key], newOutputs[idx, 0])
+            self.outputs[key] = np.append(self.outputs[key], newOutputs[idx])
 
     def saveP(self, time, matP):
         """Save diagonal terms of covariance"""
@@ -3192,15 +3192,15 @@ class planeTrackingExample:
         # Initialize states.
         prmN = self.getLTISystemSize()
         states = np.zeros((prmN, 1), dtype=float)
-        states[0, 0] = sim["cdiX0"]
-        states[1, 0] = sim["cdiVX0"]
-        states[2, 0] = sim["cdiAX0"]
-        states[3, 0] = sim["cdiY0"]
-        states[4, 0] = sim["cdiVY0"]
-        states[5, 0] = sim["cdiAY0"]
-        states[6, 0] = sim["cdiZ0"]
-        states[7, 0] = sim["cdiVZ0"]
-        states[8, 0] = sim["cdiAZ0"]
+        states[0] = sim["cdiX0"]
+        states[1] = sim["cdiVX0"]
+        states[2] = sim["cdiAX0"]
+        states[3] = sim["cdiY0"]
+        states[4] = sim["cdiVY0"]
+        states[5] = sim["cdiAY0"]
+        states[6] = sim["cdiZ0"]
+        states[7] = sim["cdiVZ0"]
+        states[8] = sim["cdiAZ0"]
 
         return states
 
@@ -3226,11 +3226,11 @@ class planeTrackingExample:
         """Compute control law"""
 
         # Compute throttle force.
-        velNow = np.array([states[1, 0], states[4, 0], states[7, 0]]) # Velocity.
+        velNow = np.array([states[1], states[4], states[7]]) # Velocity.
         thfX, thfY, thfZ = self.computeThrottleForce(velNow, time)
 
         # Compute control law: get roll, pitch, yaw corrections.
-        accNow = np.array([states[2, 0], states[5, 0], states[8, 0]]) # Acceleration.
+        accNow = np.array([states[2], states[5], states[8]]) # Acceleration.
         accNxt = self.computeRoll(velNow, accNow, sim, save)
         accNxt = self.computePitch(velNow, accNxt, sim, save)
         accNxt = self.computeYaw(velNow, accNxt, sim, save)
@@ -3276,7 +3276,7 @@ class planeTrackingExample:
         # Compute roll around X axis.
         prmDt = float(self.sim["prmDt"].text())
         velNxt = velNow+accNow*prmDt # New velocity.
-        proj = np.array([0., 1., 1.]) # Projection in YZ plane.
+        proj = np.array([[0.], [1.], [1.]]) # Projection in YZ plane.
         roll = self.getAngle(velNow, velNxt, proj)
 
         # Save control law hidden variables.
@@ -3284,8 +3284,8 @@ class planeTrackingExample:
             sim["simCLV"]["roll"].append(roll)
 
         # Control roll.
-        ctlRolMax = float(self.sim["ctlRolMax"].text())
-        accNxt, rollTgt = accNow, roll
+        ctlRolMax, rollTgt = float(self.sim["ctlRolMax"].text()), roll
+        accNxt = accNow
         while np.abs(rollTgt) > ctlRolMax:
             accNxt = accNxt*0.95 # Decrease acceleration by 5%.
             velNxt = velNow+accNxt*prmDt # New velocity.
@@ -3299,7 +3299,7 @@ class planeTrackingExample:
         # Compute pitch around Y axis.
         prmDt = float(self.sim["prmDt"].text())
         velNxt = velNow+accNow*prmDt # New velocity.
-        proj = np.array([1., 0., 1.]) # Projection in XZ plane.
+        proj = np.array([[1.], [0.], [1.]]) # Projection in XZ plane.
         pitch = self.getAngle(velNow, velNxt, proj)
 
         # Save control law hidden variables.
@@ -3307,8 +3307,8 @@ class planeTrackingExample:
             sim["simCLV"]["pitch"].append(pitch)
 
         # Control pitch.
-        ctlPtcMax = float(self.sim["ctlPtcMax"].text())
-        accNxt, pitchTgt = accNow, pitch
+        ctlPtcMax, pitchTgt = float(self.sim["ctlPtcMax"].text()), pitch
+        accNxt = accNow
         while np.abs(pitchTgt) > ctlPtcMax:
             accNxt = accNxt*0.95 # Decrease acceleration by 5%.
             velNxt = velNow+accNxt*prmDt # New velocity.
@@ -3322,7 +3322,7 @@ class planeTrackingExample:
         # Compute yaw around Z axis.
         prmDt = float(self.sim["prmDt"].text())
         velNxt = velNow+accNow*prmDt # New velocity.
-        proj = np.array([1., 1., 0.]) # Projection in XY plane.
+        proj = np.array([[1.], [1.], [0.]]) # Projection in XY plane.
         yaw = self.getAngle(velNow, velNxt, proj)
 
         # Save control law hidden variables.
@@ -3330,8 +3330,8 @@ class planeTrackingExample:
             sim["simCLV"]["yaw"].append(yaw)
 
         # Control yaw.
-        ctlYawMax = float(self.sim["ctlYawMax"].text())
-        accNxt, yawTgt = accNow, yaw
+        ctlYawMax, yawTgt = float(self.sim["ctlYawMax"].text()), yaw
+        accNxt = accNow
         while np.abs(yawTgt) > ctlYawMax:
             accNxt = accNxt*0.95 # Decrease acceleration by 5%.
             velNxt = velNow+accNxt*prmDt # New velocity.
@@ -3347,10 +3347,10 @@ class planeTrackingExample:
         velNowProj, velNxtProj = velNow*proj, velNxt*proj
         normCoef = npl.norm(velNowProj)*npl.norm(velNxtProj)
         if np.abs(normCoef) > 1.e-6:
-            theta = np.arccos(np.dot(velNowProj, velNxtProj)/normCoef)
+            theta = np.arccos(np.dot(np.transpose(velNowProj), velNxtProj)/normCoef)
             theta = theta*(180./np.pi) # Yaw angle in degrees.
 
-        return theta
+        return float(theta)
 
     def computeControl(self, fom, sim, save):
         """Compute control"""
