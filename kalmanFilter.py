@@ -1873,7 +1873,7 @@ class planeTrackingExample:
         gdlAdd.addWidget(self.msr["addDt"], 1, 3)
         gdlAdd.addWidget(QLabel("<em>&sigma;</em>:", msrGUI), 1, 4)
         gdlAdd.addWidget(self.msr["addSigma"], 1, 5)
-        pltMsrBtn = QPushButton("plot measurements", msrGUI)
+        pltMsrBtn = QPushButton("Plot measurements", msrGUI)
         pltMsrBtn.clicked.connect(self.onPltMsrBtnClick)
         gdlAdd.addWidget(pltMsrBtn, 2, 0, 1, 6)
 
