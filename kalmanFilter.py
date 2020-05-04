@@ -522,7 +522,6 @@ class kalmanFilterModel():
             return
 
         # Initialize states.
-        start = datetime.datetime.now()
         if self.sim["prmVrb"] >= 1:
             print("  "*2+"Initialisation:")
         time = 0.
@@ -550,9 +549,6 @@ class kalmanFilterModel():
 
             # Increase time.
             time = time+timeDt
-        if self.sim["prmVrb"] >= 1:
-            stop = datetime.datetime.now()
-            print("  "*2+"Elapsed time:", str(stop-start))
 
     def corrector(self, time, prmDt, matP, states):
         """Solve corrector step"""
@@ -1467,12 +1463,15 @@ class planeTrackingExample:
 
         # Solve based on Kalman filter.
         print("  "*1+"Run simulation based on Kalman filter")
+        start = datetime.datetime.now()
         self.kfm.clear()
         self.kfm.setUpSimPrm(self.sim, self.slt["cdfTf"].text())
         self.kfm.setUpMsrPrm(self.msr["msrDat"])
         matA, matB, matC, matD = self.getLTISystem()
         self.kfm.setLTI(matA, matB, matC, matD)
         self.kfm.solve()
+        stop = datetime.datetime.now()
+        print("  "*2+"Elapsed time:", str(stop-start))
 
     def getSimId(self):
         """Get simulation identity (track simulation features)"""
