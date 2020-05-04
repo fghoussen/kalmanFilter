@@ -72,7 +72,6 @@ class viewer2DGUI(QMainWindow):
         self.closed = False
         self.nrows = 0
         self.ncols = 0
-        self.toolbar = NavigationToolbar(self.mcvs, self)
         self.rangeMin = QLineEdit("N.A.", self)
         self.rangeMax = QLineEdit("N.A.", self)
         self.rangeMin.setValidator(QDoubleValidator())
@@ -83,7 +82,7 @@ class viewer2DGUI(QMainWindow):
 
         # Set the layout
         subLayout1 = QVBoxLayout()
-        subLayout1.addWidget(self.toolbar)
+        subLayout1.addWidget(NavigationToolbar(self.mcvs, self))
         subLayout1.addWidget(self.mcvs)
         subLayout2 = QHBoxLayout()
         subLayout2.addWidget(QLabel("time min:", self))
@@ -165,20 +164,94 @@ class viewer3DGUI(QMainWindow):
         super(viewer3DGUI, self).__init__(*args, **kwargs)
         self.mcvs = mpl3DCanvas(self)
         self.closed = False
-        self.toolbar = NavigationToolbar(self.mcvs, self)
+        self.rangeMin = QLineEdit("N.A.", self)
+        self.rangeMax = QLineEdit("N.A.", self)
+        self.rangeMin.setValidator(QDoubleValidator())
+        self.rangeMax.setValidator(QDoubleValidator())
+        self.plot3D = {}
+        self.scatter3D = {}
+        self.quiver3D = {}
 
         # Set window as non modal.
         self.setWindowModality(Qt.NonModal)
 
         # Set the layout
-        layout = QVBoxLayout()
-        layout.addWidget(self.toolbar)
-        layout.addWidget(self.mcvs)
+        subLayout1 = QVBoxLayout()
+        subLayout1.addWidget(NavigationToolbar(self.mcvs, self))
+        subLayout1.addWidget(self.mcvs)
+        subLayout2 = QHBoxLayout()
+        subLayout2.addWidget(QLabel("time min:", self))
+        subLayout2.addWidget(self.rangeMin)
+        subLayout2.addWidget(QLabel("time max:", self))
+        subLayout2.addWidget(self.rangeMax)
+        pltTRGBtn = QPushButton("Set range", self)
+        pltTRGBtn.clicked.connect(self.onPltTRGBtnClick)
+        subLayout2.addWidget(pltTRGBtn)
+        rootLayout = QVBoxLayout()
+        rootLayout.addLayout(subLayout1)
+        rootLayout.addLayout(subLayout2)
 
         # Build the GUI.
         vwrGUI = QWidget(self)
-        vwrGUI.setLayout(layout)
+        vwrGUI.setLayout(rootLayout)
         self.setCentralWidget(vwrGUI)
+
+    def onPltTRGBtnClick(self):
+        """Callback on changing plot time range"""
+
+        # Check validity.
+        rangeMin = float(self.rangeMin.text())
+        rangeMax = float(self.rangeMax.text())
+        if rangeMin >= rangeMax:
+            msg = QMessageBox(self)
+            msg.setIcon(QMessageBox.Critical)
+            msg.setText("Error - plot: min >= max")
+            msg.exec_()
+            return
+
+        # Plot, scatter, quiver.
+        axis = self.getAxis()
+        axis.cla()
+        for lbl in self.plot3D:
+            self.viewPlot3D(lbl, self.plot3D[lbl])
+        for lbl in self.scatter3D:
+            self.viewScatter3D(lbl, self.scatter3D[lbl])
+        for lbl in self.quiver3D:
+            self.viewQuiver3D(lbl, self.quiver3D[lbl])
+
+        # 3D viewer: order and show legend.
+        handles, labels = axis.get_legend_handles_labels()
+        if len(handles) > 0 and len(labels) > 0:
+            labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: t[0]))
+            axis.legend(handles, labels)
+
+        # Draw scene.
+        self.mcvs.draw()
+
+    def setUp(self, rangeMax, rangeMin="0."):
+        """Set up"""
+
+        # Set up.
+        self.rangeMin.setText(rangeMin)
+        self.rangeMax.setText(rangeMax)
+
+    def setRange(self, eqnT, eqnX, eqnY, eqnZ):
+        """Set range to data"""
+
+        # Set range to data.
+        rangeMin = float(self.rangeMin.text())
+        rangeMax = float(self.rangeMax.text())
+        eqnMask = np.all([rangeMin <= eqnT, eqnT <= rangeMax], axis=0)
+
+        return eqnX[eqnMask], eqnY[eqnMask], eqnZ[eqnMask]
+
+    def clear(self):
+        """Clear data to view"""
+
+        # Clear data to view.
+        self.plot3D.clear()
+        self.scatter3D.clear()
+        self.quiver3D.clear()
 
     def getAxis(self):
         """Get viewer axis"""
@@ -189,8 +262,8 @@ class viewer3DGUI(QMainWindow):
     def draw(self):
         """Force draw of the scene"""
 
-        # Draw scene.
-        self.mcvs.draw()
+        # Set range and draw scene.
+        self.onPltTRGBtnClick()
 
     def closeEvent(self, event):
         """Callback on closing window"""
@@ -198,6 +271,89 @@ class viewer3DGUI(QMainWindow):
         # Mark window as closed.
         self.closed = True
         event.accept()
+
+    def addPlot(self, lbl, data, clr):
+        """Add plot to data to view"""
+
+        # Add plot to data to view.
+        self.plot3D[lbl] = {}
+        for var in ["T", "X", "Y", "Z"]:
+            self.plot3D[lbl][var] = data[var]
+        self.plot3D[lbl]["clr"] = clr
+        for key in ["vwrLnWd", "vwrPosMks"]:
+            if isinstance(data[key], QLineEdit):
+                self.plot3D[lbl][key] = float(data[key].text())
+            else:
+                self.plot3D[lbl][key] = data[key]
+
+    def addScatter(self, lbl, data, clr):
+        """Add scatter to data to view"""
+
+        # Add scatter to data to view.
+        self.scatter3D[lbl] = {}
+        for var in ["T", "X", "Y", "Z"]:
+            self.scatter3D[lbl][var] = data[var]
+        self.scatter3D[lbl]["clr"] = clr
+        self.scatter3D[lbl]["vwrPosMks"] = data["vwrPosMks"]
+
+    def addQuiver(self, lbl, data, uvw, opts):
+        """Add quiver to data to view"""
+
+        # Add quiver to data to view.
+        self.quiver3D[lbl] = {}
+        for var in ["T", "X", "Y", "Z"]:
+            self.quiver3D[lbl][var] = data[var]
+        for idx, var in enumerate(["U", "V", "W"]):
+            self.quiver3D[lbl][var] = data[uvw[idx]]
+        self.quiver3D[lbl]["clr"] = opts["clr"]
+        lnr = opts["lnr"]
+        for idx, key in enumerate(["vwrLgh", "vwrNrm", "vwrALR"]):
+            if isinstance(data[lnr[idx]], QCheckBox):
+                self.quiver3D[lbl][key] = data[lnr[idx]].isChecked()
+            elif isinstance(data[lnr[idx]], QLineEdit):
+                self.quiver3D[lbl][key] = float(data[lnr[idx]].text())
+            else:
+                self.quiver3D[lbl][key] = data[lnr[idx]]
+
+    def viewPlot3D(self, lbl, data):
+        """Update viewer: plot"""
+
+        # Plot.
+        eqnX, eqnY, eqnZ = data["X"], data["Y"], data["Z"]
+        vwrLnWd, vwrPosMks, clr = data["vwrLnWd"], data["vwrPosMks"], data["clr"]
+        if vwrLnWd == 0.:
+            return
+        axis = self.getAxis()
+        eqnX, eqnY, eqnZ = self.setRange(data["T"], eqnX, eqnY, eqnZ)
+        axis.plot3D(eqnX, eqnY, eqnZ, lw=vwrLnWd, color=clr, label=lbl, marker="o", ms=vwrPosMks)
+
+    def viewScatter3D(self, lbl, data):
+        """Update viewer: scatter"""
+
+        # Plot.
+        posX, posY, posZ = data["X"], data["Y"], data["Z"]
+        vwrPosMks, clr = data["vwrPosMks"], data["clr"]
+        if vwrPosMks == 0.:
+            return
+        axis = self.getAxis()
+        posX, posY, posZ = self.setRange(data["T"], posX, posY, posZ)
+        axis.scatter3D(posX, posY, posZ, c=clr, marker="^", alpha=1, s=vwrPosMks, label=lbl)
+
+    def viewQuiver3D(self, lbl, data):
+        """Update viewer: quiver"""
+
+        # Plot solution: velocity.
+        eqnX, eqnY, eqnZ = data["X"], data["Y"], data["Z"]
+        eqnU, eqnV, eqnW = data["U"], data["V"], data["W"]
+        vwrLgh, clr = data["vwrLgh"], data["clr"]
+        if vwrLgh == 0.:
+            return
+        vwrNrm, vwrALR = data["vwrNrm"], data["vwrALR"]
+        axis = self.getAxis()
+        eqnX, eqnY, eqnZ = self.setRange(data["T"], eqnX, eqnY, eqnZ)
+        eqnU, eqnV, eqnW = self.setRange(data["T"], eqnU, eqnV, eqnW)
+        axis.quiver3D(eqnX, eqnY, eqnZ, eqnU, eqnV, eqnW, color=clr,
+                      length=vwrLgh, normalize=vwrNrm, arrow_length_ratio=vwrALR, label=lbl)
 
 class kalmanFilterModel():
     """Kalman filter model"""
@@ -209,7 +365,7 @@ class kalmanFilterModel():
         self.sim = {"simCLV": {}, "simDgP": {}, "simDgK": {}}
         self.msr = []
         self.example = example
-        self.time = []
+        self.time = np.array([], dtype=float)
         self.states = {}
         self.outputs = {}
         self.mat = {}
@@ -222,17 +378,17 @@ class kalmanFilterModel():
         self.msr = []
 
         # Clear previous time.
-        self.time = []
+        self.time = np.array([], dtype=float)
 
         # Clear previous results.
         self.states.clear()
         keys = self.example.getStateKeys()
         for key in keys:
-            self.states[key] = []
+            self.states[key] = np.array([], dtype=float)
         self.outputs.clear()
         keys = self.example.getOutputKeys()
         for key in keys:
-            self.outputs[key] = []
+            self.outputs[key] = np.array([], dtype=float)
 
         # Clear previous control law hidden variables.
         self.sim["simCLV"]["FoM"] = {}
@@ -640,15 +796,15 @@ class kalmanFilterModel():
         """Save simulation states and outputs"""
 
         # Save time.
-        self.time.append(time)
+        self.time = np.append(self.time, time)
 
         # Save states and outputs.
         keys = self.example.getStateKeys()
         for idx, key in enumerate(keys):
-            self.states[key].append(newStates[idx, 0])
+            self.states[key] = np.append(self.states[key], newStates[idx, 0])
         keys = self.example.getOutputKeys()
         for idx, key in enumerate(keys):
-            self.outputs[key].append(newOutputs[idx, 0])
+            self.outputs[key] = np.append(self.outputs[key], newOutputs[idx, 0])
 
     def saveP(self, time, matP):
         """Save diagonal terms of covariance"""
@@ -739,6 +895,7 @@ class planeTrackingExample:
         # Create viewer.
         if not self.vwr["3D"] or self.vwr["3D"].closed:
             self.vwr["3D"] = viewer3DGUI(self.ctrGUI)
+            self.vwr["3D"].setUp(self.slt["cdfTf"].text())
         self.vwr["3D"].setWindowTitle("Kalman filter viewer")
         self.vwr["3D"].show()
 
@@ -753,19 +910,25 @@ class planeTrackingExample:
         self.updateViewerMsr()
         self.updateViewerSim()
 
-        # 3D viewer: order and show legend.
-        axis = self.vwr["3D"].getAxis()
-        handles, labels = axis.get_legend_handles_labels()
-        labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: t[0]))
-        axis.legend(handles, labels)
-
         # Force viewer redraw.
         self.vwr["3D"].draw()
 
-    def clearViewer(self, vwrId="all"):
+    def clearViewer(self):
         """Clear viewer"""
 
         # Clear the viewer.
+        axis = self.vwr["3D"].getAxis()
+        axis.cla()
+        axis.set_xlabel("x")
+        axis.set_ylabel("y")
+        axis.set_zlabel("z")
+        self.vwr["3D"].clear()
+        self.vwr["3D"].draw()
+
+    def clearPlot(self, vwrId="all"):
+        """Clear plot"""
+
+        # Clear the plots.
         if vwrId in ("all", "fpeTZP"):
             if self.vwr["2D"]["fpeTZP"]:
                 axis = self.vwr["2D"]["fpeTZP"].getAxis()
@@ -788,13 +951,6 @@ class planeTrackingExample:
                     axis.set_xlabel("t")
                     axis.cla()
                 self.vwr["2D"]["simTSV"].draw()
-        if vwrId in ("all", "3D"):
-            axis = self.vwr["3D"].getAxis()
-            axis.cla()
-            axis.set_xlabel("x")
-            axis.set_ylabel("y")
-            axis.set_zlabel("z")
-            self.vwr["3D"].draw()
 
     def updateViewerSlt(self):
         """Update viewer: solution"""
@@ -814,9 +970,14 @@ class planeTrackingExample:
 
         # Plot solution.
         print("  "*1+"View analytic solution")
-        self.updateViewerSltX()
-        self.updateViewerSltV()
-        self.updateViewerSltA()
+        clr = (0., 0., 1.) # Blue.
+        self.vwr["3D"].addPlot("flight path: x", self.slt, clr)
+        clr = (0., 0.75, 1.) # Skyblue.
+        opts = {"clr": clr, "lnr": ["vwrVelLgh", "vwrVelNrm", "vwrVelALR"]}
+        self.vwr["3D"].addQuiver("flight path: v", self.slt, ["VX", "VY", "VZ"], opts)
+        clr = (0.25, 0., 0.5) # Indigo.
+        opts = {"clr": clr, "lnr": ["vwrAccLgh", "vwrAccNrm", "vwrAccALR"]}
+        self.vwr["3D"].addQuiver("flight path: a", self.slt, ["AX", "AY", "AZ"], opts)
         if self.vwr["2D"]["fpeTZP"] and not self.vwr["2D"]["fpeTZP"].closed:
             self.onPltTZPBtnClick()
 
@@ -864,54 +1025,6 @@ class planeTrackingExample:
         eqnInd = np.sqrt(eqnAX*eqnAX+eqnAY*eqnAY+eqnAZ*eqnAZ)
         self.slt["indAMin"].setText("%.6f" % np.min(eqnInd))
         self.slt["indAMax"].setText("%.6f" % np.max(eqnInd))
-
-    def updateViewerSltX(self):
-        """Update viewer: plot displacement of the solution"""
-
-        # Plot solution: displacement.
-        eqnX, eqnY, eqnZ = self.slt["X"], self.slt["Y"], self.slt["Z"]
-        vwrLnWd = float(self.slt["vwrLnWd"].text())
-        if vwrLnWd == 0.:
-            return
-        vwrPosMks = float(self.slt["vwrPosMks"].text())
-        clr = (0., 0., 1.) # Blue.
-        axis = self.vwr["3D"].getAxis()
-        axis.plot3D(eqnX, eqnY, eqnZ, lw=vwrLnWd, color=clr,
-                    label="flight path: x", marker="o", ms=vwrPosMks)
-
-    def updateViewerSltV(self):
-        """Update viewer: plot velocity of the solution"""
-
-        # Plot solution: velocity.
-        eqnX, eqnY, eqnZ = self.slt["X"], self.slt["Y"], self.slt["Z"]
-        eqnVX, eqnVY, eqnVZ = self.slt["VX"], self.slt["VY"], self.slt["VZ"]
-        clr = (0., 0.75, 1.) # Skyblue.
-        vwrVelLgh = float(self.slt["vwrVelLgh"].text())
-        if vwrVelLgh == 0.:
-            return
-        vwrVelNrm = self.slt["vwrVelNrm"].isChecked()
-        vwrVelALR = float(self.slt["vwrVelALR"].text())
-        axis = self.vwr["3D"].getAxis()
-        axis.quiver3D(eqnX, eqnY, eqnZ, eqnVX, eqnVY, eqnVZ, color=clr,
-                      length=vwrVelLgh, normalize=vwrVelNrm, arrow_length_ratio=vwrVelALR,
-                      label="flight path: v")
-
-    def updateViewerSltA(self):
-        """Update viewer: plot acceleration of the solution"""
-
-        # Plot solution: acceleration.
-        eqnX, eqnY, eqnZ = self.slt["X"], self.slt["Y"], self.slt["Z"]
-        eqnAX, eqnAY, eqnAZ = self.slt["AX"], self.slt["AY"], self.slt["AZ"]
-        clr = (0.25, 0., 0.5) # Indigo.
-        vwrAccLgh = float(self.slt["vwrAccLgh"].text())
-        if vwrAccLgh == 0.:
-            return
-        vwrAccNrm = self.slt["vwrAccNrm"].isChecked()
-        vwrAccALR = float(self.slt["vwrAccALR"].text())
-        axis = self.vwr["3D"].getAxis()
-        axis.quiver3D(eqnX, eqnY, eqnZ, eqnAX, eqnAY, eqnAZ, colors=clr,
-                      length=vwrAccLgh, normalize=vwrAccNrm, arrow_length_ratio=vwrAccALR,
-                      label="flight path: a")
 
     def getSltId(self):
         """Get solution identity (track solution features)"""
@@ -1258,67 +1371,23 @@ class planeTrackingExample:
 
         # View data measurements.
         if msrData["msrType"] == "x":
-            self.updateViewerMsrDataX(msrData)
+            msrData["vwrPosMks"] = float(self.msr["vwrPosMks"].text())
+            clr = "r" # Red.
+            self.vwr["3D"].addScatter("measure: x", msrData, clr)
         if msrData["msrType"] == "v":
-            self.updateViewerMsrDataV(msrData)
+            msrData["vwrVelLgh"] = float(self.msr["vwrVelLgh"].text())
+            msrData["vwrVelNrm"] = self.msr["vwrVelNrm"].isChecked()
+            msrData["vwrVelALR"] = float(self.msr["vwrVelALR"].text())
+            clr = (1., 0.65, 0.) # Orange.
+            opts = {"clr": clr, "lnr": ["vwrVelLgh", "vwrVelNrm", "vwrVelALR"]}
+            self.vwr["3D"].addQuiver("measure: v", msrData, ["VX", "VY", "VZ"], opts)
         if msrData["msrType"] == "a":
-            self.updateViewerMsrDataA(msrData)
-
-    def updateViewerMsrDataX(self, msrData):
-        """Update viewer: displacement measurement data"""
-
-        # View measure data: displacement.
-        posX = msrData["X"]
-        posY = msrData["Y"]
-        posZ = msrData["Z"]
-        vwrPosMks = float(self.msr["vwrPosMks"].text())
-        if vwrPosMks == 0.:
-            return
-        axis = self.vwr["3D"].getAxis()
-        axis.scatter3D(posX, posY, posZ, c="r", marker="^", alpha=1, s=vwrPosMks,
-                       label="measure: x")
-
-    def updateViewerMsrDataV(self, msrData):
-        """Update viewer: velocity measurement data"""
-
-        # View measure data: velocity.
-        posX = msrData["X"]
-        posY = msrData["Y"]
-        posZ = msrData["Z"]
-        eqnVX = msrData["VX"]
-        eqnVY = msrData["VY"]
-        eqnVZ = msrData["VZ"]
-        clr = (1., 0.65, 0.) # Orange.
-        vwrVelLgh = float(self.msr["vwrVelLgh"].text())
-        if vwrVelLgh == 0.:
-            return
-        vwrVelNrm = self.msr["vwrVelNrm"].isChecked()
-        vwrVelALR = float(self.msr["vwrVelALR"].text())
-        axis = self.vwr["3D"].getAxis()
-        axis.quiver3D(posX, posY, posZ, eqnVX, eqnVY, eqnVZ, colors=clr,
-                      length=vwrVelLgh, normalize=vwrVelNrm, arrow_length_ratio=vwrVelALR,
-                      label="measure: v")
-
-    def updateViewerMsrDataA(self, msrData):
-        """Update viewer: acceleration measurement data"""
-
-        # View measure data: acceleration.
-        posX = msrData["X"]
-        posY = msrData["Y"]
-        posZ = msrData["Z"]
-        eqnAX = msrData["AX"]
-        eqnAY = msrData["AY"]
-        eqnAZ = msrData["AZ"]
-        clr = (0.6, 0.3, 0.) # Brown.
-        vwrAccLgh = float(self.msr["vwrAccLgh"].text())
-        if vwrAccLgh == 0.:
-            return
-        vwrAccNrm = self.msr["vwrAccNrm"].isChecked()
-        vwrAccALR = float(self.msr["vwrAccALR"].text())
-        axis = self.vwr["3D"].getAxis()
-        axis.quiver3D(posX, posY, posZ, eqnAX, eqnAY, eqnAZ, colors=clr,
-                      length=vwrAccLgh, normalize=vwrAccNrm, arrow_length_ratio=vwrAccALR,
-                      label="measure: a")
+            msrData["vwrAccLgh"] = float(self.msr["vwrAccLgh"].text())
+            msrData["vwrAccNrm"] = self.msr["vwrAccNrm"].isChecked()
+            msrData["vwrAccALR"] = float(self.msr["vwrAccALR"].text())
+            clr = (0.6, 0.3, 0.) # Brown.
+            opts = {"clr": clr, "lnr": ["vwrAccLgh", "vwrAccNrm", "vwrAccALR"]}
+            self.vwr["3D"].addQuiver("measure: a", msrData, ["AX", "AY", "AZ"], opts)
 
     def getMsrId(self):
         """Get measurements identity (track measurement features)"""
@@ -1353,11 +1422,30 @@ class planeTrackingExample:
         # Track simulation features.
         self.sim["simId"] = self.getSimId()
 
+        # Gather results.
+        simData = {}
+        simData["T"] = self.kfm.time
+        for key in self.getOutputKeys():
+            simData[key] = self.kfm.outputs[key]
+        simData["vwrLnWd"] = float(self.sim["vwrLnWd"].text())
+        simData["vwrPosMks"] = float(self.sim["vwrPosMks"].text())
+        simData["vwrVelLgh"] = float(self.sim["vwrVelLgh"].text())
+        simData["vwrVelNrm"] = self.sim["vwrVelNrm"].isChecked()
+        simData["vwrVelALR"] = float(self.sim["vwrVelALR"].text())
+        simData["vwrAccLgh"] = float(self.sim["vwrAccLgh"].text())
+        simData["vwrAccNrm"] = self.sim["vwrAccNrm"].isChecked()
+        simData["vwrAccALR"] = float(self.sim["vwrAccALR"].text())
+
         # Plot solver results.
         print("  "*1+"View simulation results")
-        self.updateViewerSimX()
-        self.updateViewerSimV()
-        self.updateViewerSimA()
+        clr = (0., 0.5, 0.) # Green.
+        self.vwr["3D"].addPlot("simulation: x", simData, clr)
+        clr = (0., 1., 0.) # Lime green.
+        opts = {"clr": clr, "lnr": ["vwrVelLgh", "vwrVelNrm", "vwrVelALR"]}
+        self.vwr["3D"].addQuiver("simulation: v", simData, ["VX", "VY", "VZ"], opts)
+        clr = (0., 0.2, 0.) # Dark green.
+        opts = {"clr": clr, "lnr": ["vwrAccLgh", "vwrAccNrm", "vwrAccALR"]}
+        self.vwr["3D"].addQuiver("simulation: a", simData, ["AX", "AY", "AZ"], opts)
         if self.vwr["2D"]["simOVr"] and not self.vwr["2D"]["simOVr"].closed:
             self.onPltSOVBtnClick()
         if self.vwr["2D"]["simCLV"] and not self.vwr["2D"]["simCLV"].closed:
@@ -1396,54 +1484,6 @@ class planeTrackingExample:
                 simId += ":"+self.sim[key].text()
 
         return simId
-
-    def updateViewerSimX(self):
-        """Update viewer: plot displacement of the simulation"""
-
-        # Plot simulation: displacement.
-        eqnX, eqnY, eqnZ = self.kfm.outputs["X"], self.kfm.outputs["Y"], self.kfm.outputs["Z"]
-        vwrLnWd = float(self.sim["vwrLnWd"].text())
-        if vwrLnWd == 0.:
-            return
-        vwrPosMks = float(self.sim["vwrPosMks"].text())
-        clr = (0., 0.5, 0.) # Green.
-        axis = self.vwr["3D"].getAxis()
-        axis.plot3D(eqnX, eqnY, eqnZ, lw=vwrLnWd, color=clr,
-                    label="simulation: x", marker="o", ms=vwrPosMks)
-
-    def updateViewerSimV(self):
-        """Update viewer: plot velocity of the simulation"""
-
-        # Plot simulation: velocity.
-        eqnX, eqnY, eqnZ = self.kfm.outputs["X"], self.kfm.outputs["Y"], self.kfm.outputs["Z"]
-        eqnVX, eqnVY, eqnVZ = self.kfm.outputs["VX"], self.kfm.outputs["VY"], self.kfm.outputs["VZ"]
-        clr = (0., 1., 0.) # Lime green.
-        vwrVelLgh = float(self.sim["vwrVelLgh"].text())
-        if vwrVelLgh == 0.:
-            return
-        vwrVelNrm = self.sim["vwrVelNrm"].isChecked()
-        vwrVelALR = float(self.sim["vwrVelALR"].text())
-        axis = self.vwr["3D"].getAxis()
-        axis.quiver3D(eqnX, eqnY, eqnZ, eqnVX, eqnVY, eqnVZ, color=clr,
-                      length=vwrVelLgh, normalize=vwrVelNrm, arrow_length_ratio=vwrVelALR,
-                      label="simulation: v")
-
-    def updateViewerSimA(self):
-        """Update viewer: plot acceleration of the simulation"""
-
-        # Plot simulation: acceleration.
-        eqnX, eqnY, eqnZ = self.kfm.outputs["X"], self.kfm.outputs["Y"], self.kfm.outputs["Z"]
-        eqnAX, eqnAY, eqnAZ = self.kfm.outputs["AX"], self.kfm.outputs["AY"], self.kfm.outputs["AZ"]
-        clr = (0., 0.2, 0.) # Dark green.
-        vwrAccLgh = float(self.sim["vwrAccLgh"].text())
-        if vwrAccLgh == 0.:
-            return
-        vwrAccNrm = self.sim["vwrAccNrm"].isChecked()
-        vwrAccALR = float(self.sim["vwrAccALR"].text())
-        axis = self.vwr["3D"].getAxis()
-        axis.quiver3D(eqnX, eqnY, eqnZ, eqnAX, eqnAY, eqnAZ, colors=clr,
-                      length=vwrAccLgh, normalize=vwrAccNrm, arrow_length_ratio=vwrAccALR,
-                      label="simulation: a")
 
     def throwError(self, eId, txt):
         """Throw an error message"""
@@ -1609,7 +1649,7 @@ class planeTrackingExample:
             self.vwr["2D"]["fpeTZP"].show()
 
         # Clear the viewer.
-        self.clearViewer(vwrId="fpeTZP")
+        self.clearPlot(vwrId="fpeTZP")
 
         # Time.
         prmTf = float(self.slt["cdfTf"].text())
@@ -1723,10 +1763,10 @@ class planeTrackingExample:
         gdlVwr.addWidget(QLabel("Position:", sltGUI), 0, 0)
         gdlVwr.addWidget(QLabel("line width", sltGUI), 0, 1)
         gdlVwr.addWidget(self.slt["vwrLnWd"], 0, 2)
-        gdlVwr.addWidget(QLabel("nb points", sltGUI), 0, 3)
-        gdlVwr.addWidget(self.slt["vwrNbPt"], 0, 4)
-        gdlVwr.addWidget(QLabel("marker size", sltGUI), 0, 5)
-        gdlVwr.addWidget(self.slt["vwrPosMks"], 0, 6)
+        gdlVwr.addWidget(QLabel("marker size", sltGUI), 0, 3)
+        gdlVwr.addWidget(self.slt["vwrPosMks"], 0, 4)
+        gdlVwr.addWidget(QLabel("nb points", sltGUI), 0, 5)
+        gdlVwr.addWidget(self.slt["vwrNbPt"], 0, 6)
         gdlVwr.addWidget(QLabel("Velocity:", sltGUI), 1, 0)
         gdlVwr.addWidget(QLabel("length", sltGUI), 1, 1)
         gdlVwr.addWidget(self.slt["vwrVelLgh"], 1, 2)
@@ -1856,7 +1896,7 @@ class planeTrackingExample:
             self.vwr["2D"]["msrDat"].show()
 
         # Clear the viewer.
-        self.clearViewer(vwrId="msrDat")
+        self.clearPlot(vwrId="msrDat")
 
         # Plot simulation output variables.
         self.plotMeasurementData()
@@ -2282,7 +2322,7 @@ class planeTrackingExample:
             self.vwr["2D"]["simOVr"].show()
 
         # Clear the viewer.
-        self.clearViewer(vwrId="simOVr")
+        self.clearPlot(vwrId="simOVr")
 
         # Plot simulation output variables.
         self.plotSimulationOutputVariables()
@@ -2365,7 +2405,7 @@ class planeTrackingExample:
             self.vwr["2D"]["simCLV"].show()
 
         # Clear the viewer.
-        self.clearViewer(vwrId="simCLV")
+        self.clearPlot(vwrId="simCLV")
 
         # Plot simulation control law variables.
         self.plotSimulationControlLawVariables()
@@ -2407,7 +2447,7 @@ class planeTrackingExample:
             self.vwr["2D"]["simTSV"].show()
 
         # Clear the viewer.
-        self.clearViewer(vwrId="simTSV")
+        self.clearPlot(vwrId="simTSV")
 
         # Plot simulation time scheme variables.
         self.plotSimulationTimeSchemeVariables()
@@ -2460,7 +2500,7 @@ class planeTrackingExample:
             self.vwr["2D"]["simDgP"].show()
 
         # Clear the viewer.
-        self.clearViewer(vwrId="simDgP")
+        self.clearPlot(vwrId="simDgP")
 
         # Plot simulation covariance variables.
         self.plotSimulationCovarianceVariables()
@@ -2498,7 +2538,7 @@ class planeTrackingExample:
             self.vwr["2D"]["simDgK"].show()
 
         # Clear the viewer.
-        self.clearViewer(vwrId="simDgK")
+        self.clearPlot(vwrId="simDgK")
 
         # Plot Kalman gain variables.
         self.plotSimulationKalmanGainVariables()
