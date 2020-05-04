@@ -363,7 +363,7 @@ class kalmanFilterModel():
         """Initialize"""
 
         # Initialize members.
-        self.sim = {"simCLV": {}, "simDgP": {}, "simDgK": {}}
+        self.sim = {"simCLV": {}, "simDgP": {}, "simDgK": {}, "simPrN": {}}
         self.msr = []
         self.example = example
         self.time = np.array([], dtype=float)
@@ -405,8 +405,8 @@ class kalmanFilterModel():
         self.sim["simCLV"]["yaw"] = []
         self.sim["simTEM"] = np.array([])
 
-        # Clear previous covariance and Kalman gain variables.
-        for key in ["simDgP", "simDgK"]:
+        # Clear previous process noise, covariance and Kalman gain variables.
+        for key in ["simDgP", "simDgK", "simPrN"]:
             self.sim[key]["T"] = []
             self.sim[key]["X"] = []
             self.sim[key]["VX"] = []
@@ -760,7 +760,7 @@ class kalmanFilterModel():
                 self.printMat("G", matG)
 
         # Compute process noise w_{n,n}.
-        matW = self.getProcessNoise(states)
+        vecW = self.getProcessNoise(states, newTime)
 
         # Compute control law u_{n,n}.
         vecU = self.example.computeControlLaw(states, newTime, self.sim, save=False)
@@ -771,7 +771,7 @@ class kalmanFilterModel():
         newStates = np.dot(matF, states)
         if matG is not None:
             newStates = newStates+np.dot(matG, vecU)
-        newStates = newStates+matW
+        newStates = newStates+vecW
         if self.sim["prmVrb"] >= 2:
             self.printMat("X", np.transpose(newStates))
 
@@ -825,19 +825,25 @@ class kalmanFilterModel():
         for idx, key in enumerate(keys):
             self.sim["simDgK"][key].append(matK[idx, idx])
 
-    def getProcessNoise(self, states):
+    def getProcessNoise(self, states, time):
         """Get process noise"""
 
         # Get random noise.
         prmMu, prmSigma = states, self.sim["prmProNseSig"]
         noisyStates = np.random.normal(prmMu, prmSigma)
-        matW = noisyStates-states
+        vecW = noisyStates-states
 
         # Verbose on demand.
         if self.sim["prmVrb"] >= 2:
-            self.printMat("W", np.transpose(matW))
+            self.printMat("W", np.transpose(vecW))
 
-        return matW
+        # Save process noise.
+        self.sim["simPrN"]["T"].append(time)
+        keys = self.example.getStateKeys()
+        for idx, key in enumerate(keys):
+            self.sim["simPrN"][key].append(vecW[idx])
+
+        return vecW
 
     def computeOutputs(self, states, vecU):
         """Compute outputs"""
@@ -876,9 +882,10 @@ class planeTrackingExample:
         self.vwr = {"2D": {}, "3D": None}
         self.vwr["2D"]["fpeTZP"] = None
         self.vwr["2D"]["msrDat"] = None
-        self.vwr["2D"]["simCLV"] = None
         self.vwr["2D"]["simOVr"] = None
         self.vwr["2D"]["simTSV"] = None
+        self.vwr["2D"]["simCLV"] = None
+        self.vwr["2D"]["simPrN"] = None
         self.vwr["2D"]["simDgP"] = None
         self.vwr["2D"]["simDgK"] = None
         self.kfm = kalmanFilterModel(self)
@@ -937,7 +944,7 @@ class planeTrackingExample:
                 axis.set_xlabel("t")
                 axis.set_ylabel("z")
                 self.vwr["2D"]["fpeTZP"].draw()
-        for key in ["msrDat", "simOVr", "simCLV", "simDgP", "simDgK"]:
+        for key in ["msrDat", "simOVr", "simCLV", "simPrN", "simDgP", "simDgK"]:
             if vwrId in ("all", key):
                 if self.vwr["2D"][key]:
                     for idx in [0, 1, 2, 3, 4, 5, 6, 7, 8]:
@@ -1449,10 +1456,12 @@ class planeTrackingExample:
         self.vwr["3D"].addQuiver("simulation: a", simData, ["AX", "AY", "AZ"], opts)
         if self.vwr["2D"]["simOVr"] and not self.vwr["2D"]["simOVr"].closed:
             self.onPltSOVBtnClick()
-        if self.vwr["2D"]["simCLV"] and not self.vwr["2D"]["simCLV"].closed:
-            self.onPltSCLBtnClick()
         if self.vwr["2D"]["simTSV"] and not self.vwr["2D"]["simTSV"].closed:
             self.onPltSTSBtnClick()
+        if self.vwr["2D"]["simCLV"] and not self.vwr["2D"]["simCLV"].closed:
+            self.onPltSCLBtnClick()
+        if self.vwr["2D"]["simPrN"] and not self.vwr["2D"]["simPrN"].closed:
+            self.onPltSPNBtnClick()
         if self.vwr["2D"]["simDgP"] and not self.vwr["2D"]["simDgP"].closed:
             self.onPltSCvBtnClick()
         if self.vwr["2D"]["simDgK"] and not self.vwr["2D"]["simDgK"].closed:
@@ -2289,8 +2298,10 @@ class planeTrackingExample:
         # Create push buttons.
         pltSOVBtn = QPushButton("Output variables", simGUI)
         pltSOVBtn.clicked.connect(self.onPltSOVBtnClick)
-        pltSCLBtn = QPushButton("Control law variables", simGUI)
+        pltSCLBtn = QPushButton("Control law", simGUI)
         pltSCLBtn.clicked.connect(self.onPltSCLBtnClick)
+        pltSPNBtn = QPushButton("Process noise", simGUI)
+        pltSPNBtn.clicked.connect(self.onPltSPNBtnClick)
         pltSTSBtn = QPushButton("Time scheme", simGUI)
         pltSTSBtn.clicked.connect(self.onPltSTSBtnClick)
         pltSCvBtn = QPushButton("Covariance", simGUI)
@@ -2302,7 +2313,8 @@ class planeTrackingExample:
         gdlPpg = QGridLayout(simGUI)
         gdlPpg.addWidget(pltSOVBtn, 0, 0)
         gdlPpg.addWidget(pltSTSBtn, 0, 1)
-        gdlPpg.addWidget(pltSCLBtn, 1, 0, 1, 2)
+        gdlPpg.addWidget(pltSCLBtn, 1, 0)
+        gdlPpg.addWidget(pltSPNBtn, 1, 1)
         gdlPpg.addWidget(pltSCvBtn, 2, 0)
         gdlPpg.addWidget(pltSKGBtn, 2, 1)
 
@@ -2438,6 +2450,44 @@ class planeTrackingExample:
         self.plotSimVariables(key, 6, "roll", "roll")
         self.plotSimVariables(key, 7, "pitch", "pitch")
         self.plotSimVariables(key, 8, "yaw", "yaw")
+
+    def onPltSPNBtnClick(self):
+        """Callback on plotting simulation process noise"""
+
+        # Create or retrieve viewer.
+        print("Plot simulation process noise")
+        if not self.vwr["2D"]["simPrN"] or self.vwr["2D"]["simPrN"].closed:
+            self.vwr["2D"]["simPrN"] = viewer2DGUI(self.ctrGUI)
+            self.vwr["2D"]["simPrN"].setUp(self.slt["cdfTf"].text(), nrows=3, ncols=3)
+            self.vwr["2D"]["simPrN"].setWindowTitle("Simulation: process noise")
+            self.vwr["2D"]["simPrN"].show()
+
+        # Clear the viewer.
+        self.clearPlot(vwrId="simPrN")
+
+        # Plot simulation process noise.
+        self.plotSimulationProcessNoise()
+
+        # Draw scene.
+        self.vwr["2D"]["simPrN"].draw()
+
+    def plotSimulationProcessNoise(self):
+        """Plot simulation process noise"""
+
+        # Don't plot if there's nothing to plot.
+        if not self.kfm.isSolved():
+            return
+
+        # Plot simulation process noise.
+        self.plotSimVariables("simPrN", 0, "X", "$W_{x}$")
+        self.plotSimVariables("simPrN", 1, "Y", "$W_{y}$")
+        self.plotSimVariables("simPrN", 2, "Z", "$W_{z}$")
+        self.plotSimVariables("simPrN", 3, "VX", "$W_{vx}$")
+        self.plotSimVariables("simPrN", 4, "VY", "$W_{vy}$")
+        self.plotSimVariables("simPrN", 5, "VZ", "$W_{vz}$")
+        self.plotSimVariables("simPrN", 6, "AX", "$W_{ax}$")
+        self.plotSimVariables("simPrN", 7, "AY", "$W_{ay}$")
+        self.plotSimVariables("simPrN", 8, "AZ", "$W_{az}$")
 
     def onPltSTSBtnClick(self):
         """Callback on plotting simulation time scheme variables"""
