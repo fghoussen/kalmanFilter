@@ -527,8 +527,8 @@ class kalmanFilterModel():
             print("  "*2+"Initialisation:")
         time = 0.
         states = self.example.initStates(self.sim)
-        matU = self.example.computeControlLaw(states, time, self.sim)
-        outputs = self.computeOutputs(states, matU)
+        vecU = self.example.computeControlLaw(states, time, self.sim)
+        outputs = self.computeOutputs(states, vecU)
         matP = self.example.initStateCovariance(self.sim)
         if self.sim["prmVrb"] >= 2:
             self.printMat("X", np.transpose(states))
@@ -582,7 +582,7 @@ class kalmanFilterModel():
             print("  "*2+"Corrector: time %.3f" % newTime)
 
         # Get measurement z_{n}.
-        matZ, matH = self.getMeasurement(msrLst)
+        vecZ, matH = self.getMeasurement(msrLst)
 
         # Compute Kalman gain K_{n}.
         matR, matK = self.computeKalmanGain(msrLst, matP, matH)
@@ -594,7 +594,7 @@ class kalmanFilterModel():
         #   x_{n,n} = x_{n,n-1} + K_{n}*(z_{n} - H*x_{n,n-1})
         #   x_{n,n} = (I - K_{n}*H)*x_{n,n-1} + (K_{n}*H)*x_{n,n-1} + (K_{n}*H)*v_{n}
         #   x_{n,n} = (I -  alpha )*x_{n,n-1} +   alpha  *x_{n,n-1} +     constant
-        matI = matZ-np.dot(matH, states) # Innovation.
+        matI = vecZ-np.dot(matH, states) # Innovation.
         newStates = states+np.dot(matK, matI) # States correction = K_{n}*Innovation.
         if self.sim["prmVrb"] >= 2:
             self.printMat("X", np.transpose(newStates))
@@ -609,7 +609,7 @@ class kalmanFilterModel():
 
         # Get measurement: z_{n} = H*x_{n} + v_{n}.
         prmN = self.example.getLTISystemSize()
-        matZ = np.zeros((prmN, 1), dtype=float)
+        vecZ = np.zeros((prmN, 1), dtype=float)
         matH = np.zeros((prmN, prmN), dtype=float)
         if self.sim["prmVrb"] >= 2:
             print("  "*3+"Measurements:")
@@ -625,34 +625,34 @@ class kalmanFilterModel():
 
             # Recover most accurate measurement: inaccurate sigma (msrLst head) are rewritten.
             if msrItem[0] == "x":
-                matZ[0, 0] = msrItem[1] # X.
-                matZ[3, 0] = msrItem[2] # Y.
-                matZ[6, 0] = msrItem[3] # Z.
+                vecZ[0] = msrItem[1] # X.
+                vecZ[3] = msrItem[2] # Y.
+                vecZ[6] = msrItem[3] # Z.
                 matH[0, 0] = 1.
                 matH[3, 3] = 1.
                 matH[6, 6] = 1.
             if msrItem[0] == "v":
-                matZ[1, 0] = msrItem[1] # VX.
-                matZ[4, 0] = msrItem[2] # VY.
-                matZ[7, 0] = msrItem[3] # VZ.
+                vecZ[1] = msrItem[1] # VX.
+                vecZ[4] = msrItem[2] # VY.
+                vecZ[7] = msrItem[3] # VZ.
                 matH[1, 1] = 1.
                 matH[4, 4] = 1.
                 matH[7, 7] = 1.
             if msrItem[0] == "a":
-                matZ[2, 0] = msrItem[1] # AX.
-                matZ[5, 0] = msrItem[2] # AY.
-                matZ[8, 0] = msrItem[3] # AZ.
+                vecZ[2] = msrItem[1] # AX.
+                vecZ[5] = msrItem[2] # AY.
+                vecZ[8] = msrItem[3] # AZ.
                 matH[2, 2] = 1.
                 matH[5, 5] = 1.
                 matH[8, 8] = 1.
 
         # Verbose on demand.
         if self.sim["prmVrb"] >= 2:
-            self.printMat("Z", np.transpose(matZ))
+            self.printMat("Z", np.transpose(vecZ))
         if self.sim["prmVrb"] >= 3:
             self.printMat("H", matH)
 
-        return matZ, matH
+        return vecZ, matH
 
     def computeKalmanGain(self, msrLst, matP, matH):
         """Compute Kalman gain"""
@@ -726,8 +726,8 @@ class kalmanFilterModel():
         newStates, matF, matG = self.predictStates(timeDt, newTime, states)
 
         # Outputs equation: y_{n+1,n+1} = C*x_{n+1,n+1} + D*u_{n+1,n+1}.
-        newMatU = self.example.computeControlLaw(newStates, newTime, self.sim)
-        newOutputs = self.computeOutputs(newStates, newMatU)
+        newVecU = self.example.computeControlLaw(newStates, newTime, self.sim)
+        newOutputs = self.computeOutputs(newStates, newVecU)
         if self.sim["prmVrb"] >= 2:
             self.printMat("Y", np.transpose(newOutputs))
 
@@ -767,14 +767,14 @@ class kalmanFilterModel():
         matW = self.getProcessNoise(states)
 
         # Compute control law u_{n,n}.
-        matU = self.example.computeControlLaw(states, newTime, self.sim, save=False)
+        vecU = self.example.computeControlLaw(states, newTime, self.sim, save=False)
         if self.sim["prmVrb"] >= 2:
-            self.printMat("U", np.transpose(matU))
+            self.printMat("U", np.transpose(vecU))
 
         # Predictor equation: x_{n+1,n} = F*x_{n,n} + G*u_{n,n} + w_{n,n}.
         newStates = np.dot(matF, states)
         if matG is not None:
-            newStates = newStates+np.dot(matG, matU)
+            newStates = newStates+np.dot(matG, vecU)
         newStates = newStates+matW
         if self.sim["prmVrb"] >= 2:
             self.printMat("X", np.transpose(newStates))
@@ -843,13 +843,13 @@ class kalmanFilterModel():
 
         return matW
 
-    def computeOutputs(self, states, matU):
+    def computeOutputs(self, states, vecU):
         """Compute outputs"""
 
         # Outputs equation: y_{n+1} = C*x_{n} + D*u_{n}.
         outputs = np.dot(self.mat["C"], states)
         if self.mat["D"] is not None:
-            outputs = outputs+np.dot(self.mat["D"], matU)
+            outputs = outputs+np.dot(self.mat["D"], vecU)
 
         return outputs
 
@@ -3239,7 +3239,7 @@ class planeTrackingExample:
         fomX = accNxt[0]-accNow[0]
         fomY = accNxt[1]-accNow[1]
         fomZ = accNxt[2]-accNow[2]
-        matU = self.computeControl((thfX+fomX, thfY+fomY, thfZ+fomZ), sim, save)
+        vecU = self.computeControl((thfX+fomX, thfY+fomY, thfZ+fomZ), sim, save)
 
         # Save F/m to compute d(F/m)/dt next time.
         if save:
@@ -3247,7 +3247,7 @@ class planeTrackingExample:
             sim["ctlOldFoMY"] = fomY
             sim["ctlOldFoMZ"] = fomZ
 
-        return matU
+        return vecU
 
     def computeThrottleForce(self, velNow, time):
         """Compute throttle force"""
@@ -3357,30 +3357,30 @@ class planeTrackingExample:
 
         # Compute control law: modify plane throttle (F/m == acceleration).
         prmN = self.getLTISystemSize()
-        matU = np.zeros((prmN, 1), dtype=float)
-        matU[1, 0] = fom[0]
-        matU[4, 0] = fom[1]
-        matU[7, 0] = fom[2]
+        vecU = np.zeros((prmN, 1), dtype=float)
+        vecU[1] = fom[0]
+        vecU[4] = fom[1]
+        vecU[7] = fom[2]
 
         # Compute control law: modify plane acceleration (d(F/m)/dt).
         oldFoMX = self.sim["ctlOldFoMX"] if "ctlOldFoMX" in self.sim else 0.
         oldFoMY = self.sim["ctlOldFoMY"] if "ctlOldFoMY" in self.sim else 0.
         oldFoMZ = self.sim["ctlOldFoMZ"] if "ctlOldFoMZ" in self.sim else 0.
         prmDt = float(self.sim["prmDt"].text())
-        matU[2, 0] = (fom[0]-oldFoMX)/prmDt
-        matU[5, 0] = (fom[1]-oldFoMY)/prmDt
-        matU[8, 0] = (fom[2]-oldFoMZ)/prmDt
+        vecU[2] = (fom[0]-oldFoMX)/prmDt
+        vecU[5] = (fom[1]-oldFoMY)/prmDt
+        vecU[8] = (fom[2]-oldFoMZ)/prmDt
 
         # Save control law hidden variables.
         if save:
-            sim["simCLV"]["FoM"]["X"].append(matU[1, 0])
-            sim["simCLV"]["FoM"]["Y"].append(matU[4, 0])
-            sim["simCLV"]["FoM"]["Z"].append(matU[7, 0])
-            sim["simCLV"]["d(FoM)/dt"]["X"].append(matU[2, 0])
-            sim["simCLV"]["d(FoM)/dt"]["Y"].append(matU[5, 0])
-            sim["simCLV"]["d(FoM)/dt"]["Z"].append(matU[8, 0])
+            sim["simCLV"]["FoM"]["X"].append(vecU[1])
+            sim["simCLV"]["FoM"]["Y"].append(vecU[4])
+            sim["simCLV"]["FoM"]["Z"].append(vecU[7])
+            sim["simCLV"]["d(FoM)/dt"]["X"].append(vecU[2])
+            sim["simCLV"]["d(FoM)/dt"]["Y"].append(vecU[5])
+            sim["simCLV"]["d(FoM)/dt"]["Z"].append(vecU[8])
 
-        return matU
+        return vecU
 
     @staticmethod
     def getStateKeys():
