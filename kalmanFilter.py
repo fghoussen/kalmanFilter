@@ -3346,7 +3346,12 @@ class planeTrackingExample:
         velNowProj, velNxtProj = velNow*proj, velNxt*proj
         normCoef = npl.norm(velNowProj)*npl.norm(velNxtProj)
         if np.abs(normCoef) > 1.e-6:
-            theta = np.arccos(np.dot(np.transpose(velNowProj), velNxtProj)/normCoef)
+            prodScal = float(np.dot(np.transpose(velNowProj), velNxtProj)/normCoef)
+            if prodScal > 1.: # Cut off in case numerical accuracy produces 1.+eps.
+                prodScal = 1.
+            if prodScal < -1.: # Cut off in case numerical accuracy produces -1.-eps.
+                prodScal = -1.
+            theta = np.arccos(prodScal)
             theta = theta*(180./np.pi) # Yaw angle in degrees.
 
         return float(theta)
