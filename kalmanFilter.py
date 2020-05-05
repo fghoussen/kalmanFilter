@@ -2679,9 +2679,7 @@ class planeTrackingExample:
             self.sim["prmM"].setText("1000.")
             self.sim["prmC"].setText("50.")
             self.sim["ctlThfTkoK"].setText("60")
-            self.sim["ctlThfTkoDt"].setText("300.")
             self.sim["ctlThfFlgK"].setText("55")
-            self.sim["ctlThfLdgDt"].setText("300.")
             self.sim["ctlThfLdgK"].setText("40")
             if qrb.text() == "Straight line":
                 self.onStraightLineExampleClicked(sigPosGPS, sigVelGPS, sigAccSensor)
@@ -2766,6 +2764,8 @@ class planeTrackingExample:
         self.sim["cdiSigAX0"].setText("%.6f" % sigAccSim)
         self.sim["cdiSigAY0"].setText("%.6f" % sigAccSim)
         self.sim["cdiSigAZ0"].setText("%.6f" % sigAccSim)
+        self.sim["ctlThfTkoDt"].setText("0.")
+        self.sim["ctlThfLdgDt"].setText("0.")
 
         # Viewer options.
         keys = [("vwrVelLgh", "0"), ("vwrVelALR", "0.3"),
@@ -2818,6 +2818,8 @@ class planeTrackingExample:
         self.sim["cdiSigAX0"].setText("%.6f" % sigAccSim)
         self.sim["cdiSigAY0"].setText("%.6f" % sigAccSim)
         self.sim["cdiSigAZ0"].setText("%.6f" % sigAccSim)
+        self.sim["ctlThfTkoDt"].setText("300.")
+        self.sim["ctlThfLdgDt"].setText("300.")
 
         # Viewer options.
         keys = [("vwrVelLgh", "0"), ("vwrVelALR", "0.3"),
@@ -2870,6 +2872,8 @@ class planeTrackingExample:
         self.sim["cdiSigAX0"].setText("%.6f" % sigAccSim)
         self.sim["cdiSigAY0"].setText("%.6f" % sigAccSim)
         self.sim["cdiSigAZ0"].setText("%.6f" % sigAccSim)
+        self.sim["ctlThfTkoDt"].setText("0.")
+        self.sim["ctlThfLdgDt"].setText("0.")
 
         # Viewer options.
         keys = [("vwrVelLgh", "0"), ("vwrVelALR", "0.3"),
@@ -2922,6 +2926,8 @@ class planeTrackingExample:
         self.sim["cdiSigAX0"].setText("%.6f" % sigAccSim)
         self.sim["cdiSigAY0"].setText("%.6f" % sigAccSim)
         self.sim["cdiSigAZ0"].setText("%.6f" % sigAccSim)
+        self.sim["ctlThfTkoDt"].setText("300.")
+        self.sim["ctlThfLdgDt"].setText("300.")
 
         # Viewer options.
         keys = [("vwrVelLgh", "0"), ("vwrVelALR", "0.1"),
@@ -2974,6 +2980,8 @@ class planeTrackingExample:
         self.sim["cdiSigAX0"].setText("%.6f" % sigAccSim)
         self.sim["cdiSigAY0"].setText("%.6f" % sigAccSim)
         self.sim["cdiSigAZ0"].setText("%.6f" % sigAccSim)
+        self.sim["ctlThfTkoDt"].setText("0.")
+        self.sim["ctlThfLdgDt"].setText("0.")
 
         # Viewer options.
         keys = [("vwrVelLgh", "0"), ("vwrVelALR", "0.3"),
@@ -3136,7 +3144,7 @@ class planeTrackingExample:
         """Check example validity: simulation control law"""
 
         # Check simulation control law validity.
-        eId = "simulation"
+        eId = "simulation control law (roll, pitch, yaw)"
         ctlRolMax = float(self.sim["ctlRolMax"].text())
         if ctlRolMax < 0. or ctlRolMax > 90.:
             self.throwError(eId, "max roll must stay between 0° and 90°.")
@@ -3149,6 +3157,14 @@ class planeTrackingExample:
         if ctlYawMax < 0. or ctlYawMax > 90.:
             self.throwError(eId, "max yaw must stay between 0° and 90°.")
             return False
+
+        return self.checkValiditySimCtlThf()
+
+    def checkValiditySimCtlThf(self):
+        """Check example validity: simulation control law - throttle force"""
+
+        # Check simulation control law validity: throttle force.
+        eId = "simulation control law (throttle force)"
         ctlThfTkoK = float(self.sim["ctlThfTkoK"].text())
         ctlThfFlgK = float(self.sim["ctlThfFlgK"].text())
         ctlThfLdgK = float(self.sim["ctlThfLdgK"].text())
@@ -3158,8 +3174,11 @@ class planeTrackingExample:
         cdfTf = float(self.slt["cdfTf"].text())
         ctlThfTkoDt = float(self.sim["ctlThfTkoDt"].text())
         ctlThfLdgDt = float(self.sim["ctlThfLdgDt"].text())
-        if not 0. < ctlThfTkoDt < cdfTf or not 0. < ctlThfLdgDt < cdfTf:
+        if not 0. <= ctlThfTkoDt < cdfTf or not 0. <= ctlThfLdgDt < cdfTf:
             self.throwError(eId, "throttle time slot must belong to [0., t<sub>f</sub>].")
+            return False
+        if ctlThfTkoDt+ctlThfLdgDt > cdfTf:
+            self.throwError(eId, "throttle time slots exceed t<sub>f</sub>.")
             return False
 
         return True
