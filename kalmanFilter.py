@@ -363,7 +363,7 @@ class kalmanFilterModel():
         """Initialize"""
 
         # Initialize members.
-        self.sim = {"simCLV": {}, "simDgP": {}, "simDgK": {}, "simPrN": {}}
+        self.sim = {"simCLV": {}, "simFrc": {}, "simDgP": {}, "simDgK": {}, "simPrN": {}}
         self.msr = []
         self.example = example
         self.time = np.array([], dtype=float)
@@ -403,20 +403,22 @@ class kalmanFilterModel():
         self.sim["simCLV"]["roll"] = []
         self.sim["simCLV"]["pitch"] = []
         self.sim["simCLV"]["yaw"] = []
+
+        # Clear previous predictor variables.
         self.sim["simTEM"] = np.array([])
+
+        # Clear previous force variables.
+        for key in ["thrForce", "dpgForce"]:
+            self.sim["simFrc"][key] = {}
+            self.sim["simFrc"][key]["X"] = []
+            self.sim["simFrc"][key]["Y"] = []
+            self.sim["simFrc"][key]["Z"] = []
 
         # Clear previous process noise, covariance and Kalman gain variables.
         for key in ["simDgP", "simDgK", "simPrN"]:
             self.sim[key]["T"] = []
-            self.sim[key]["X"] = []
-            self.sim[key]["VX"] = []
-            self.sim[key]["AX"] = []
-            self.sim[key]["Y"] = []
-            self.sim[key]["VY"] = []
-            self.sim[key]["AY"] = []
-            self.sim[key]["Z"] = []
-            self.sim[key]["VZ"] = []
-            self.sim[key]["AZ"] = []
+            for subKey in self.example.getStateKeys():
+                self.sim[key][subKey] = []
 
     def isSolved(self):
         """Check if solve has been done"""
@@ -886,6 +888,7 @@ class planeTrackingExample:
         self.vwr["2D"]["simTSV"] = None
         self.vwr["2D"]["simCLV"] = None
         self.vwr["2D"]["simPrN"] = None
+        self.vwr["2D"]["simFrc"] = None
         self.vwr["2D"]["simDgP"] = None
         self.vwr["2D"]["simDgK"] = None
         self.kfm = kalmanFilterModel(self)
@@ -952,6 +955,13 @@ class planeTrackingExample:
                         axis.set_xlabel("t")
                         axis.cla()
                     self.vwr["2D"][key].draw()
+        if vwrId in ("all", "simFrc"):
+            if self.vwr["2D"]["simFrc"]:
+                for idx in [0, 1, 2]:
+                    axis = self.vwr["2D"]["simFrc"].getAxis(idx)
+                    axis.set_xlabel("t")
+                    axis.cla()
+                self.vwr["2D"]["simFrc"].draw()
         if vwrId in ("all", "simTSV"):
             if self.vwr["2D"]["simTSV"]:
                 for idx in [0, 1]:
@@ -1462,6 +1472,8 @@ class planeTrackingExample:
             self.onPltSCLBtnClick()
         if self.vwr["2D"]["simPrN"] and not self.vwr["2D"]["simPrN"].closed:
             self.onPltSPNBtnClick()
+        if self.vwr["2D"]["simFrc"] and not self.vwr["2D"]["simFrc"].closed:
+            self.onPltSFrBtnClick()
         if self.vwr["2D"]["simDgP"] and not self.vwr["2D"]["simDgP"].closed:
             self.onPltSCvBtnClick()
         if self.vwr["2D"]["simDgK"] and not self.vwr["2D"]["simDgK"].closed:
@@ -2302,6 +2314,8 @@ class planeTrackingExample:
         pltSCLBtn.clicked.connect(self.onPltSCLBtnClick)
         pltSPNBtn = QPushButton("Process noise", simGUI)
         pltSPNBtn.clicked.connect(self.onPltSPNBtnClick)
+        pltSFrBtn = QPushButton("Forces", simGUI)
+        pltSFrBtn.clicked.connect(self.onPltSFrBtnClick)
         pltSTSBtn = QPushButton("Time scheme", simGUI)
         pltSTSBtn.clicked.connect(self.onPltSTSBtnClick)
         pltSCvBtn = QPushButton("Covariance", simGUI)
@@ -2315,8 +2329,9 @@ class planeTrackingExample:
         gdlPpg.addWidget(pltSTSBtn, 0, 1)
         gdlPpg.addWidget(pltSCLBtn, 1, 0)
         gdlPpg.addWidget(pltSPNBtn, 1, 1)
-        gdlPpg.addWidget(pltSCvBtn, 2, 0)
-        gdlPpg.addWidget(pltSKGBtn, 2, 1)
+        gdlPpg.addWidget(pltSFrBtn, 2, 0)
+        gdlPpg.addWidget(pltSCvBtn, 3, 0)
+        gdlPpg.addWidget(pltSKGBtn, 3, 1)
 
         # Set group box layout.
         gpbPpg = QGroupBox(simGUI)
@@ -2488,6 +2503,53 @@ class planeTrackingExample:
         self.plotSimVariables("simPrN", 6, "AX", "$W_{ax}$")
         self.plotSimVariables("simPrN", 7, "AY", "$W_{ay}$")
         self.plotSimVariables("simPrN", 8, "AZ", "$W_{az}$")
+
+    def onPltSFrBtnClick(self):
+        """Callback on plotting simulation forces"""
+
+        # Create or retrieve viewer.
+        print("Plot simulation forces")
+        if not self.vwr["2D"]["simFrc"] or self.vwr["2D"]["simFrc"].closed:
+            self.vwr["2D"]["simFrc"] = viewer2DGUI(self.ctrGUI)
+            self.vwr["2D"]["simFrc"].setUp(self.slt["cdfTf"].text(), nrows=1, ncols=3)
+            self.vwr["2D"]["simFrc"].setWindowTitle("Simulation: forces")
+            self.vwr["2D"]["simFrc"].show()
+
+        # Clear the viewer.
+        self.clearPlot(vwrId="simFrc")
+
+        # Plot simulation forces.
+        self.plotSimulationForces()
+
+        # Draw scene.
+        self.vwr["2D"]["simFrc"].draw()
+
+    def plotSimulationForces(self):
+        """Plot simulation forces"""
+
+        # Don't plot if there's nothing to plot.
+        if not self.kfm.isSolved():
+            return
+
+        # Compute damping.
+        prmM, prmC = float(self.sim["prmM"].text()), float(self.sim["prmC"].text())
+        self.kfm.sim["simFrc"]["dpgForce"]["X"] = prmC/prmM*self.kfm.outputs["VX"]
+        self.kfm.sim["simFrc"]["dpgForce"]["Y"] = prmC/prmM*self.kfm.outputs["VY"]
+        self.kfm.sim["simFrc"]["dpgForce"]["Z"] = prmC/prmM*self.kfm.outputs["VZ"]
+
+        # Plot simulation forces.
+        key = "simFrc"
+        time = self.kfm.time
+        for subKey, lbl, idxBase, lineStyle in zip(["thrForce", "dpgForce"],
+                                                   ["throttle", "damping"],
+                                                   [0, 0], ["dashed", "dotted"]):
+            for idx, var in enumerate(["X", "Y", "Z"]):
+                axis = self.vwr["2D"][key].getAxis(idxBase+idx)
+                axis.plot(time, self.kfm.sim[key][subKey][var],
+                          label=lbl+" - "+var, marker="o", ms=3, c="g", ls=lineStyle)
+                axis.set_xlabel("t")
+                axis.set_ylabel(var)
+                axis.legend()
 
     def onPltSTSBtnClick(self):
         """Callback on plotting simulation time scheme variables"""
@@ -3295,7 +3357,7 @@ class planeTrackingExample:
 
         # Compute throttle force.
         velNow = np.array([states[1], states[4], states[7]]) # Velocity.
-        thfX, thfY, thfZ = self.computeThrottleForce(velNow, time)
+        thfX, thfY, thfZ = self.computeThrottleForce(velNow, time, sim, save)
 
         # Compute control law: get roll, pitch, yaw corrections.
         accNow = np.array([states[2], states[5], states[8]]) # Acceleration.
@@ -3317,7 +3379,7 @@ class planeTrackingExample:
 
         return vecU
 
-    def computeThrottleForce(self, velNow, time):
+    def computeThrottleForce(self, velNow, time, sim, save):
         """Compute throttle force"""
 
         # Get throttle parameters.
@@ -3335,6 +3397,12 @@ class planeTrackingExample:
         # Compute throttle force F = (k/m)*V.
         prmM = float(self.sim["prmM"].text())
         thrForce = ctlThfK/prmM*velNow
+
+        # Save force.
+        if save:
+            sim["simFrc"]["thrForce"]["X"].append(thrForce[0])
+            sim["simFrc"]["thrForce"]["Y"].append(thrForce[1])
+            sim["simFrc"]["thrForce"]["Z"].append(thrForce[2])
 
         return thrForce[0], thrForce[1], thrForce[2]
 
