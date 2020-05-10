@@ -363,7 +363,9 @@ class kalmanFilterModel():
         """Initialize"""
 
         # Initialize members.
-        self.sim = {"simCLV": {}, "simFrc": {}, "simDgP": {}, "simDgK": {}, "simPrN": {}}
+        self.sim = {}
+        for key in ["simCLV", "simFrc", "simKIn", "simDgP", "simDgK", "simPrN"]:
+            self.sim[key] = {}
         self.msr = []
         self.example = example
         self.time = np.array([], dtype=float)
@@ -413,6 +415,13 @@ class kalmanFilterModel():
             self.sim["simFrc"][key]["X"] = []
             self.sim["simFrc"][key]["Y"] = []
             self.sim["simFrc"][key]["Z"] = []
+
+        # Clear previous Kalman innovation variables.
+        self.sim["simKIn"] = {"T": []}
+        for key in ["vecI", "vecZ", "states"]:
+            self.sim["simKIn"][key] = {}
+            for subKey in self.example.getStateKeys():
+                self.sim["simKIn"][key][subKey] = []
 
         # Clear previous process noise, covariance and Kalman gain variables.
         for key in ["simDgP", "simDgK", "simPrN"]:
@@ -592,10 +601,13 @@ class kalmanFilterModel():
         #   x_{n,n} = x_{n,n-1} + K_{n}*(z_{n} - H*x_{n,n-1})
         #   x_{n,n} = (I - K_{n}*H)*x_{n,n-1} + (K_{n}*H)*x_{n,n-1} + (K_{n}*H)*v_{n}
         #   x_{n,n} = (I -  alpha )*x_{n,n-1} +   alpha  *x_{n,n-1} +     constant
-        matI = vecZ-np.dot(matH, states) # Innovation.
-        newStates = states+np.dot(matK, matI) # States correction = K_{n}*Innovation.
+        vecI = vecZ-np.dot(matH, states) # Innovation.
+        newStates = states+np.dot(matK, vecI) # States correction = K_{n}*Innovation.
         if self.sim["prmVrb"] >= 2:
             self.printMat("X", np.transpose(newStates))
+
+        # Save innovation and associated data.
+        self.saveIZX(newTime, vecI, vecZ, states)
 
         # Update covariance.
         newMatP = self.updateCovariance(matK, matH, matP, matR)
@@ -827,6 +839,16 @@ class kalmanFilterModel():
         for idx, key in enumerate(keys):
             self.sim["simDgK"][key].append(matK[idx, idx])
 
+    def saveIZX(self, time, vecI, vecZ, states):
+        """Save innovation, measurement and states"""
+
+        # Save innovation, measurement and states.
+        self.sim["simKIn"]["T"].append(time)
+        for idx, key in enumerate(self.example.getStateKeys()):
+            self.sim["simKIn"]["vecI"][key].append(vecI[idx])
+            self.sim["simKIn"]["vecZ"][key].append(vecZ[idx])
+            self.sim["simKIn"]["states"][key].append(states[idx])
+
     def getProcessNoise(self, states, time):
         """Get process noise"""
 
@@ -889,6 +911,7 @@ class planeTrackingExample:
         self.vwr["2D"]["simCLV"] = None
         self.vwr["2D"]["simPrN"] = None
         self.vwr["2D"]["simFrc"] = None
+        self.vwr["2D"]["simKIn"] = None
         self.vwr["2D"]["simDgP"] = None
         self.vwr["2D"]["simDgK"] = None
         self.kfm = kalmanFilterModel(self)
@@ -947,7 +970,7 @@ class planeTrackingExample:
                 axis.set_xlabel("t")
                 axis.set_ylabel("z")
                 self.vwr["2D"]["fpeTZP"].draw()
-        for key in ["msrDat", "simOVr", "simCLV", "simPrN", "simDgP", "simDgK"]:
+        for key in ["msrDat", "simOVr", "simCLV", "simPrN", "simKIn", "simDgP", "simDgK"]:
             if vwrId in ("all", key):
                 if self.vwr["2D"][key]:
                     for idx in [0, 1, 2, 3, 4, 5, 6, 7, 8]:
@@ -1474,6 +1497,8 @@ class planeTrackingExample:
             self.onPltSPNBtnClick()
         if self.vwr["2D"]["simFrc"] and not self.vwr["2D"]["simFrc"].closed:
             self.onPltSFrBtnClick()
+        if self.vwr["2D"]["simKIn"] and not self.vwr["2D"]["simKIn"].closed:
+            self.onPltSKIBtnClick()
         if self.vwr["2D"]["simDgP"] and not self.vwr["2D"]["simDgP"].closed:
             self.onPltSCvBtnClick()
         if self.vwr["2D"]["simDgK"] and not self.vwr["2D"]["simDgK"].closed:
@@ -2316,6 +2341,8 @@ class planeTrackingExample:
         pltSPNBtn.clicked.connect(self.onPltSPNBtnClick)
         pltSFrBtn = QPushButton("Forces", simGUI)
         pltSFrBtn.clicked.connect(self.onPltSFrBtnClick)
+        pltSKIBtn = QPushButton("Innovation", simGUI)
+        pltSKIBtn.clicked.connect(self.onPltSKIBtnClick)
         pltSTSBtn = QPushButton("Time scheme", simGUI)
         pltSTSBtn.clicked.connect(self.onPltSTSBtnClick)
         pltSCvBtn = QPushButton("Covariance", simGUI)
@@ -2330,6 +2357,7 @@ class planeTrackingExample:
         gdlPpg.addWidget(pltSCLBtn, 1, 0)
         gdlPpg.addWidget(pltSPNBtn, 1, 1)
         gdlPpg.addWidget(pltSFrBtn, 2, 0)
+        gdlPpg.addWidget(pltSKIBtn, 2, 1)
         gdlPpg.addWidget(pltSCvBtn, 3, 0)
         gdlPpg.addWidget(pltSKGBtn, 3, 1)
 
@@ -2550,6 +2578,53 @@ class planeTrackingExample:
                 axis.set_xlabel("t")
                 axis.set_ylabel(var)
                 axis.legend()
+
+    def onPltSKIBtnClick(self):
+        """Callback on plotting simulation Kalman innovation"""
+
+        # Create or retrieve viewer.
+        print("Plot simulation Kalman innovation")
+        if not self.vwr["2D"]["simKIn"] or self.vwr["2D"]["simKIn"].closed:
+            self.vwr["2D"]["simKIn"] = viewer2DGUI(self.ctrGUI)
+            self.vwr["2D"]["simKIn"].setUp(self.slt["cdfTf"].text(), nrows=3, ncols=3)
+            self.vwr["2D"]["simKIn"].setWindowTitle("Simulation: Kalman innovation")
+            self.vwr["2D"]["simKIn"].show()
+
+        # Clear the viewer.
+        self.clearPlot(vwrId="simKIn")
+
+        # Plot simulation Kalman innovation.
+        self.plotSimulationKalmanInnovation()
+
+        # Draw scene.
+        self.vwr["2D"]["simKIn"].draw()
+
+    def plotSimulationKalmanInnovation(self):
+        """Plot simulation Kalman innovation"""
+
+        # Don't plot if there's nothing to plot.
+        if not self.kfm.isSolved():
+            return
+
+        # Plot Kalman innovation.
+        subKeys = ["vecI", "states"]
+        labels = ["innovation", "state"]
+        markers = ["o", "s"]
+        colors = ["g", "k"]
+        if self.vwr["ckbMsr"].isChecked():
+            subKeys.append("vecZ")
+            labels.append("measurement")
+            markers.append("^")
+            colors.append("r")
+        key = "simKIn"
+        for idx, var in enumerate(self.getStateKeys()):
+            axis = self.vwr["2D"][key].getAxis(idx)
+            for subKey, lbl, mkr, clr in zip(subKeys, labels, markers, colors):
+                axis.scatter(self.kfm.sim[key]["T"], self.kfm.sim[key][subKey][var],
+                             label=lbl+" - "+var, marker=mkr, c=clr)
+            axis.set_xlabel("t")
+            axis.set_ylabel(var)
+            axis.legend()
 
     def onPltSTSBtnClick(self):
         """Callback on plotting simulation time scheme variables"""
