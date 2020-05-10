@@ -369,7 +369,6 @@ class kalmanFilterModel():
         self.msr = []
         self.example = example
         self.time = np.array([], dtype=float)
-        self.states = {}
         self.outputs = {}
         self.mat = {}
         self.clear()
@@ -384,10 +383,6 @@ class kalmanFilterModel():
         self.time = np.array([], dtype=float)
 
         # Clear previous results.
-        self.states.clear()
-        keys = self.example.getStateKeys()
-        for key in keys:
-            self.states[key] = np.array([], dtype=float)
         self.outputs.clear()
         keys = self.example.getOutputKeys()
         for key in keys:
@@ -544,7 +539,7 @@ class kalmanFilterModel():
             self.printMat("X", np.transpose(states))
             self.printMat("Y", np.transpose(outputs))
             self.printMat("P", matP)
-        self.saveXY(time, states, outputs)
+        self.saveY(time, outputs)
         self.saveP(time, matP)
 
         # Solve: https://www.kalmanfilter.net/multiSummary.html.
@@ -742,7 +737,7 @@ class kalmanFilterModel():
             self.printMat("Y", np.transpose(newOutputs))
 
         # Save simulation results.
-        self.saveXY(newTime, newStates, newOutputs)
+        self.saveY(newTime, newOutputs)
         self.saveP(newTime, matP)
 
         # Extrapolate uncertainty.
@@ -807,16 +802,13 @@ class kalmanFilterModel():
 
         return newMatP
 
-    def saveXY(self, time, newStates, newOutputs):
-        """Save simulation states and outputs"""
+    def saveY(self, time, newOutputs):
+        """Save simulation outputs"""
 
         # Save time.
         self.time = np.append(self.time, time)
 
         # Save states and outputs.
-        keys = self.example.getStateKeys()
-        for idx, key in enumerate(keys):
-            self.states[key] = np.append(self.states[key], newStates[idx])
         keys = self.example.getOutputKeys()
         for idx, key in enumerate(keys):
             self.outputs[key] = np.append(self.outputs[key], newOutputs[idx])
