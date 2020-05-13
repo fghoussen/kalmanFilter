@@ -443,7 +443,7 @@ class kalmanFilterModel():
         self.sim["cdfTf"] = float(cdfTf)
 
         # Compute default measurement covariance matrix (needed to avoid singular K matrix).
-        self.computeDefaultMeasurementCovariance()
+        self.computeDefaultMsrCovariance()
 
     def setUpMsrPrm(self, msr):
         """Setup solver: measurement parameters"""
@@ -487,7 +487,7 @@ class kalmanFilterModel():
             if msrData["msrType"] == "a":
                 msrDic[time].append(("a", eqnAX[idx], eqnAY[idx], eqnAZ[idx], prmSigma))
 
-    def computeDefaultMeasurementCovariance(self):
+    def computeDefaultMsrCovariance(self):
         """Compute default measurement covariance matrix"""
 
         # Compute default measurement covariance matrix.
@@ -585,7 +585,7 @@ class kalmanFilterModel():
             print("  "*2+"Corrector: time %.3f" % newTime)
 
         # Get measurement z_{n}.
-        vecZ, matH, msrFlags = self.getMeasurement(msrLst)
+        vecZ, matH, msrFlags = self.getMsr(msrLst)
 
         # Compute Kalman gain K_{n}.
         matR, matK = self.computeKalmanGain(msrLst, matP, matH)
@@ -610,7 +610,7 @@ class kalmanFilterModel():
 
         return newTime, newStates, newMatP
 
-    def getMeasurement(self, msrLst):
+    def getMsr(self, msrLst):
         """Get measurement"""
 
         # Get measurement: z_{n} = H*x_{n} + v_{n}.
@@ -631,7 +631,7 @@ class kalmanFilterModel():
                 print("")
 
             # Recover most accurate measurement: inaccurate sigma (msrLst head) are rewritten.
-            self.example.getMeasurement(msrItem, vecZ, matH, msrFlags)
+            self.example.getMsr(msrItem, vecZ, matH, msrFlags)
 
         # Verbose on demand.
         if self.sim["prmVrb"] >= 2:
@@ -645,7 +645,7 @@ class kalmanFilterModel():
         """Compute Kalman gain"""
 
         # Compute measurement covariance.
-        matR = self.computeMeasurementCovariance(msrLst)
+        matR = self.computeMsrCovariance(msrLst)
 
         # Compute Kalman gain: K_{n} = P_{n,n-1}*Ht*(H*P_{n,n-1}*Ht + R_{n})^-1.
         matK = np.dot(matH, np.dot(matP, np.transpose(matH)))+matR
@@ -659,7 +659,7 @@ class kalmanFilterModel():
 
         return matR, matK # https://www.kalmanfilter.net/kalmanGain.html.
 
-    def computeMeasurementCovariance(self, msrLst):
+    def computeMsrCovariance(self, msrLst):
         """Compute measurement covariance"""
 
         # Get measurement covariance.
@@ -1926,12 +1926,12 @@ class planeTrackingExample:
         self.clearPlot(vwrId="msrDat")
 
         # Plot simulation output variables.
-        self.plotMeasurementData()
+        self.plotMsrData()
 
         # Draw scene.
         self.vwr["2D"]["msrDat"].draw()
 
-    def plotMeasurementData(self):
+    def plotMsrData(self):
         """Plot measurement data"""
 
         # Compute measurements if needed.
@@ -2361,12 +2361,12 @@ class planeTrackingExample:
         self.clearPlot(vwrId="simOVr")
 
         # Plot simulation output variables.
-        self.plotSimulationOutputVariables()
+        self.plotSimOutputVariables()
 
         # Draw scene.
         self.vwr["2D"]["simOVr"].draw()
 
-    def plotSimulationOutputVariables(self):
+    def plotSimOutputVariables(self):
         """Plot simulation output variables"""
 
         # Don't plot if there's nothing to plot.
@@ -2444,12 +2444,12 @@ class planeTrackingExample:
         self.clearPlot(vwrId="simCLV")
 
         # Plot simulation control law variables.
-        self.plotSimulationControlLawVariables()
+        self.plotSimControlLawVariables()
 
         # Draw scene.
         self.vwr["2D"]["simCLV"].draw()
 
-    def plotSimulationControlLawVariables(self):
+    def plotSimControlLawVariables(self):
         """Plot simulation control law variables"""
 
         # Don't plot if there's nothing to plot.
@@ -2486,12 +2486,12 @@ class planeTrackingExample:
         self.clearPlot(vwrId="simPrN")
 
         # Plot simulation process noise.
-        self.plotSimulationProcessNoise()
+        self.plotSimProcessNoise()
 
         # Draw scene.
         self.vwr["2D"]["simPrN"].draw()
 
-    def plotSimulationProcessNoise(self):
+    def plotSimProcessNoise(self):
         """Plot simulation process noise"""
 
         # Don't plot if there's nothing to plot.
@@ -2524,12 +2524,12 @@ class planeTrackingExample:
         self.clearPlot(vwrId="simFrc")
 
         # Plot simulation forces.
-        self.plotSimulationForces()
+        self.plotSimForces()
 
         # Draw scene.
         self.vwr["2D"]["simFrc"].draw()
 
-    def plotSimulationForces(self):
+    def plotSimForces(self):
         """Plot simulation forces"""
 
         # Don't plot if there's nothing to plot.
@@ -2571,12 +2571,12 @@ class planeTrackingExample:
         self.clearPlot(vwrId="simKIn")
 
         # Plot simulation Kalman innovation.
-        self.plotSimulationKalmanInnovation()
+        self.plotSimKalmanInnovation()
 
         # Draw scene.
         self.vwr["2D"]["simKIn"].draw()
 
-    def plotSimulationKalmanInnovation(self):
+    def plotSimKalmanInnovation(self):
         """Plot simulation Kalman innovation"""
 
         # Don't plot if there's nothing to plot.
@@ -2618,12 +2618,12 @@ class planeTrackingExample:
         self.clearPlot(vwrId="simTSV")
 
         # Plot simulation time scheme variables.
-        self.plotSimulationTimeSchemeVariables()
+        self.plotSimTimeSchemeVariables()
 
         # Draw scene.
         self.vwr["2D"]["simTSV"].draw()
 
-    def plotSimulationTimeSchemeVariables(self):
+    def plotSimTimeSchemeVariables(self):
         """Plot simulation time scheme variables"""
 
         # Don't plot if there's nothing to plot.
@@ -2671,12 +2671,12 @@ class planeTrackingExample:
         self.clearPlot(vwrId="simDgP")
 
         # Plot simulation covariance variables.
-        self.plotSimulationCovarianceVariables()
+        self.plotSimCovarianceVariables()
 
         # Draw scene.
         self.vwr["2D"]["simDgP"].draw()
 
-    def plotSimulationCovarianceVariables(self):
+    def plotSimCovarianceVariables(self):
         """Plot covariance diagonal terms"""
 
         # Don't plot if there's nothing to plot.
@@ -2709,12 +2709,12 @@ class planeTrackingExample:
         self.clearPlot(vwrId="simDgK")
 
         # Plot Kalman gain variables.
-        self.plotSimulationKalmanGainVariables()
+        self.plotSimKalmanGainVariables()
 
         # Draw scene.
         self.vwr["2D"]["simDgK"].draw()
 
-    def plotSimulationKalmanGainVariables(self):
+    def plotSimKalmanGainVariables(self):
         """Plot Kalman gain diagonal terms"""
 
         # Don't plot if there's nothing to plot.
@@ -3312,7 +3312,7 @@ class planeTrackingExample:
         return True
 
     @staticmethod
-    def getMeasurement(msrItem, vecZ, matH, msrFlags):
+    def getMsr(msrItem, vecZ, matH, msrFlags):
         """Get measurement"""
 
         # Get measurement.
