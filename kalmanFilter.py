@@ -412,11 +412,12 @@ class kalmanFilterModel():
             self.sim["simFrc"][key]["Z"] = []
 
         # Clear previous Kalman innovation variables.
-        self.sim["simKIn"] = {"T": []}
-        for key in ["vecI", "vecZ", "states"]:
+        for key in self.example.getStateKeys():
             self.sim["simKIn"][key] = {}
-            for subKey in self.example.getStateKeys():
-                self.sim["simKIn"][key][subKey] = []
+            self.sim["simKIn"][key]["T"] = []
+            self.sim["simKIn"][key]["vecI"] = []
+            self.sim["simKIn"][key]["vecZ"] = []
+            self.sim["simKIn"][key]["state"] = []
 
         # Clear previous process noise, covariance and Kalman gain variables.
         for key in ["simDgP", "simDgK", "simPrN"]:
@@ -584,7 +585,7 @@ class kalmanFilterModel():
             print("  "*2+"Corrector: time %.3f" % newTime)
 
         # Get measurement z_{n}.
-        vecZ, matH = self.getMeasurement(msrLst)
+        vecZ, matH, msrFlags = self.getMeasurement(msrLst)
 
         # Compute Kalman gain K_{n}.
         matR, matK = self.computeKalmanGain(msrLst, matP, matH)
@@ -602,7 +603,7 @@ class kalmanFilterModel():
             self.printMat("X", np.transpose(newStates))
 
         # Save innovation and associated data.
-        self.saveIZX(newTime, vecI, vecZ, states)
+        self.saveIZX(newTime, msrFlags, (vecI, vecZ, states))
 
         # Update covariance.
         newMatP = self.updateCovariance(matK, matH, matP, matR)
@@ -616,6 +617,7 @@ class kalmanFilterModel():
         prmN = self.example.getLTISystemSize()
         vecZ = np.zeros((prmN, 1), dtype=float)
         matH = np.zeros((prmN, prmN), dtype=float)
+        msrFlags = []
         if self.sim["prmVrb"] >= 2:
             print("  "*3+"Measurements:")
         for msrItem in msrLst: # Small (accurate) sigma at msrLst tail.
@@ -629,27 +631,7 @@ class kalmanFilterModel():
                 print("")
 
             # Recover most accurate measurement: inaccurate sigma (msrLst head) are rewritten.
-            if msrItem[0] == "x":
-                vecZ[0] = msrItem[1] # X.
-                vecZ[3] = msrItem[2] # Y.
-                vecZ[6] = msrItem[3] # Z.
-                matH[0, 0] = 1.
-                matH[3, 3] = 1.
-                matH[6, 6] = 1.
-            if msrItem[0] == "v":
-                vecZ[1] = msrItem[1] # VX.
-                vecZ[4] = msrItem[2] # VY.
-                vecZ[7] = msrItem[3] # VZ.
-                matH[1, 1] = 1.
-                matH[4, 4] = 1.
-                matH[7, 7] = 1.
-            if msrItem[0] == "a":
-                vecZ[2] = msrItem[1] # AX.
-                vecZ[5] = msrItem[2] # AY.
-                vecZ[8] = msrItem[3] # AZ.
-                matH[2, 2] = 1.
-                matH[5, 5] = 1.
-                matH[8, 8] = 1.
+            self.example.getMeasurement(msrItem, vecZ, matH, msrFlags)
 
         # Verbose on demand.
         if self.sim["prmVrb"] >= 2:
@@ -657,7 +639,7 @@ class kalmanFilterModel():
         if self.sim["prmVrb"] >= 3:
             self.printMat("H", matH)
 
-        return vecZ, matH
+        return vecZ, matH, msrFlags
 
     def computeKalmanGain(self, msrLst, matP, matH):
         """Compute Kalman gain"""
@@ -831,15 +813,18 @@ class kalmanFilterModel():
         for idx, key in enumerate(keys):
             self.sim["simDgK"][key].append(matK[idx, idx])
 
-    def saveIZX(self, time, vecI, vecZ, states):
+    def saveIZX(self, time, msrFlags, vecIZX):
         """Save innovation, measurement and states"""
 
         # Save innovation, measurement and states.
-        self.sim["simKIn"]["T"].append(time)
-        for idx, key in enumerate(self.example.getStateKeys()):
-            self.sim["simKIn"]["vecI"][key].append(vecI[idx])
-            self.sim["simKIn"]["vecZ"][key].append(vecZ[idx])
-            self.sim["simKIn"]["states"][key].append(states[idx])
+        vecI, vecZ, states = vecIZX[0], vecIZX[1], vecIZX[2]
+        keys = self.example.getStateKeys()
+        for idx, key in enumerate(keys):
+            if key in msrFlags:
+                self.sim["simKIn"][key]["T"].append(time)
+                self.sim["simKIn"][key]["vecI"].append(vecI[idx])
+                self.sim["simKIn"][key]["vecZ"].append(vecZ[idx])
+                self.sim["simKIn"][key]["state"].append(states[idx])
 
     def getProcessNoise(self, states, time):
         """Get process noise"""
@@ -2599,7 +2584,7 @@ class planeTrackingExample:
             return
 
         # Plot Kalman innovation.
-        subKeys = ["vecI", "states"]
+        subKeys = ["vecI", "state"]
         labels = ["innovation", "state"]
         markers = ["o", "s"]
         colors = ["g", "k"]
@@ -2612,7 +2597,7 @@ class planeTrackingExample:
         for idx, var in enumerate(self.getStateKeys()):
             axis = self.vwr["2D"][key].getAxis(idx)
             for subKey, lbl, mkr, clr in zip(subKeys, labels, markers, colors):
-                axis.scatter(self.kfm.sim[key]["T"], self.kfm.sim[key][subKey][var],
+                axis.scatter(self.kfm.sim[key][var]["T"], self.kfm.sim[key][var][subKey],
                              label=lbl+" - "+var, marker=mkr, c=clr)
             axis.set_xlabel("t")
             axis.set_ylabel(var)
@@ -3325,6 +3310,36 @@ class planeTrackingExample:
             return False
 
         return True
+
+    @staticmethod
+    def getMeasurement(msrItem, vecZ, matH, msrFlags):
+        """Get measurement"""
+
+        # Get measurement.
+        if msrItem[0] == "x":
+            vecZ[0] = msrItem[1] # X.
+            vecZ[3] = msrItem[2] # Y.
+            vecZ[6] = msrItem[3] # Z.
+            matH[0, 0] = 1.
+            matH[3, 3] = 1.
+            matH[6, 6] = 1.
+            msrFlags.extend(["X", "Y", "Z"])
+        if msrItem[0] == "v":
+            vecZ[1] = msrItem[1] # VX.
+            vecZ[4] = msrItem[2] # VY.
+            vecZ[7] = msrItem[3] # VZ.
+            matH[1, 1] = 1.
+            matH[4, 4] = 1.
+            matH[7, 7] = 1.
+            msrFlags.extend(["VX", "VY", "VZ"])
+        if msrItem[0] == "a":
+            vecZ[2] = msrItem[1] # AX.
+            vecZ[5] = msrItem[2] # AY.
+            vecZ[8] = msrItem[3] # AZ.
+            matH[2, 2] = 1.
+            matH[5, 5] = 1.
+            matH[8, 8] = 1.
+            msrFlags.extend(["AX", "AY", "AZ"])
 
     @staticmethod
     def getLTISystemSize():
