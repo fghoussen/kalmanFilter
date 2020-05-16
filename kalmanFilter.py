@@ -364,13 +364,16 @@ class kalmanFilterModel():
 
         # Initialize members.
         self.sim = {}
-        for key in ["simCLV", "simFrc", "simKIn", "simDgP", "simDgK", "simPrN"]:
-            self.sim[key] = {}
         self.msr = []
+        self.mat = {}
         self.example = example
         self.time = np.array([], dtype=float)
         self.outputs = {}
-        self.mat = {}
+        self.save = {"predictor": {}, "corrector": {}}
+        for key in ["simCLV", "simFrc", "simPrN", "simDgP"]:
+            self.save["predictor"][key] = {}
+        for key in ["simDgK", "simInv"]:
+            self.save["corrector"][key] = {}
         self.clear()
 
     def clear(self):
@@ -388,42 +391,37 @@ class kalmanFilterModel():
         for key in keys:
             self.outputs[key] = np.array([], dtype=float)
 
-        # Clear previous control law hidden variables.
-        self.sim["simCLV"]["FoM"] = {}
-        self.sim["simCLV"]["FoM"]["X"] = []
-        self.sim["simCLV"]["FoM"]["Y"] = []
-        self.sim["simCLV"]["FoM"]["Z"] = []
-        self.sim["simCLV"]["d(FoM)/dt"] = {}
-        self.sim["simCLV"]["d(FoM)/dt"]["X"] = []
-        self.sim["simCLV"]["d(FoM)/dt"]["Y"] = []
-        self.sim["simCLV"]["d(FoM)/dt"]["Z"] = []
-        self.sim["simCLV"]["roll"] = []
-        self.sim["simCLV"]["pitch"] = []
-        self.sim["simCLV"]["yaw"] = []
-
         # Clear previous predictor variables.
-        self.sim["simTEM"] = np.array([])
-
-        # Clear previous force variables.
+        self.save["predictor"]["simCLV"]["FoM"] = {}
+        self.save["predictor"]["simCLV"]["FoM"]["X"] = []
+        self.save["predictor"]["simCLV"]["FoM"]["Y"] = []
+        self.save["predictor"]["simCLV"]["FoM"]["Z"] = []
+        self.save["predictor"]["simCLV"]["d(FoM)/dt"] = {}
+        self.save["predictor"]["simCLV"]["d(FoM)/dt"]["X"] = []
+        self.save["predictor"]["simCLV"]["d(FoM)/dt"]["Y"] = []
+        self.save["predictor"]["simCLV"]["d(FoM)/dt"]["Z"] = []
+        self.save["predictor"]["simCLV"]["roll"] = []
+        self.save["predictor"]["simCLV"]["pitch"] = []
+        self.save["predictor"]["simCLV"]["yaw"] = []
+        self.save["predictor"]["simTEM"] = np.array([])
         for key in ["thrForce", "dpgForce"]:
-            self.sim["simFrc"][key] = {}
-            self.sim["simFrc"][key]["X"] = []
-            self.sim["simFrc"][key]["Y"] = []
-            self.sim["simFrc"][key]["Z"] = []
-
-        # Clear previous Kalman innovation variables.
-        for key in self.example.getStateKeys():
-            self.sim["simKIn"][key] = {}
-            self.sim["simKIn"][key]["T"] = []
-            self.sim["simKIn"][key]["vecI"] = []
-            self.sim["simKIn"][key]["vecZ"] = []
-            self.sim["simKIn"][key]["state"] = []
-
-        # Clear previous process noise, covariance and Kalman gain variables.
-        for key in ["simDgP", "simDgK", "simPrN"]:
-            self.sim[key]["T"] = []
+            self.save["predictor"]["simFrc"][key] = {}
+            self.save["predictor"]["simFrc"][key]["X"] = []
+            self.save["predictor"]["simFrc"][key]["Y"] = []
+            self.save["predictor"]["simFrc"][key]["Z"] = []
+        for key in ["simPrN", "simDgP"]:
             for subKey in self.example.getStateKeys():
-                self.sim[key][subKey] = []
+                self.save["predictor"][key][subKey] = []
+
+        # Clear previous corrector variables.
+        for key in self.example.getStateKeys():
+            self.save["corrector"]["simDgK"]["T"] = []
+            self.save["corrector"]["simDgK"][key] = []
+            self.save["corrector"]["simInv"][key] = {}
+            self.save["corrector"]["simInv"][key]["T"] = []
+            self.save["corrector"]["simInv"][key]["vecI"] = []
+            self.save["corrector"]["simInv"][key]["vecZ"] = []
+            self.save["corrector"]["simInv"][key]["state"] = []
 
     def isSolved(self):
         """Check if solve has been done"""
@@ -533,15 +531,14 @@ class kalmanFilterModel():
             print("  "*2+"Initialisation:")
         time = 0.
         states = self.example.initStates(self.sim)
-        vecU = self.example.computeControlLaw(states, time, self.sim)
+        vecU = self.example.computeControlLaw(states, time, self.save["predictor"])
         outputs = self.computeOutputs(states, vecU)
         matP = self.example.initStateCovariance(self.sim)
         if self.sim["prmVrb"] >= 2:
             self.printMat("X", np.transpose(states))
             self.printMat("Y", np.transpose(outputs))
             self.printMat("P", matP)
-        self.saveY(time, outputs)
-        self.saveP(time, matP)
+        self.savePredictor(time, outputs, matP)
 
         # Solve: https://www.kalmanfilter.net/multiSummary.html.
         prmDt, prmTf = self.sim["prmDt"], self.sim["cdfTf"]
@@ -589,7 +586,6 @@ class kalmanFilterModel():
 
         # Compute Kalman gain K_{n}.
         matR, matK = self.computeKalmanGain(msrLst, matP, matH)
-        self.saveK(newTime, matK)
 
         # Update estimate with measurement: x_{n,n} = x_{n,n-1} + K_{n}*(z_{n} - H*x_{n,n-1}).
         #
@@ -602,11 +598,11 @@ class kalmanFilterModel():
         if self.sim["prmVrb"] >= 2:
             self.printMat("X", np.transpose(newStates))
 
-        # Save innovation and associated data.
-        self.saveIZX(newTime, msrFlags, (vecI, vecZ, states))
-
         # Update covariance.
         newMatP = self.updateCovariance(matK, matH, matP, matR)
+
+        # Save corrector results.
+        self.saveCorrector(newTime, msrFlags, (matK, vecI, vecZ, states))
 
         return newTime, newStates, newMatP
 
@@ -713,19 +709,28 @@ class kalmanFilterModel():
         newStates, matF, matG = self.predictStates(timeDt, newTime, states)
 
         # Outputs equation: y_{n+1,n+1} = C*x_{n+1,n+1} + D*u_{n+1,n+1}.
-        newVecU = self.example.computeControlLaw(newStates, newTime, self.sim)
+        newVecU = self.example.computeControlLaw(newStates, newTime, self.save["predictor"])
         newOutputs = self.computeOutputs(newStates, newVecU)
         if self.sim["prmVrb"] >= 2:
             self.printMat("Y", np.transpose(newOutputs))
 
         # Save simulation results.
-        self.saveY(newTime, newOutputs)
-        self.saveP(newTime, matP)
+        self.savePredictor(newTime, newOutputs, matP)
 
         # Extrapolate uncertainty.
         newMatP = self.predictCovariance(matP, matF, matG)
 
         return newStates, newMatP
+
+    def computeOutputs(self, states, vecU):
+        """Compute outputs"""
+
+        # Outputs equation: y_{n+1} = C*x_{n} + D*u_{n}.
+        outputs = np.dot(self.mat["C"], states)
+        if self.mat["D"] is not None:
+            outputs = outputs+np.dot(self.mat["D"], vecU)
+
+        return outputs
 
     def predictStates(self, timeDt, newTime, states):
         """Predict states"""
@@ -741,7 +746,7 @@ class kalmanFilterModel():
             matF = matF+taylorExp
         if self.sim["prmVrb"] >= 3:
             self.printMat("F", matF)
-        self.sim["simTEM"] = np.append(self.sim["simTEM"], taylorExpLTM)
+        self.save["predictor"]["simTEM"] = np.append(self.save["predictor"]["simTEM"], taylorExpLTM)
 
         # Compute G_{n,n}.
         matG = None
@@ -751,10 +756,10 @@ class kalmanFilterModel():
                 self.printMat("G", matG)
 
         # Compute process noise w_{n,n}.
-        vecW = self.getProcessNoise(states, newTime)
+        vecW = self.getProcessNoise(states)
 
         # Compute control law u_{n,n}.
-        vecU = self.example.computeControlLaw(states, newTime, self.sim, save=False)
+        vecU = self.example.computeControlLaw(states, newTime)
         if self.sim["prmVrb"] >= 2:
             self.printMat("U", np.transpose(vecU))
 
@@ -767,6 +772,23 @@ class kalmanFilterModel():
             self.printMat("X", np.transpose(newStates))
 
         return newStates, matF, matG
+
+    def getProcessNoise(self, states):
+        """Get process noise"""
+
+        # Get random noise.
+        prmMu, prmSigma = states, self.sim["prmProNseSig"]
+        noisyStates = np.random.normal(prmMu, prmSigma)
+        vecW = noisyStates-states
+
+        # Verbose on demand.
+        if self.sim["prmVrb"] >= 2:
+            self.printMat("W", np.transpose(vecW))
+
+        # Save process noise.
+        self.saveProcessNoise(vecW)
+
+        return vecW
 
     def predictCovariance(self, matP, matF, matG):
         """Predict covariance"""
@@ -784,8 +806,8 @@ class kalmanFilterModel():
 
         return newMatP
 
-    def saveY(self, time, newOutputs):
-        """Save simulation outputs"""
+    def savePredictor(self, time, newOutputs, matP):
+        """Save predictor results"""
 
         # Save time.
         self.time = np.append(self.time, time)
@@ -795,66 +817,37 @@ class kalmanFilterModel():
         for idx, key in enumerate(keys):
             self.outputs[key] = np.append(self.outputs[key], newOutputs[idx])
 
-    def saveP(self, time, matP):
-        """Save diagonal terms of covariance"""
-
         # Save diagonal terms of covariance.
-        self.sim["simDgP"]["T"].append(time)
         keys = self.example.getStateKeys()
         for idx, key in enumerate(keys):
-            self.sim["simDgP"][key].append(matP[idx, idx])
+            self.save["predictor"]["simDgP"][key].append(matP[idx, idx])
 
-    def saveK(self, time, matK):
-        """Save diagonal terms of Kalman gain"""
+    def saveCorrector(self, time, msrFlags, vecKIZX):
+        """Save corrector results"""
 
-        # Save diagonal terms of Kalman gain.
-        self.sim["simDgK"]["T"].append(time)
+        # Save time.
+        self.save["corrector"]["simDgK"]["T"].append(time)
         keys = self.example.getStateKeys()
-        for idx, key in enumerate(keys):
-            self.sim["simDgK"][key].append(matK[idx, idx])
-
-    def saveIZX(self, time, msrFlags, vecIZX):
-        """Save innovation, measurement and states"""
-
-        # Save innovation, measurement and states.
-        vecI, vecZ, states = vecIZX[0], vecIZX[1], vecIZX[2]
-        keys = self.example.getStateKeys()
-        for idx, key in enumerate(keys):
+        for key in keys:
             if key in msrFlags:
-                self.sim["simKIn"][key]["T"].append(time)
-                self.sim["simKIn"][key]["vecI"].append(vecI[idx])
-                self.sim["simKIn"][key]["vecZ"].append(vecZ[idx])
-                self.sim["simKIn"][key]["state"].append(states[idx])
+                self.save["corrector"]["simInv"][key]["T"].append(time)
 
-    def getProcessNoise(self, states, time):
-        """Get process noise"""
+        # Save Kalman gain, innovation, measurement and states.
+        matK, vecI, vecZ, states = vecKIZX[0], vecKIZX[1], vecKIZX[2], vecKIZX[3]
+        for idx, key in enumerate(keys):
+            self.save["corrector"]["simDgK"][key].append(matK[idx, idx])
+            if key in msrFlags:
+                self.save["corrector"]["simInv"][key]["vecI"].append(vecI[idx])
+                self.save["corrector"]["simInv"][key]["vecZ"].append(vecZ[idx])
+                self.save["corrector"]["simInv"][key]["state"].append(states[idx])
 
-        # Get random noise.
-        prmMu, prmSigma = states, self.sim["prmProNseSig"]
-        noisyStates = np.random.normal(prmMu, prmSigma)
-        vecW = noisyStates-states
-
-        # Verbose on demand.
-        if self.sim["prmVrb"] >= 2:
-            self.printMat("W", np.transpose(vecW))
+    def saveProcessNoise(self, vecW):
+        """Save process noise"""
 
         # Save process noise.
-        self.sim["simPrN"]["T"].append(time)
         keys = self.example.getStateKeys()
         for idx, key in enumerate(keys):
-            self.sim["simPrN"][key].append(vecW[idx])
-
-        return vecW
-
-    def computeOutputs(self, states, vecU):
-        """Compute outputs"""
-
-        # Outputs equation: y_{n+1} = C*x_{n} + D*u_{n}.
-        outputs = np.dot(self.mat["C"], states)
-        if self.mat["D"] is not None:
-            outputs = outputs+np.dot(self.mat["D"], vecU)
-
-        return outputs
+            self.save["predictor"]["simPrN"][key].append(vecW[idx])
 
     @staticmethod
     def printMat(msg, mat, indent=3, fmt=".6f"):
@@ -888,7 +881,7 @@ class planeTrackingExample:
         self.vwr["2D"]["simCLV"] = None
         self.vwr["2D"]["simPrN"] = None
         self.vwr["2D"]["simFrc"] = None
-        self.vwr["2D"]["simKIn"] = None
+        self.vwr["2D"]["simInv"] = None
         self.vwr["2D"]["simDgP"] = None
         self.vwr["2D"]["simDgK"] = None
         self.kfm = kalmanFilterModel(self)
@@ -947,7 +940,7 @@ class planeTrackingExample:
                 axis.set_xlabel("t")
                 axis.set_ylabel("z")
                 self.vwr["2D"]["fpeTZP"].draw()
-        for key in ["msrDat", "simOVr", "simCLV", "simPrN", "simKIn", "simDgP", "simDgK"]:
+        for key in ["msrDat", "simOVr", "simCLV", "simPrN", "simInv", "simDgP", "simDgK"]:
             if vwrId in ("all", key):
                 if self.vwr["2D"][key]:
                     for idx in [0, 1, 2, 3, 4, 5, 6, 7, 8]:
@@ -1474,7 +1467,7 @@ class planeTrackingExample:
             self.onPltSPNBtnClick()
         if self.vwr["2D"]["simFrc"] and not self.vwr["2D"]["simFrc"].closed:
             self.onPltSFrBtnClick()
-        if self.vwr["2D"]["simKIn"] and not self.vwr["2D"]["simKIn"].closed:
+        if self.vwr["2D"]["simInv"] and not self.vwr["2D"]["simInv"].closed:
             self.onPltSKIBtnClick()
         if self.vwr["2D"]["simDgP"] and not self.vwr["2D"]["simDgP"].closed:
             self.onPltSCvBtnClick()
@@ -2462,14 +2455,14 @@ class planeTrackingExample:
         for subKey, lbl, idxBase in zip(["FoM", "d(FoM)/dt"], ["F/m", "d(F/m)/dt"], [0, 3]):
             for idx, var in enumerate(["X", "Y", "Z"]):
                 axis = self.vwr["2D"][key].getAxis(idxBase+idx)
-                axis.plot(time, self.kfm.sim[key][subKey][var],
+                axis.plot(time, self.kfm.save["predictor"][key][subKey][var],
                           label=lbl+" - "+var, marker="o", ms=3, c="g")
                 axis.set_xlabel("t")
                 axis.set_ylabel(lbl+" - "+var)
                 axis.legend()
-        self.plotSimVariables(key, 6, "roll", "roll")
-        self.plotSimVariables(key, 7, "pitch", "pitch")
-        self.plotSimVariables(key, 8, "yaw", "yaw")
+        self.plotSimVariables(("predictor", key), 6, ("roll", "roll"))
+        self.plotSimVariables(("predictor", key), 7, ("pitch", "pitch"))
+        self.plotSimVariables(("predictor", key), 8, ("yaw", "yaw"))
 
     def onPltSPNBtnClick(self):
         """Callback on plotting simulation process noise"""
@@ -2499,15 +2492,15 @@ class planeTrackingExample:
             return
 
         # Plot simulation process noise.
-        self.plotSimVariables("simPrN", 0, "X", "$W_{x}$")
-        self.plotSimVariables("simPrN", 1, "Y", "$W_{y}$")
-        self.plotSimVariables("simPrN", 2, "Z", "$W_{z}$")
-        self.plotSimVariables("simPrN", 3, "VX", "$W_{vx}$")
-        self.plotSimVariables("simPrN", 4, "VY", "$W_{vy}$")
-        self.plotSimVariables("simPrN", 5, "VZ", "$W_{vz}$")
-        self.plotSimVariables("simPrN", 6, "AX", "$W_{ax}$")
-        self.plotSimVariables("simPrN", 7, "AY", "$W_{ay}$")
-        self.plotSimVariables("simPrN", 8, "AZ", "$W_{az}$")
+        self.plotSimVariables(("predictor", "simPrN"), 0, ("X", "$W_{x}$"), start=1)
+        self.plotSimVariables(("predictor", "simPrN"), 1, ("Y", "$W_{y}$"), start=1)
+        self.plotSimVariables(("predictor", "simPrN"), 2, ("Z", "$W_{z}$"), start=1)
+        self.plotSimVariables(("predictor", "simPrN"), 3, ("VX", "$W_{vx}$"), start=1)
+        self.plotSimVariables(("predictor", "simPrN"), 4, ("VY", "$W_{vy}$"), start=1)
+        self.plotSimVariables(("predictor", "simPrN"), 5, ("VZ", "$W_{vz}$"), start=1)
+        self.plotSimVariables(("predictor", "simPrN"), 6, ("AX", "$W_{ax}$"), start=1)
+        self.plotSimVariables(("predictor", "simPrN"), 7, ("AY", "$W_{ay}$"), start=1)
+        self.plotSimVariables(("predictor", "simPrN"), 8, ("AZ", "$W_{az}$"), start=1)
 
     def onPltSFrBtnClick(self):
         """Callback on plotting simulation forces"""
@@ -2538,9 +2531,9 @@ class planeTrackingExample:
 
         # Compute damping.
         prmM, prmC = float(self.sim["prmM"].text()), float(self.sim["prmC"].text())
-        self.kfm.sim["simFrc"]["dpgForce"]["X"] = prmC/prmM*self.kfm.outputs["VX"]
-        self.kfm.sim["simFrc"]["dpgForce"]["Y"] = prmC/prmM*self.kfm.outputs["VY"]
-        self.kfm.sim["simFrc"]["dpgForce"]["Z"] = prmC/prmM*self.kfm.outputs["VZ"]
+        self.kfm.save["predictor"]["simFrc"]["dpgForce"]["X"] = prmC/prmM*self.kfm.outputs["VX"]
+        self.kfm.save["predictor"]["simFrc"]["dpgForce"]["Y"] = prmC/prmM*self.kfm.outputs["VY"]
+        self.kfm.save["predictor"]["simFrc"]["dpgForce"]["Z"] = prmC/prmM*self.kfm.outputs["VZ"]
 
         # Plot simulation forces.
         key = "simFrc"
@@ -2550,40 +2543,40 @@ class planeTrackingExample:
                                                    [0, 0], ["dashed", "dotted"]):
             for idx, var in enumerate(["X", "Y", "Z"]):
                 axis = self.vwr["2D"][key].getAxis(idxBase+idx)
-                axis.plot(time, self.kfm.sim[key][subKey][var],
+                axis.plot(time, self.kfm.save["predictor"][key][subKey][var],
                           label=lbl+" - "+var, marker="o", ms=3, c="g", ls=lineStyle)
                 axis.set_xlabel("t")
                 axis.set_ylabel(var)
                 axis.legend()
 
     def onPltSKIBtnClick(self):
-        """Callback on plotting simulation Kalman innovation"""
+        """Callback on plotting simulation innovation"""
 
         # Create or retrieve viewer.
-        print("Plot simulation Kalman innovation")
-        if not self.vwr["2D"]["simKIn"] or self.vwr["2D"]["simKIn"].closed:
-            self.vwr["2D"]["simKIn"] = viewer2DGUI(self.ctrGUI)
-            self.vwr["2D"]["simKIn"].setUp(self.slt["cdfTf"].text(), nrows=3, ncols=3)
-            self.vwr["2D"]["simKIn"].setWindowTitle("Simulation: Kalman innovation")
-            self.vwr["2D"]["simKIn"].show()
+        print("Plot simulation innovation")
+        if not self.vwr["2D"]["simInv"] or self.vwr["2D"]["simInv"].closed:
+            self.vwr["2D"]["simInv"] = viewer2DGUI(self.ctrGUI)
+            self.vwr["2D"]["simInv"].setUp(self.slt["cdfTf"].text(), nrows=3, ncols=3)
+            self.vwr["2D"]["simInv"].setWindowTitle("Simulation: innovation")
+            self.vwr["2D"]["simInv"].show()
 
         # Clear the viewer.
-        self.clearPlot(vwrId="simKIn")
+        self.clearPlot(vwrId="simInv")
 
-        # Plot simulation Kalman innovation.
-        self.plotSimKalmanInnovation()
+        # Plot simulation innovation.
+        self.plotSimInnovation()
 
         # Draw scene.
-        self.vwr["2D"]["simKIn"].draw()
+        self.vwr["2D"]["simInv"].draw()
 
-    def plotSimKalmanInnovation(self):
-        """Plot simulation Kalman innovation"""
+    def plotSimInnovation(self):
+        """Plot simulation innovation"""
 
         # Don't plot if there's nothing to plot.
         if not self.kfm.isSolved():
             return
 
-        # Plot Kalman innovation.
+        # Plot innovation.
         subKeys = ["vecI", "state"]
         labels = ["innovation", "state"]
         markers = ["o", "s"]
@@ -2593,11 +2586,12 @@ class planeTrackingExample:
             labels.append("measurement")
             markers.append("^")
             colors.append("r")
-        key = "simKIn"
+        key = "simInv"
         for idx, var in enumerate(self.getStateKeys()):
             axis = self.vwr["2D"][key].getAxis(idx)
             for subKey, lbl, mkr, clr in zip(subKeys, labels, markers, colors):
-                axis.scatter(self.kfm.sim[key][var]["T"], self.kfm.sim[key][var][subKey],
+                axis.scatter(self.kfm.save["corrector"][key][var]["T"],
+                             self.kfm.save["corrector"][key][var][subKey],
                              label=lbl+" - "+var, marker=mkr, c=clr)
             axis.set_xlabel("t")
             axis.set_ylabel(var)
@@ -2651,7 +2645,8 @@ class planeTrackingExample:
         axis.legend()
         axis = self.vwr["2D"][key].getAxis(1)
         title = "Taylor expansion (exponential): last term magnitude"
-        axis.plot(self.kfm.time[1:], self.kfm.sim["simTEM"], label=title, marker="o", ms=3, c="g")
+        axis.plot(self.kfm.time[1:], self.kfm.save["predictor"]["simTEM"],
+                  label=title, marker="o", ms=3, c="g")
         axis.set_xlabel("t")
         axis.set_ylabel("magnitude")
         axis.legend()
@@ -2684,15 +2679,15 @@ class planeTrackingExample:
             return
 
         # Plot simulation covariance variables.
-        self.plotSimVariables("simDgP", 0, "X", "$P_{xx}$")
-        self.plotSimVariables("simDgP", 1, "Y", "$P_{yy}$")
-        self.plotSimVariables("simDgP", 2, "Z", "$P_{zz}$")
-        self.plotSimVariables("simDgP", 3, "VX", "$P_{vxvx}$")
-        self.plotSimVariables("simDgP", 4, "VY", "$P_{vyvy}$")
-        self.plotSimVariables("simDgP", 5, "VZ", "$P_{vzvz}$")
-        self.plotSimVariables("simDgP", 6, "AX", "$P_{axax}$")
-        self.plotSimVariables("simDgP", 7, "AY", "$P_{ayay}$")
-        self.plotSimVariables("simDgP", 8, "AZ", "$P_{azaz}$")
+        self.plotSimVariables(("predictor", "simDgP"), 0, ("X", "$P_{xx}$"))
+        self.plotSimVariables(("predictor", "simDgP"), 1, ("Y", "$P_{yy}$"))
+        self.plotSimVariables(("predictor", "simDgP"), 2, ("Z", "$P_{zz}$"))
+        self.plotSimVariables(("predictor", "simDgP"), 3, ("VX", "$P_{vxvx}$"))
+        self.plotSimVariables(("predictor", "simDgP"), 4, ("VY", "$P_{vyvy}$"))
+        self.plotSimVariables(("predictor", "simDgP"), 5, ("VZ", "$P_{vzvz}$"))
+        self.plotSimVariables(("predictor", "simDgP"), 6, ("AX", "$P_{axax}$"))
+        self.plotSimVariables(("predictor", "simDgP"), 7, ("AY", "$P_{ayay}$"))
+        self.plotSimVariables(("predictor", "simDgP"), 8, ("AZ", "$P_{azaz}$"))
 
     def onPltSKGBtnClick(self):
         """Callback on plotting simulation Kalman gain diagonal terms"""
@@ -2722,23 +2717,27 @@ class planeTrackingExample:
             return
 
         # Plot simulation Kalman gain variables.
-        self.plotSimVariables("simDgK", 0, "X", "$K_{xx}$")
-        self.plotSimVariables("simDgK", 1, "Y", "$K_{yy}$")
-        self.plotSimVariables("simDgK", 2, "Z", "$K_{zz}$")
-        self.plotSimVariables("simDgK", 3, "VX", "$K_{vxvx}$")
-        self.plotSimVariables("simDgK", 4, "VY", "$K_{vyvy}$")
-        self.plotSimVariables("simDgK", 5, "VZ", "$K_{vzvz}$")
-        self.plotSimVariables("simDgK", 6, "AX", "$K_{axax}$")
-        self.plotSimVariables("simDgK", 7, "AY", "$K_{ayay}$")
-        self.plotSimVariables("simDgK", 8, "AZ", "$K_{azaz}$")
+        self.plotSimVariables(("corrector", "simDgK"), 0, ("X", "$K_{xx}$"))
+        self.plotSimVariables(("corrector", "simDgK"), 1, ("Y", "$K_{yy}$"))
+        self.plotSimVariables(("corrector", "simDgK"), 2, ("Z", "$K_{zz}$"))
+        self.plotSimVariables(("corrector", "simDgK"), 3, ("VX", "$K_{vxvx}$"))
+        self.plotSimVariables(("corrector", "simDgK"), 4, ("VY", "$K_{vyvy}$"))
+        self.plotSimVariables(("corrector", "simDgK"), 5, ("VZ", "$K_{vzvz}$"))
+        self.plotSimVariables(("corrector", "simDgK"), 6, ("AX", "$K_{axax}$"))
+        self.plotSimVariables(("corrector", "simDgK"), 7, ("AY", "$K_{ayay}$"))
+        self.plotSimVariables(("corrector", "simDgK"), 8, ("AZ", "$K_{azaz}$"))
 
-    def plotSimVariables(self, key, axisId, var, lbl):
+    def plotSimVariables(self, keys, axisId, varLbl, start=0):
         """Plot simulation variables"""
 
         # Plot simulation variables.
-        axis = self.vwr["2D"][key].getAxis(axisId)
-        time = self.kfm.sim[key]["T"] if "T" in self.kfm.sim[key] else self.kfm.time
-        axis.plot(time, self.kfm.sim[key][var], label=lbl, marker="o", ms=3, c="g")
+        key, subKey = keys[0], keys[1]
+        axis = self.vwr["2D"][subKey].getAxis(axisId)
+        time = self.kfm.time[start:]
+        if "T" in self.kfm.save[key][subKey]:
+            time = self.kfm.save[key][subKey]["T"]
+        var, lbl = varLbl[0], varLbl[1]
+        axis.plot(time, self.kfm.save[key][subKey][var], label=lbl, marker="o", ms=3, c="g")
         axis.set_xlabel("t")
         axis.set_ylabel(lbl)
         axis.legend()
@@ -3434,34 +3433,34 @@ class planeTrackingExample:
 
         return matP
 
-    def computeControlLaw(self, states, time, sim, save=True):
+    def computeControlLaw(self, states, time, save=None):
         """Compute control law"""
 
         # Compute throttle force.
         velNow = np.array([states[1], states[4], states[7]]) # Velocity.
-        thfX, thfY, thfZ = self.computeThrottleForce(velNow, time, sim, save)
+        thfX, thfY, thfZ = self.computeThrottleForce(velNow, time, save)
 
         # Compute control law: get roll, pitch, yaw corrections.
         accNow = np.array([states[2], states[5], states[8]]) # Acceleration.
-        accNxt = self.computeRoll(velNow, accNow, sim, save)
-        accNxt = self.computePitch(velNow, accNxt, sim, save)
-        accNxt = self.computeYaw(velNow, accNxt, sim, save)
+        accNxt = self.computeRoll(velNow, accNow, save)
+        accNxt = self.computePitch(velNow, accNxt, save)
+        accNxt = self.computeYaw(velNow, accNxt, save)
 
         # Compute control law.
         fomX = accNxt[0]-accNow[0]
         fomY = accNxt[1]-accNow[1]
         fomZ = accNxt[2]-accNow[2]
-        vecU = self.computeControl((thfX+fomX, thfY+fomY, thfZ+fomZ), sim, save)
+        vecU = self.computeControl((thfX+fomX, thfY+fomY, thfZ+fomZ), save)
 
         # Save F/m to compute d(F/m)/dt next time.
-        if save:
-            sim["ctlOldFoMX"] = fomX
-            sim["ctlOldFoMY"] = fomY
-            sim["ctlOldFoMZ"] = fomZ
+        if save is not None:
+            save["ctlOldFoMX"] = fomX
+            save["ctlOldFoMY"] = fomY
+            save["ctlOldFoMZ"] = fomZ
 
         return vecU
 
-    def computeThrottleForce(self, velNow, time, sim, save):
+    def computeThrottleForce(self, velNow, time, save=None):
         """Compute throttle force"""
 
         # Get throttle parameters.
@@ -3481,14 +3480,14 @@ class planeTrackingExample:
         thrForce = ctlThfK/prmM*velNow
 
         # Save force.
-        if save:
-            sim["simFrc"]["thrForce"]["X"].append(thrForce[0])
-            sim["simFrc"]["thrForce"]["Y"].append(thrForce[1])
-            sim["simFrc"]["thrForce"]["Z"].append(thrForce[2])
+        if save is not None:
+            save["simFrc"]["thrForce"]["X"].append(thrForce[0])
+            save["simFrc"]["thrForce"]["Y"].append(thrForce[1])
+            save["simFrc"]["thrForce"]["Z"].append(thrForce[2])
 
         return thrForce[0], thrForce[1], thrForce[2]
 
-    def computeRoll(self, velNow, accNow, sim, save):
+    def computeRoll(self, velNow, accNow, save=None):
         """Compute control law: roll"""
 
         # Compute roll around X axis.
@@ -3498,8 +3497,8 @@ class planeTrackingExample:
         roll = self.getAngle(velNow, velNxt, proj)
 
         # Save control law hidden variables.
-        if save:
-            sim["simCLV"]["roll"].append(roll)
+        if save is not None:
+            save["simCLV"]["roll"].append(roll)
 
         # Control roll.
         ctlRolMax, rollTgt = float(self.sim["ctlRolMax"].text()), roll
@@ -3511,7 +3510,7 @@ class planeTrackingExample:
 
         return accNxt
 
-    def computePitch(self, velNow, accNow, sim, save):
+    def computePitch(self, velNow, accNow, save=None):
         """Compute control law: pitch"""
 
         # Compute pitch around Y axis.
@@ -3521,8 +3520,8 @@ class planeTrackingExample:
         pitch = self.getAngle(velNow, velNxt, proj)
 
         # Save control law hidden variables.
-        if save:
-            sim["simCLV"]["pitch"].append(pitch)
+        if save is not None:
+            save["simCLV"]["pitch"].append(pitch)
 
         # Control pitch.
         ctlPtcMax, pitchTgt = float(self.sim["ctlPtcMax"].text()), pitch
@@ -3534,7 +3533,7 @@ class planeTrackingExample:
 
         return accNxt
 
-    def computeYaw(self, velNow, accNow, sim, save):
+    def computeYaw(self, velNow, accNow, save=None):
         """Compute control law: yaw"""
 
         # Compute yaw around Z axis.
@@ -3544,8 +3543,8 @@ class planeTrackingExample:
         yaw = self.getAngle(velNow, velNxt, proj)
 
         # Save control law hidden variables.
-        if save:
-            sim["simCLV"]["yaw"].append(yaw)
+        if save is not None:
+            save["simCLV"]["yaw"].append(yaw)
 
         # Control yaw.
         ctlYawMax, yawTgt = float(self.sim["ctlYawMax"].text()), yaw
@@ -3575,7 +3574,7 @@ class planeTrackingExample:
 
         return float(theta)
 
-    def computeControl(self, fom, sim, save):
+    def computeControl(self, fom, save=None):
         """Compute control"""
 
         # Compute control law: modify plane throttle (F/m == acceleration).
@@ -3595,13 +3594,13 @@ class planeTrackingExample:
         vecU[8] = (fom[2]-oldFoMZ)/prmDt
 
         # Save control law hidden variables.
-        if save:
-            sim["simCLV"]["FoM"]["X"].append(vecU[1])
-            sim["simCLV"]["FoM"]["Y"].append(vecU[4])
-            sim["simCLV"]["FoM"]["Z"].append(vecU[7])
-            sim["simCLV"]["d(FoM)/dt"]["X"].append(vecU[2])
-            sim["simCLV"]["d(FoM)/dt"]["Y"].append(vecU[5])
-            sim["simCLV"]["d(FoM)/dt"]["Z"].append(vecU[8])
+        if save is not None:
+            save["simCLV"]["FoM"]["X"].append(vecU[1])
+            save["simCLV"]["FoM"]["Y"].append(vecU[4])
+            save["simCLV"]["FoM"]["Z"].append(vecU[7])
+            save["simCLV"]["d(FoM)/dt"]["X"].append(vecU[2])
+            save["simCLV"]["d(FoM)/dt"]["Y"].append(vecU[5])
+            save["simCLV"]["d(FoM)/dt"]["Z"].append(vecU[8])
 
         return vecU
 
