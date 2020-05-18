@@ -2375,7 +2375,7 @@ class planeTrackingExample:
         """Plot variables: X"""
 
         # Plot variables.
-        opts = {"pltMsr": pltMsr, "pltSim": pltSim}
+        opts = {"pltMsr": pltMsr, "pltSim": pltSim, "msrType": "x"}
         self.plotSltMsrSimVariables(key, 0, "X", opts)
         self.plotSltMsrSimVariables(key, 1, "Y", opts)
         self.plotSltMsrSimVariables(key, 2, "Z", opts)
@@ -2384,7 +2384,7 @@ class planeTrackingExample:
         """Plot variables: V"""
 
         # Plot variables.
-        opts = {"pltMsr": pltMsr, "pltSim": pltSim}
+        opts = {"pltMsr": pltMsr, "pltSim": pltSim, "msrType": "v"}
         self.plotSltMsrSimVariables(key, 3, "VX", opts)
         self.plotSltMsrSimVariables(key, 4, "VY", opts)
         self.plotSltMsrSimVariables(key, 5, "VZ", opts)
@@ -2393,7 +2393,7 @@ class planeTrackingExample:
         """Plot variables: A"""
 
         # Plot variables.
-        opts = {"pltMsr": pltMsr, "pltSim": pltSim}
+        opts = {"pltMsr": pltMsr, "pltSim": pltSim, "msrType": "a"}
         self.plotSltMsrSimVariables(key, 6, "AX", opts)
         self.plotSltMsrSimVariables(key, 7, "AY", opts)
         self.plotSltMsrSimVariables(key, 8, "AZ", opts)
@@ -2412,9 +2412,12 @@ class planeTrackingExample:
                 eqnT, posX = np.array([]), np.array([])
                 for txt in self.msr["msrDat"]:
                     msrData = self.msr["msrDat"][txt]
-                    if var in msrData:
-                        eqnT = np.append(eqnT, msrData["T"])
-                        posX = np.append(posX, msrData[var])
+                    if var not in msrData:
+                        continue
+                    if msrData["msrType"] != opts["msrType"]:
+                        continue
+                    eqnT = np.append(eqnT, msrData["T"])
+                    posX = np.append(posX, msrData[var])
                 axis.scatter(eqnT, posX, c="r", marker="^", alpha=1, s=vwrPosMks, label="msr: "+var)
         if self.vwr["ckbSlt"].isChecked():
             axis.plot(self.slt["T"], self.slt[var], label="slt: "+var, marker="o", ms=3, c="b")
