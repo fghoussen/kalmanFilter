@@ -706,7 +706,7 @@ class kalmanFilterModel():
         # Predict states.
         if self.sim["prmVrb"] >= 1:
             print("  "*2+"Predictor: time %.3f" % newTime)
-        newStates, matF, matG = self.predictStates(timeDt, newTime, states)
+        newStates, matF, matQ = self.predictStates(timeDt, newTime, states)
 
         # Outputs equation: y_{n+1,n+1} = C*x_{n+1,n+1} + D*u_{n+1,n+1}.
         newVecU = self.example.computeControlLaw(newStates, newTime, self.save["predictor"])
@@ -718,7 +718,7 @@ class kalmanFilterModel():
         self.savePredictor(newTime, newOutputs, matP)
 
         # Extrapolate uncertainty.
-        newMatP = self.predictCovariance(matP, matF, matG)
+        newMatP = self.predictCovariance(matP, matF, matQ)
 
         return newStates, newMatP
 
@@ -756,7 +756,7 @@ class kalmanFilterModel():
                 self.printMat("G", matG)
 
         # Compute process noise w_{n,n}.
-        vecW = self.getProcessNoise(states)
+        matQ, vecW = self.getProcessNoise(matG)
 
         # Compute control law u_{n,n}.
         vecU = self.example.computeControlLaw(states, newTime)
@@ -767,19 +767,31 @@ class kalmanFilterModel():
         newStates = np.dot(matF, states)
         if matG is not None:
             newStates = newStates+np.dot(matG, vecU)
-        newStates = newStates+vecW
+        if vecW is not None:
+            newStates = newStates+vecW
         if self.sim["prmVrb"] >= 2:
             self.printMat("X", np.transpose(newStates))
 
-        return newStates, matF, matG
+        return newStates, matF, matQ
 
-    def getProcessNoise(self, states):
+    def getProcessNoise(self, matG):
         """Get process noise"""
 
-        # Get random noise.
-        prmMu, prmSigma = states, self.sim["prmProNseSig"]
-        noisyStates = np.random.normal(prmMu, prmSigma)
-        vecW = noisyStates-states
+        # Check if process noise if used.
+        if matG is None:
+            return None, None
+
+        # Compute process noise matrix: Q_{n,n} = G_{n,n}*sigma^2*G_{n,n}t.
+        varQ = self.sim["prmProNseSig"]*self.sim["prmProNseSig"]
+        matQ = matG*varQ*np.transpose(matG) # https://www.kalmanfilter.net/covextrap.html.
+        if self.sim["prmVrb"] >= 3:
+            self.printMat("Q", matQ)
+
+        # Get random noise: w_{n,n} must be such that w_{n,n}*w_{n,n}t = Q_{n,n}.
+        prmN = self.example.getLTISystemSize()
+        vecW = np.zeros((prmN, 1), dtype=float)
+        for idx in range(prmN):
+            vecW[idx] = np.sqrt(matQ[idx, idx])
 
         # Verbose on demand.
         if self.sim["prmVrb"] >= 2:
@@ -788,19 +800,15 @@ class kalmanFilterModel():
         # Save process noise.
         self.saveProcessNoise(vecW)
 
-        return vecW
+        return matQ, vecW
 
-    def predictCovariance(self, matP, matF, matG):
+    def predictCovariance(self, matP, matF, matQ):
         """Predict covariance"""
 
-        # Compute process noise matrix: Q_{n,n} = G_{n,n}*sigma^2*G_{n,n}t.
-        varQ = self.sim["prmProNseSig"]*self.sim["prmProNseSig"]
-        matQ = matG*varQ*np.transpose(matG) # https://www.kalmanfilter.net/covextrap.html.
-        if self.sim["prmVrb"] >= 3:
-            self.printMat("Q", matQ)
-
         # Covariance equation: P_{n+1,n} = F_{n,n}*P_{n,n}*F_{n,n}t + Q_{n,n}.
-        newMatP = np.dot(matF, np.dot(matP, np.transpose(matF)))+matQ
+        newMatP = np.dot(matF, np.dot(matP, np.transpose(matF)))
+        if matQ is not None:
+            newMatP = newMatP+matQ
         if self.sim["prmVrb"] >= 3:
             self.printMat("P", newMatP)
 
