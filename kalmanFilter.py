@@ -730,6 +730,7 @@ class kalmanFilterModel():
         if self.mat["D"] is not None:
             outputs = outputs+np.dot(self.mat["D"], vecU)
 
+        assert outputs.shape == states.shape, "outputs - bad dimension"
         return outputs
 
     def predictStates(self, timeDt, newTime, states):
@@ -772,6 +773,7 @@ class kalmanFilterModel():
         if self.sim["prmVrb"] >= 2:
             self.printMat("X", np.transpose(newStates))
 
+        assert newStates.shape == (prmN, 1), "states - bad dimension"
         return newStates, matF, matQ
 
     def getProcessNoise(self, matG):
@@ -3469,6 +3471,7 @@ class planeTrackingExample:
             save["ctlOldFoMY"] = fomY
             save["ctlOldFoMZ"] = fomZ
 
+        assert vecU.shape == states.shape, "U - bad dimension"
         return vecU
 
     def computeThrottleForce(self, velNow, time, save=None):
@@ -3571,6 +3574,12 @@ class planeTrackingExample:
     def getAngle(velNow, velNxt, proj):
         """Get angle between 2 vectors"""
 
+        # Checks.
+        assert velNow.shape == (3, 1), "velNow - bad dimension"
+        assert velNxt.shape == (3, 1), "velNxt - bad dimension"
+        assert proj.shape == (3, 1), "proj - bad dimension"
+
+        # Get angle between now / next velocity vectors.
         theta = 0.
         velNowProj, velNxtProj = velNow*proj, velNxt*proj
         normCoef = npl.norm(velNowProj)*npl.norm(velNxtProj)
@@ -3749,7 +3758,7 @@ class controllerGUI(QMainWindow):
 # Main program.
 if __name__ == "__main__":
     # Check for python3.
-    assert sys.version_info.major == 3, "This script is a python3 script."
+    assert sys.version_info.major == 3, "this script is a python3 script."
 
     # Create application and controls GUI.
     app = QApplication(sys.argv)
