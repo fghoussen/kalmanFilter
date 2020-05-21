@@ -2847,6 +2847,10 @@ class planeTrackingExample:
         self.msr["addSigma"].setText("%.6f" % sigAccSensor)
         self.onAddMsrBtnClick() # Adding "a" measurement.
 
+        # Set sigma of process noise as the average of the sigma's of all measurements.
+        sigProNse = (sigPosGPS+sigVelGPS+sigAccSensor)/3.
+        self.sim["prmProNseSig"].setText("%.6f" % sigProNse)
+
     def onStraightLineExampleClicked(self, sigPosGPS, sigVelGPS, sigAccSensor):
         """Callback on click: straight line example radio button"""
 
@@ -2871,7 +2875,6 @@ class planeTrackingExample:
         # Simulation: parameters.
         self.sim["prmDt"].setText("5.")
         self.sim["prmExpOrd"].setText("3")
-        self.sim["prmProNseSig"].setText("0.1")
         self.sim["cdiX0"].setText("0.5")
         self.sim["cdiY0"].setText("0.5")
         self.sim["cdiZ0"].setText("0.")
@@ -2925,7 +2928,6 @@ class planeTrackingExample:
         # Simulation: parameters.
         self.sim["prmDt"].setText("5.")
         self.sim["prmExpOrd"].setText("3")
-        self.sim["prmProNseSig"].setText("0.1")
         self.sim["cdiX0"].setText("0.5")
         self.sim["cdiY0"].setText("0.5")
         self.sim["cdiZ0"].setText("0.")
@@ -2979,7 +2981,6 @@ class planeTrackingExample:
         # Simulation: parameters.
         self.sim["prmDt"].setText("5.")
         self.sim["prmExpOrd"].setText("3")
-        self.sim["prmProNseSig"].setText("0.1")
         self.sim["cdiX0"].setText("0.5")
         self.sim["cdiY0"].setText("0.5")
         self.sim["cdiZ0"].setText("0.")
@@ -3033,7 +3034,6 @@ class planeTrackingExample:
         # Simulation: parameters.
         self.sim["prmDt"].setText("5.")
         self.sim["prmExpOrd"].setText("3")
-        self.sim["prmProNseSig"].setText("0.1")
         self.sim["cdiX0"].setText("0.5")
         self.sim["cdiY0"].setText("0.5")
         self.sim["cdiZ0"].setText("0.")
@@ -3087,7 +3087,6 @@ class planeTrackingExample:
         # Simulation: parameters.
         self.sim["prmDt"].setText("5.")
         self.sim["prmExpOrd"].setText("3")
-        self.sim["prmProNseSig"].setText("0.1")
         self.sim["cdiX0"].setText("0.5")
         self.sim["cdiY0"].setText("0.5")
         self.sim["cdiZ0"].setText("5000.")
