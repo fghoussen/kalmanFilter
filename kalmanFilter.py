@@ -2343,7 +2343,7 @@ class planeTrackingExample:
 
         # Set group box layout.
         gpbPpg = QGroupBox(simGUI)
-        gpbPpg.setTitle("Post processing options")
+        gpbPpg.setTitle("Post processing plots")
         gpbPpg.setAlignment(Qt.AlignHCenter)
         gpbPpg.setLayout(gdlPpg)
 
