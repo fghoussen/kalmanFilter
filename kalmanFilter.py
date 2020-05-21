@@ -431,14 +431,14 @@ class kalmanFilterModel():
             return False
         return True
 
-    def setUpSimPrm(self, sim, cdfTf):
+    def setUpSimPrm(self, sim, fcdTf):
         """Setup solver: simulation parameters"""
 
         # Set up solver parameters.
         for key in sim:
             if key.find("prm") == 0 or key.find("icd") == 0:
                 self.sim[key] = float(sim[key].text())
-        self.sim["cdfTf"] = float(cdfTf)
+        self.sim["fcdTf"] = float(fcdTf)
 
         # Compute default measurement covariance matrix (needed to avoid singular K matrix).
         self.computeDefaultMsrCovariance()
@@ -541,7 +541,7 @@ class kalmanFilterModel():
         self.savePredictor(time, outputs, matP)
 
         # Solve: https://www.kalmanfilter.net/multiSummary.html.
-        prmDt, prmTf = self.sim["prmDt"], self.sim["cdfTf"]
+        prmDt, prmTf = self.sim["prmDt"], self.sim["fcdTf"]
         while time < prmTf:
             # Cut off time.
             if time+prmDt > prmTf:
@@ -909,7 +909,7 @@ class planeTrackingExample:
         # Create viewer.
         if not self.vwr["3D"] or self.vwr["3D"].closed:
             self.vwr["3D"] = viewer3DGUI(self.ctrGUI)
-            self.vwr["3D"].setUp(self.slt["cdfTf"].text())
+            self.vwr["3D"].setUp(self.slt["fcdTf"].text())
         self.vwr["3D"].setWindowTitle("Kalman filter viewer")
         self.vwr["3D"].show()
 
@@ -1006,7 +1006,7 @@ class planeTrackingExample:
         """Compute solution"""
 
         # Time.
-        prmTf = float(self.slt["cdfTf"].text())
+        prmTf = float(self.slt["fcdTf"].text())
         vwrNbPt = float(self.slt["vwrNbPt"].text())
         eqnT = np.linspace(0., prmTf, vwrNbPt)
 
@@ -1055,8 +1055,8 @@ class planeTrackingExample:
         for key in self.slt:
             fpeFound = 1 if key.find("fpe") == 0 else 0
             icdFound = 1 if key.find("icd") == 0 else 0
-            cdfFound = 1 if key.find("cdf") == 0 else 0
-            if fpeFound or icdFound or cdfFound:
+            fcdFound = 1 if key.find("fcd") == 0 else 0
+            if fpeFound or icdFound or fcdFound:
                 sltId += ":"+self.slt[key].text()
 
         return sltId
@@ -1491,7 +1491,7 @@ class planeTrackingExample:
         print("  "*1+"Run simulation based on Kalman filter")
         start = datetime.datetime.now()
         self.kfm.clear()
-        self.kfm.setUpSimPrm(self.sim, self.slt["cdfTf"].text())
+        self.kfm.setUpSimPrm(self.sim, self.slt["fcdTf"].text())
         self.kfm.setUpMsrPrm(self.msr["msrDat"])
         matA, matB, matC, matD = self.getLTISystem()
         self.kfm.setLTI(matA, matB, matC, matD)
@@ -1585,7 +1585,7 @@ class planeTrackingExample:
         self.slt["indAX0"] = QLineEdit("N.A.", self.ctrGUI)
         self.slt["indAY0"] = QLineEdit("N.A.", self.ctrGUI)
         self.slt["indAZ0"] = QLineEdit("N.A.", self.ctrGUI)
-        self.slt["cdfTf"] = QLineEdit("N.A.", self.ctrGUI)
+        self.slt["fcdTf"] = QLineEdit("N.A.", self.ctrGUI)
         self.slt["indXMin"] = QLineEdit("N.A.", self.ctrGUI)
         self.slt["indXMax"] = QLineEdit("N.A.", self.ctrGUI)
         self.slt["indVMin"] = QLineEdit("N.A.", self.ctrGUI)
@@ -1674,7 +1674,7 @@ class planeTrackingExample:
         print("Plot Lagrange T-Z polynomial")
         if not self.vwr["2D"]["fpeTZP"] or self.vwr["2D"]["fpeTZP"].closed:
             self.vwr["2D"]["fpeTZP"] = viewer2DGUI(self.ctrGUI)
-            self.vwr["2D"]["fpeTZP"].setUp(self.slt["cdfTf"].text())
+            self.vwr["2D"]["fpeTZP"].setUp(self.slt["fcdTf"].text())
             self.vwr["2D"]["fpeTZP"].setWindowTitle("Flight path equation: Lagrange T-Z polynomial")
             self.vwr["2D"]["fpeTZP"].show()
 
@@ -1682,7 +1682,7 @@ class planeTrackingExample:
         self.clearPlot(vwrId="fpeTZP")
 
         # Time.
-        prmTf = float(self.slt["cdfTf"].text())
+        prmTf = float(self.slt["fcdTf"].text())
         vwrNbPt = float(self.slt["vwrNbPt"].text())
         eqnT = np.linspace(0., prmTf, vwrNbPt)
 
@@ -1760,7 +1760,7 @@ class planeTrackingExample:
         # Create analytic parameters GUI: final conditions.
         gdlTf = QGridLayout(sltGUI)
         gdlTf.addWidget(QLabel("t<sub>f</sub>", sltGUI), 0, 1)
-        gdlTf.addWidget(self.slt["cdfTf"], 0, 2)
+        gdlTf.addWidget(self.slt["fcdTf"], 0, 2)
         gdlTf.addWidget(QLabel("Position:", sltGUI), 1, 0)
         gdlTf.addWidget(QLabel("min", sltGUI), 1, 1)
         gdlTf.addWidget(self.slt["indXMin"], 1, 2)
@@ -1921,7 +1921,7 @@ class planeTrackingExample:
         print("Plot measurement data")
         if not self.vwr["2D"]["msrDat"] or self.vwr["2D"]["msrDat"].closed:
             self.vwr["2D"]["msrDat"] = viewer2DGUI(self.ctrGUI)
-            self.vwr["2D"]["msrDat"].setUp(self.slt["cdfTf"].text(), nrows=3, ncols=3)
+            self.vwr["2D"]["msrDat"].setUp(self.slt["fcdTf"].text(), nrows=3, ncols=3)
             self.vwr["2D"]["msrDat"].setWindowTitle("Measurements: data")
             self.vwr["2D"]["msrDat"].show()
 
@@ -2356,7 +2356,7 @@ class planeTrackingExample:
         print("Plot simulation output variables")
         if not self.vwr["2D"]["simOVr"] or self.vwr["2D"]["simOVr"].closed:
             self.vwr["2D"]["simOVr"] = viewer2DGUI(self.ctrGUI)
-            self.vwr["2D"]["simOVr"].setUp(self.slt["cdfTf"].text(), nrows=3, ncols=3)
+            self.vwr["2D"]["simOVr"].setUp(self.slt["fcdTf"].text(), nrows=3, ncols=3)
             self.vwr["2D"]["simOVr"].setWindowTitle("Simulation: outputs")
             self.vwr["2D"]["simOVr"].show()
 
@@ -2442,7 +2442,7 @@ class planeTrackingExample:
         print("Plot simulation control law variables")
         if not self.vwr["2D"]["simCLV"] or self.vwr["2D"]["simCLV"].closed:
             self.vwr["2D"]["simCLV"] = viewer2DGUI(self.ctrGUI)
-            self.vwr["2D"]["simCLV"].setUp(self.slt["cdfTf"].text(), nrows=3, ncols=3)
+            self.vwr["2D"]["simCLV"].setUp(self.slt["fcdTf"].text(), nrows=3, ncols=3)
             self.vwr["2D"]["simCLV"].setWindowTitle("Simulation: control law")
             self.vwr["2D"]["simCLV"].show()
 
@@ -2484,7 +2484,7 @@ class planeTrackingExample:
         print("Plot simulation process noise")
         if not self.vwr["2D"]["simPrN"] or self.vwr["2D"]["simPrN"].closed:
             self.vwr["2D"]["simPrN"] = viewer2DGUI(self.ctrGUI)
-            self.vwr["2D"]["simPrN"].setUp(self.slt["cdfTf"].text(), nrows=3, ncols=3)
+            self.vwr["2D"]["simPrN"].setUp(self.slt["fcdTf"].text(), nrows=3, ncols=3)
             self.vwr["2D"]["simPrN"].setWindowTitle("Simulation: process noise")
             self.vwr["2D"]["simPrN"].show()
 
@@ -2522,7 +2522,7 @@ class planeTrackingExample:
         print("Plot simulation forces")
         if not self.vwr["2D"]["simFrc"] or self.vwr["2D"]["simFrc"].closed:
             self.vwr["2D"]["simFrc"] = viewer2DGUI(self.ctrGUI)
-            self.vwr["2D"]["simFrc"].setUp(self.slt["cdfTf"].text(), nrows=1, ncols=3)
+            self.vwr["2D"]["simFrc"].setUp(self.slt["fcdTf"].text(), nrows=1, ncols=3)
             self.vwr["2D"]["simFrc"].setWindowTitle("Simulation: forces")
             self.vwr["2D"]["simFrc"].show()
 
@@ -2569,7 +2569,7 @@ class planeTrackingExample:
         print("Plot simulation innovation")
         if not self.vwr["2D"]["simInv"] or self.vwr["2D"]["simInv"].closed:
             self.vwr["2D"]["simInv"] = viewer2DGUI(self.ctrGUI)
-            self.vwr["2D"]["simInv"].setUp(self.slt["cdfTf"].text(), nrows=3, ncols=3)
+            self.vwr["2D"]["simInv"].setUp(self.slt["fcdTf"].text(), nrows=3, ncols=3)
             self.vwr["2D"]["simInv"].setWindowTitle("Simulation: innovation")
             self.vwr["2D"]["simInv"].show()
 
@@ -2617,7 +2617,7 @@ class planeTrackingExample:
         print("Plot simulation time scheme variables")
         if not self.vwr["2D"]["simTSV"] or self.vwr["2D"]["simTSV"].closed:
             self.vwr["2D"]["simTSV"] = viewer2DGUI(self.ctrGUI)
-            self.vwr["2D"]["simTSV"].setUp(self.slt["cdfTf"].text(), nrows=1, ncols=2)
+            self.vwr["2D"]["simTSV"].setUp(self.slt["fcdTf"].text(), nrows=1, ncols=2)
             self.vwr["2D"]["simTSV"].setWindowTitle("Simulation: time scheme")
             self.vwr["2D"]["simTSV"].show()
 
@@ -2671,7 +2671,7 @@ class planeTrackingExample:
         print("Plot simulation covariance diagonal terms")
         if not self.vwr["2D"]["simDgP"] or self.vwr["2D"]["simDgP"].closed:
             self.vwr["2D"]["simDgP"] = viewer2DGUI(self.ctrGUI)
-            self.vwr["2D"]["simDgP"].setUp(self.slt["cdfTf"].text(), nrows=3, ncols=3)
+            self.vwr["2D"]["simDgP"].setUp(self.slt["fcdTf"].text(), nrows=3, ncols=3)
             self.vwr["2D"]["simDgP"].setWindowTitle("Simulation: covariance")
             self.vwr["2D"]["simDgP"].show()
 
@@ -2709,7 +2709,7 @@ class planeTrackingExample:
         print("Plot simulation Kalman gain diagonal terms")
         if not self.vwr["2D"]["simDgK"] or self.vwr["2D"]["simDgK"].closed:
             self.vwr["2D"]["simDgK"] = viewer2DGUI(self.ctrGUI)
-            self.vwr["2D"]["simDgK"].setUp(self.slt["cdfTf"].text(), nrows=3, ncols=3)
+            self.vwr["2D"]["simDgK"].setUp(self.slt["fcdTf"].text(), nrows=3, ncols=3)
             self.vwr["2D"]["simDgK"].setWindowTitle("Simulation: Kalman gain")
             self.vwr["2D"]["simDgK"].show()
 
@@ -2865,7 +2865,7 @@ class planeTrackingExample:
         self.slt["icdX0"].setText("0.")
         self.slt["icdY0"].setText("0.")
         self.slt["icdZ0"].setText("0.")
-        self.slt["cdfTf"].setText("3600.")
+        self.slt["fcdTf"].setText("3600.")
 
         # Evaluate sigma: simulation sigma (less trusted) > GPS sigma (more trusted).
         sigPosSim = 2.*sigPosGPS
@@ -2918,7 +2918,7 @@ class planeTrackingExample:
         self.slt["icdX0"].setText("0.")
         self.slt["icdY0"].setText("0.")
         self.slt["icdZ0"].setText("0.")
-        self.slt["cdfTf"].setText("3600.")
+        self.slt["fcdTf"].setText("3600.")
 
         # Evaluate sigma: simulation sigma (less trusted) > GPS sigma (more trusted).
         sigPosSim = 2.*sigPosGPS
@@ -2971,7 +2971,7 @@ class planeTrackingExample:
         self.slt["icdX0"].setText("0.")
         self.slt["icdY0"].setText("0.")
         self.slt["icdZ0"].setText("0.")
-        self.slt["cdfTf"].setText("3600.")
+        self.slt["fcdTf"].setText("3600.")
 
         # Evaluate sigma: simulation sigma (less trusted) > GPS sigma (more trusted).
         sigPosSim = 2.*sigPosGPS
@@ -3024,7 +3024,7 @@ class planeTrackingExample:
         self.slt["icdX0"].setText("0.")
         self.slt["icdY0"].setText("0.")
         self.slt["icdZ0"].setText("0.")
-        self.slt["cdfTf"].setText("3600.")
+        self.slt["fcdTf"].setText("3600.")
 
         # Evaluate sigma: simulation sigma (less trusted) > GPS sigma (more trusted).
         sigPosSim = 2.*sigPosGPS
@@ -3077,7 +3077,7 @@ class planeTrackingExample:
         self.slt["icdX0"].setText("0.")
         self.slt["icdY0"].setText("0.")
         self.slt["icdZ0"].setText("5000.")
-        self.slt["cdfTf"].setText("3600.")
+        self.slt["fcdTf"].setText("3600.")
 
         # Evaluate sigma: simulation sigma (less trusted) > GPS sigma (more trusted).
         sigPosSim = 2.*sigPosGPS
@@ -3161,7 +3161,7 @@ class planeTrackingExample:
             if np.abs(float(tokTi)) < 1.e-6:
                 self.throwError(eId, "t<sub>i</sub> must be superior than 0.")
                 return False
-        if float(self.slt["cdfTf"].text()) <= 0.:
+        if float(self.slt["fcdTf"].text()) <= 0.:
             self.throwError(eId, "t<sub>f</sub> must be superior than 0.")
             return False
 
@@ -3296,13 +3296,13 @@ class planeTrackingExample:
         if ctlThfTkoK < 0 or ctlThfFlgK < 0 or ctlThfLdgK < 0:
             self.throwError(eId, "throttle coefficients must be superior than 0.")
             return False
-        cdfTf = float(self.slt["cdfTf"].text())
+        fcdTf = float(self.slt["fcdTf"].text())
         ctlThfTkoDt = float(self.sim["ctlThfTkoDt"].text())
         ctlThfLdgDt = float(self.sim["ctlThfLdgDt"].text())
-        if not 0. <= ctlThfTkoDt < cdfTf or not 0. <= ctlThfLdgDt < cdfTf:
+        if not 0. <= ctlThfTkoDt < fcdTf or not 0. <= ctlThfLdgDt < fcdTf:
             self.throwError(eId, "throttle time slot must belong to [0., t<sub>f</sub>].")
             return False
-        if ctlThfTkoDt+ctlThfLdgDt > cdfTf:
+        if ctlThfTkoDt+ctlThfLdgDt > fcdTf:
             self.throwError(eId, "throttle time slots exceed t<sub>f</sub>.")
             return False
 
@@ -3478,12 +3478,12 @@ class planeTrackingExample:
 
         # Get throttle parameters.
         ctlThfK = 0.
-        cdfTf = float(self.slt["cdfTf"].text())
+        fcdTf = float(self.slt["fcdTf"].text())
         ctlThfTkoDt = float(self.sim["ctlThfTkoDt"].text())
         ctlThfLdgDt = float(self.sim["ctlThfLdgDt"].text())
         if 0. < time <= ctlThfTkoDt:
             ctlThfK = float(self.sim["ctlThfTkoK"].text())
-        elif cdfTf-ctlThfLdgDt < time <= cdfTf:
+        elif fcdTf-ctlThfLdgDt < time <= fcdTf:
             ctlThfK = float(self.sim["ctlThfLdgK"].text())
         else:
             ctlThfK = float(self.sim["ctlThfFlgK"].text())
