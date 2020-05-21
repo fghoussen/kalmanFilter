@@ -436,7 +436,7 @@ class kalmanFilterModel():
 
         # Set up solver parameters.
         for key in sim:
-            if key.find("prm") == 0 or key.find("cdi") == 0:
+            if key.find("prm") == 0 or key.find("icd") == 0:
                 self.sim[key] = float(sim[key].text())
         self.sim["cdfTf"] = float(cdfTf)
 
@@ -491,15 +491,15 @@ class kalmanFilterModel():
         # Compute default measurement covariance matrix.
         prmN = self.example.getLTISystemSize()
         matR = np.zeros((prmN, prmN), dtype=float)
-        matR[0, 0] = np.power(self.sim["cdiSigX0"], 2)
-        matR[1, 1] = np.power(self.sim["cdiSigVX0"], 2)
-        matR[2, 2] = np.power(self.sim["cdiSigAX0"], 2)
-        matR[3, 3] = np.power(self.sim["cdiSigY0"], 2)
-        matR[4, 4] = np.power(self.sim["cdiSigVY0"], 2)
-        matR[5, 5] = np.power(self.sim["cdiSigAY0"], 2)
-        matR[6, 6] = np.power(self.sim["cdiSigZ0"], 2)
-        matR[7, 7] = np.power(self.sim["cdiSigVZ0"], 2)
-        matR[8, 8] = np.power(self.sim["cdiSigAZ0"], 2)
+        matR[0, 0] = np.power(self.sim["icdSigX0"], 2)
+        matR[1, 1] = np.power(self.sim["icdSigVX0"], 2)
+        matR[2, 2] = np.power(self.sim["icdSigAX0"], 2)
+        matR[3, 3] = np.power(self.sim["icdSigY0"], 2)
+        matR[4, 4] = np.power(self.sim["icdSigVY0"], 2)
+        matR[5, 5] = np.power(self.sim["icdSigAY0"], 2)
+        matR[6, 6] = np.power(self.sim["icdSigZ0"], 2)
+        matR[7, 7] = np.power(self.sim["icdSigVZ0"], 2)
+        matR[8, 8] = np.power(self.sim["icdSigAZ0"], 2)
         self.mat["R"] = matR # Save for later use: restart from it to avoid singular matrix.
 
     def setLTI(self, matA, matB, matC, matD):
@@ -1054,9 +1054,9 @@ class planeTrackingExample:
         sltId = ""
         for key in self.slt:
             fpeFound = 1 if key.find("fpe") == 0 else 0
-            cdiFound = 1 if key.find("cdi") == 0 else 0
+            icdFound = 1 if key.find("icd") == 0 else 0
             cdfFound = 1 if key.find("cdf") == 0 else 0
-            if fpeFound or cdiFound or cdfFound:
+            if fpeFound or icdFound or cdfFound:
                 sltId += ":"+self.slt[key].text()
 
         return sltId
@@ -1262,7 +1262,7 @@ class planeTrackingExample:
         """Get X equation: displacement"""
 
         # Get X equation: displacement.
-        prmV0 = float(self.slt["cdiX0"].text())
+        prmV0 = float(self.slt["icdX0"].text())
         prmA = float(self.slt["fpeAx"].text())
         prmPhi = float(self.slt["fpePhix"].text())*(np.pi/180.) # In radians.
         prmT = float(self.slt["fpeTx"].text())
@@ -1300,7 +1300,7 @@ class planeTrackingExample:
         """Get Y equation: displacement"""
 
         # Get Y equation: displacement.
-        prmV0 = float(self.slt["cdiY0"].text())
+        prmV0 = float(self.slt["icdY0"].text())
         prmA = float(self.slt["fpeAy"].text())
         prmPhi = float(self.slt["fpePhiy"].text())*(np.pi/180.) # In radians.
         prmT = float(self.slt["fpeTy"].text())
@@ -1376,7 +1376,7 @@ class planeTrackingExample:
         """Get Z polynomial lagrange points"""
 
         # Get polynomial points.
-        prmZ0 = float(self.slt["cdiZ0"].text())
+        prmZ0 = float(self.slt["icdZ0"].text())
         prmTiZi = self.slt["fpeTiZi"].text()
         prmTi = np.array([0.], dtype=float)
         prmZi = np.array([prmZ0], dtype=float)
@@ -1508,9 +1508,9 @@ class planeTrackingExample:
             if key == "prmVrb":
                 continue
             prmFound = 1 if key.find("prm") == 0 else 0
-            cdiFound = 1 if key.find("cdi") == 0 else 0
+            icdFound = 1 if key.find("icd") == 0 else 0
             ctlFound = 1 if key.find("ctl") == 0 else 0
-            if prmFound or cdiFound or ctlFound:
+            if prmFound or icdFound or ctlFound:
                 simId += ":"+self.sim[key].text()
 
         return simId
@@ -1576,9 +1576,9 @@ class planeTrackingExample:
         self.slt["fpePhix"] = QLineEdit("N.A.", self.ctrGUI)
         self.slt["fpePhiy"] = QLineEdit("N.A.", self.ctrGUI)
         self.slt["fpeTiZi"] = QLineEdit("N.A.", self.ctrGUI)
-        self.slt["cdiX0"] = QLineEdit("N.A.", self.ctrGUI)
-        self.slt["cdiY0"] = QLineEdit("N.A.", self.ctrGUI)
-        self.slt["cdiZ0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.slt["icdX0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.slt["icdY0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.slt["icdZ0"] = QLineEdit("N.A.", self.ctrGUI)
         self.slt["indVX0"] = QLineEdit("N.A.", self.ctrGUI)
         self.slt["indVY0"] = QLineEdit("N.A.", self.ctrGUI)
         self.slt["indVZ0"] = QLineEdit("N.A.", self.ctrGUI)
@@ -1712,15 +1712,15 @@ class planeTrackingExample:
         title = "x(t = 0) = x<sub>0</sub>"
         gdlX0.addWidget(QLabel(title, sltGUI), 0, 0, 1, 2)
         gdlX0.addWidget(QLabel("x<sub>0</sub>", sltGUI), 1, 0)
-        gdlX0.addWidget(self.slt["cdiX0"], 1, 1)
+        gdlX0.addWidget(self.slt["icdX0"], 1, 1)
         title = "y(t = 0) = y<sub>0</sub>"
         gdlX0.addWidget(QLabel(title, sltGUI), 2, 0, 1, 2)
         gdlX0.addWidget(QLabel("y<sub>0</sub>", sltGUI), 3, 0)
-        gdlX0.addWidget(self.slt["cdiY0"], 3, 1)
+        gdlX0.addWidget(self.slt["icdY0"], 3, 1)
         title = "z(t = 0) = z<sub>0</sub>"
         gdlX0.addWidget(QLabel(title, sltGUI), 4, 0, 1, 2)
         gdlX0.addWidget(QLabel("z<sub>0</sub>", sltGUI), 5, 0)
-        gdlX0.addWidget(self.slt["cdiZ0"], 5, 1)
+        gdlX0.addWidget(self.slt["icdZ0"], 5, 1)
         title = "V<sub>x</sub>(t = 0) = V<sub>x0</sub>"
         gdlX0.addWidget(QLabel(title, sltGUI), 0, 3, 1, 2)
         gdlX0.addWidget(QLabel("V<sub>x0</sub>", sltGUI), 1, 3)
@@ -2067,24 +2067,24 @@ class planeTrackingExample:
         self.sim["prmExpOrd"] = QLineEdit("N.A.", self.ctrGUI)
         self.sim["prmProNseSig"] = QLineEdit("N.A.", self.ctrGUI)
         self.sim["prmVrb"] = QLineEdit("1", self.ctrGUI)
-        self.sim["cdiX0"] = QLineEdit("N.A.", self.ctrGUI)
-        self.sim["cdiY0"] = QLineEdit("N.A.", self.ctrGUI)
-        self.sim["cdiZ0"] = QLineEdit("N.A.", self.ctrGUI)
-        self.sim["cdiSigX0"] = QLineEdit("N.A.", self.ctrGUI)
-        self.sim["cdiSigY0"] = QLineEdit("N.A.", self.ctrGUI)
-        self.sim["cdiSigZ0"] = QLineEdit("N.A.", self.ctrGUI)
-        self.sim["cdiVX0"] = QLineEdit("N.A.", self.ctrGUI)
-        self.sim["cdiVY0"] = QLineEdit("N.A.", self.ctrGUI)
-        self.sim["cdiVZ0"] = QLineEdit("N.A.", self.ctrGUI)
-        self.sim["cdiSigVX0"] = QLineEdit("N.A.", self.ctrGUI)
-        self.sim["cdiSigVY0"] = QLineEdit("N.A.", self.ctrGUI)
-        self.sim["cdiSigVZ0"] = QLineEdit("N.A.", self.ctrGUI)
-        self.sim["cdiAX0"] = QLineEdit("N.A.", self.ctrGUI)
-        self.sim["cdiAY0"] = QLineEdit("N.A.", self.ctrGUI)
-        self.sim["cdiAZ0"] = QLineEdit("N.A.", self.ctrGUI)
-        self.sim["cdiSigAX0"] = QLineEdit("N.A.", self.ctrGUI)
-        self.sim["cdiSigAY0"] = QLineEdit("N.A.", self.ctrGUI)
-        self.sim["cdiSigAZ0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["icdX0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["icdY0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["icdZ0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["icdSigX0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["icdSigY0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["icdSigZ0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["icdVX0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["icdVY0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["icdVZ0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["icdSigVX0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["icdSigVY0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["icdSigVZ0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["icdAX0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["icdAY0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["icdAZ0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["icdSigAX0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["icdSigAY0"] = QLineEdit("N.A.", self.ctrGUI)
+        self.sim["icdSigAZ0"] = QLineEdit("N.A.", self.ctrGUI)
         self.sim["ctlRolMax"] = QLineEdit("N.A.", self.ctrGUI)
         self.sim["ctlPtcMax"] = QLineEdit("N.A.", self.ctrGUI)
         self.sim["ctlYawMax"] = QLineEdit("N.A.", self.ctrGUI)
@@ -2184,21 +2184,21 @@ class planeTrackingExample:
         title = "x(t = 0) = x<sub>0</sub> &plusmn; &sigma;<sub>x0</sub>"
         gdlX0.addWidget(QLabel(title, simGUI), 0, 0, 1, 4)
         gdlX0.addWidget(QLabel("x<sub>0</sub>", simGUI), 1, 0)
-        gdlX0.addWidget(self.sim["cdiX0"], 1, 1)
+        gdlX0.addWidget(self.sim["icdX0"], 1, 1)
         gdlX0.addWidget(QLabel("&sigma;<sub>x0</sub>", simGUI), 1, 2)
-        gdlX0.addWidget(self.sim["cdiSigX0"], 1, 3)
+        gdlX0.addWidget(self.sim["icdSigX0"], 1, 3)
         title = "y(t = 0) = y<sub>0</sub> &plusmn; &sigma;<sub>y0</sub>"
         gdlX0.addWidget(QLabel(title, simGUI), 2, 0, 1, 4)
         gdlX0.addWidget(QLabel("y<sub>0</sub>", simGUI), 3, 0)
-        gdlX0.addWidget(self.sim["cdiY0"], 3, 1)
+        gdlX0.addWidget(self.sim["icdY0"], 3, 1)
         gdlX0.addWidget(QLabel("&sigma;<sub>y0</sub>", simGUI), 3, 2)
-        gdlX0.addWidget(self.sim["cdiSigY0"], 3, 3)
+        gdlX0.addWidget(self.sim["icdSigY0"], 3, 3)
         title = "z(t = 0) = z<sub>0</sub> &plusmn; &sigma;<sub>z0</sub>"
         gdlX0.addWidget(QLabel(title, simGUI), 4, 0, 1, 4)
         gdlX0.addWidget(QLabel("z<sub>0</sub>", simGUI), 5, 0)
-        gdlX0.addWidget(self.sim["cdiZ0"], 5, 1)
+        gdlX0.addWidget(self.sim["icdZ0"], 5, 1)
         gdlX0.addWidget(QLabel("&sigma;<sub>z0</sub>", simGUI), 5, 2)
-        gdlX0.addWidget(self.sim["cdiSigZ0"], 5, 3)
+        gdlX0.addWidget(self.sim["icdSigZ0"], 5, 3)
 
     def fillSimGUIV0Gdl(self, simGUI, gdlX0):
         """Fill simulation GUI : grid layout of initial conditions (V0)"""
@@ -2207,21 +2207,21 @@ class planeTrackingExample:
         title = "V<sub>x</sub>(t = 0) = V<sub>x0</sub> &plusmn; &sigma;<sub>Vx0</sub>"
         gdlX0.addWidget(QLabel(title, simGUI), 0, 6, 1, 4)
         gdlX0.addWidget(QLabel("V<sub>x0</sub>", simGUI), 1, 6)
-        gdlX0.addWidget(self.sim["cdiVX0"], 1, 7)
+        gdlX0.addWidget(self.sim["icdVX0"], 1, 7)
         gdlX0.addWidget(QLabel("&sigma;<sub>Vx0</sub>", simGUI), 1, 8)
-        gdlX0.addWidget(self.sim["cdiSigVX0"], 1, 9)
+        gdlX0.addWidget(self.sim["icdSigVX0"], 1, 9)
         title = "V<sub>y</sub>(t = 0) = V<sub>y0</sub> &plusmn; &sigma;<sub>Vy0</sub>"
         gdlX0.addWidget(QLabel(title, simGUI), 2, 6, 1, 4)
         gdlX0.addWidget(QLabel("V<sub>y0</sub>", simGUI), 3, 6)
-        gdlX0.addWidget(self.sim["cdiVY0"], 3, 7)
+        gdlX0.addWidget(self.sim["icdVY0"], 3, 7)
         gdlX0.addWidget(QLabel("&sigma;<sub>Vy0</sub>", simGUI), 3, 8)
-        gdlX0.addWidget(self.sim["cdiSigVY0"], 3, 9)
+        gdlX0.addWidget(self.sim["icdSigVY0"], 3, 9)
         title = "V<sub>z</sub>(t = 0) = V<sub>z0</sub> &plusmn; &sigma;<sub>Vz0</sub>"
         gdlX0.addWidget(QLabel(title, simGUI), 4, 6, 1, 4)
         gdlX0.addWidget(QLabel("V<sub>z0</sub>", simGUI), 5, 6)
-        gdlX0.addWidget(self.sim["cdiVZ0"], 5, 7)
+        gdlX0.addWidget(self.sim["icdVZ0"], 5, 7)
         gdlX0.addWidget(QLabel("&sigma;<sub>Vz0</sub>", simGUI), 5, 8)
-        gdlX0.addWidget(self.sim["cdiSigVZ0"], 5, 9)
+        gdlX0.addWidget(self.sim["icdSigVZ0"], 5, 9)
 
     def fillSimGUIA0Gdl(self, simGUI, gdlX0):
         """Fill simulation GUI : grid layout of initial conditions (A0)"""
@@ -2230,21 +2230,21 @@ class planeTrackingExample:
         title = "A<sub>x</sub>(t = 0) = A<sub>x0</sub> &plusmn; &sigma;<sub>Ax0</sub>"
         gdlX0.addWidget(QLabel(title, simGUI), 0, 10, 1, 4)
         gdlX0.addWidget(QLabel("A<sub>x0</sub>", simGUI), 1, 10)
-        gdlX0.addWidget(self.sim["cdiAX0"], 1, 11)
+        gdlX0.addWidget(self.sim["icdAX0"], 1, 11)
         gdlX0.addWidget(QLabel("&sigma;<sub>Ax0</sub>", simGUI), 1, 12)
-        gdlX0.addWidget(self.sim["cdiSigAX0"], 1, 13)
+        gdlX0.addWidget(self.sim["icdSigAX0"], 1, 13)
         title = "A<sub>y</sub>(t = 0) = A<sub>y0</sub> &plusmn; &sigma;<sub>Ay0</sub>"
         gdlX0.addWidget(QLabel(title, simGUI), 2, 10, 1, 4)
         gdlX0.addWidget(QLabel("A<sub>y0</sub>", simGUI), 3, 10)
-        gdlX0.addWidget(self.sim["cdiAY0"], 3, 11)
+        gdlX0.addWidget(self.sim["icdAY0"], 3, 11)
         gdlX0.addWidget(QLabel("&sigma;<sub>Ay0</sub>", simGUI), 3, 12)
-        gdlX0.addWidget(self.sim["cdiSigAY0"], 3, 13)
+        gdlX0.addWidget(self.sim["icdSigAY0"], 3, 13)
         title = "A<sub>z</sub>(t = 0) = A<sub>z0</sub> &plusmn; &sigma;<sub>Az0</sub>"
         gdlX0.addWidget(QLabel(title, simGUI), 4, 10, 1, 4)
         gdlX0.addWidget(QLabel("A<sub>z0</sub>", simGUI), 5, 10)
-        gdlX0.addWidget(self.sim["cdiAZ0"], 5, 11)
+        gdlX0.addWidget(self.sim["icdAZ0"], 5, 11)
         gdlX0.addWidget(QLabel("&sigma;<sub>Az0</sub>", simGUI), 5, 12)
-        gdlX0.addWidget(self.sim["cdiSigAZ0"], 5, 13)
+        gdlX0.addWidget(self.sim["icdSigAZ0"], 5, 13)
 
     def fillSimGUIFCL(self, simGUI):
         """Fill simulation GUI: simulation flight control law"""
@@ -2862,9 +2862,9 @@ class planeTrackingExample:
         self.slt["fpePhix"].setText("270.")
         self.slt["fpePhiy"].setText("0.")
         self.slt["fpeTiZi"].setText("3600 10000.")
-        self.slt["cdiX0"].setText("0.")
-        self.slt["cdiY0"].setText("0.")
-        self.slt["cdiZ0"].setText("0.")
+        self.slt["icdX0"].setText("0.")
+        self.slt["icdY0"].setText("0.")
+        self.slt["icdZ0"].setText("0.")
         self.slt["cdfTf"].setText("3600.")
 
         # Evaluate sigma: simulation sigma (less trusted) > GPS sigma (more trusted).
@@ -2875,24 +2875,24 @@ class planeTrackingExample:
         # Simulation: parameters.
         self.sim["prmDt"].setText("5.")
         self.sim["prmExpOrd"].setText("3")
-        self.sim["cdiX0"].setText("0.5")
-        self.sim["cdiY0"].setText("0.5")
-        self.sim["cdiZ0"].setText("0.")
-        self.sim["cdiSigX0"].setText("%.6f" % sigPosSim)
-        self.sim["cdiSigY0"].setText("%.6f" % sigPosSim)
-        self.sim["cdiSigZ0"].setText("%.6f" % sigPosSim)
-        self.sim["cdiVX0"].setText("0.")
-        self.sim["cdiVY0"].setText("0.")
-        self.sim["cdiVZ0"].setText("3.")
-        self.sim["cdiSigVX0"].setText("%.6f" % sigVelSim)
-        self.sim["cdiSigVY0"].setText("%.6f" % sigVelSim)
-        self.sim["cdiSigVZ0"].setText("%.6f" % sigVelSim)
-        self.sim["cdiAX0"].setText("0.")
-        self.sim["cdiAY0"].setText("0.")
-        self.sim["cdiAZ0"].setText("0.")
-        self.sim["cdiSigAX0"].setText("%.6f" % sigAccSim)
-        self.sim["cdiSigAY0"].setText("%.6f" % sigAccSim)
-        self.sim["cdiSigAZ0"].setText("%.6f" % sigAccSim)
+        self.sim["icdX0"].setText("0.5")
+        self.sim["icdY0"].setText("0.5")
+        self.sim["icdZ0"].setText("0.")
+        self.sim["icdSigX0"].setText("%.6f" % sigPosSim)
+        self.sim["icdSigY0"].setText("%.6f" % sigPosSim)
+        self.sim["icdSigZ0"].setText("%.6f" % sigPosSim)
+        self.sim["icdVX0"].setText("0.")
+        self.sim["icdVY0"].setText("0.")
+        self.sim["icdVZ0"].setText("3.")
+        self.sim["icdSigVX0"].setText("%.6f" % sigVelSim)
+        self.sim["icdSigVY0"].setText("%.6f" % sigVelSim)
+        self.sim["icdSigVZ0"].setText("%.6f" % sigVelSim)
+        self.sim["icdAX0"].setText("0.")
+        self.sim["icdAY0"].setText("0.")
+        self.sim["icdAZ0"].setText("0.")
+        self.sim["icdSigAX0"].setText("%.6f" % sigAccSim)
+        self.sim["icdSigAY0"].setText("%.6f" % sigAccSim)
+        self.sim["icdSigAZ0"].setText("%.6f" % sigAccSim)
         self.sim["ctlThfTkoDt"].setText("0.")
         self.sim["ctlThfLdgDt"].setText("0.")
 
@@ -2915,9 +2915,9 @@ class planeTrackingExample:
         self.slt["fpePhix"].setText("270.")
         self.slt["fpePhiy"].setText("0.")
         self.slt["fpeTiZi"].setText("100 10., 3500 10., 3600 0.")
-        self.slt["cdiX0"].setText("0.")
-        self.slt["cdiY0"].setText("0.")
-        self.slt["cdiZ0"].setText("0.")
+        self.slt["icdX0"].setText("0.")
+        self.slt["icdY0"].setText("0.")
+        self.slt["icdZ0"].setText("0.")
         self.slt["cdfTf"].setText("3600.")
 
         # Evaluate sigma: simulation sigma (less trusted) > GPS sigma (more trusted).
@@ -2928,24 +2928,24 @@ class planeTrackingExample:
         # Simulation: parameters.
         self.sim["prmDt"].setText("5.")
         self.sim["prmExpOrd"].setText("3")
-        self.sim["cdiX0"].setText("0.5")
-        self.sim["cdiY0"].setText("0.5")
-        self.sim["cdiZ0"].setText("0.")
-        self.sim["cdiSigX0"].setText("%.6f" % sigPosSim)
-        self.sim["cdiSigY0"].setText("%.6f" % sigPosSim)
-        self.sim["cdiSigZ0"].setText("%.6f" % sigPosSim)
-        self.sim["cdiVX0"].setText("2.")
-        self.sim["cdiVY0"].setText("2.")
-        self.sim["cdiVZ0"].setText("0.5")
-        self.sim["cdiSigVX0"].setText("%.6f" % sigVelSim)
-        self.sim["cdiSigVY0"].setText("%.6f" % sigVelSim)
-        self.sim["cdiSigVZ0"].setText("%.6f" % sigVelSim)
-        self.sim["cdiAX0"].setText("0.")
-        self.sim["cdiAY0"].setText("0.")
-        self.sim["cdiAZ0"].setText("0.")
-        self.sim["cdiSigAX0"].setText("%.6f" % sigAccSim)
-        self.sim["cdiSigAY0"].setText("%.6f" % sigAccSim)
-        self.sim["cdiSigAZ0"].setText("%.6f" % sigAccSim)
+        self.sim["icdX0"].setText("0.5")
+        self.sim["icdY0"].setText("0.5")
+        self.sim["icdZ0"].setText("0.")
+        self.sim["icdSigX0"].setText("%.6f" % sigPosSim)
+        self.sim["icdSigY0"].setText("%.6f" % sigPosSim)
+        self.sim["icdSigZ0"].setText("%.6f" % sigPosSim)
+        self.sim["icdVX0"].setText("2.")
+        self.sim["icdVY0"].setText("2.")
+        self.sim["icdVZ0"].setText("0.5")
+        self.sim["icdSigVX0"].setText("%.6f" % sigVelSim)
+        self.sim["icdSigVY0"].setText("%.6f" % sigVelSim)
+        self.sim["icdSigVZ0"].setText("%.6f" % sigVelSim)
+        self.sim["icdAX0"].setText("0.")
+        self.sim["icdAY0"].setText("0.")
+        self.sim["icdAZ0"].setText("0.")
+        self.sim["icdSigAX0"].setText("%.6f" % sigAccSim)
+        self.sim["icdSigAY0"].setText("%.6f" % sigAccSim)
+        self.sim["icdSigAZ0"].setText("%.6f" % sigAccSim)
         self.sim["ctlThfTkoDt"].setText("300.")
         self.sim["ctlThfLdgDt"].setText("300.")
 
@@ -2968,9 +2968,9 @@ class planeTrackingExample:
         self.slt["fpePhix"].setText("270.")
         self.slt["fpePhiy"].setText("0.")
         self.slt["fpeTiZi"].setText("3600 10000.")
-        self.slt["cdiX0"].setText("0.")
-        self.slt["cdiY0"].setText("0.")
-        self.slt["cdiZ0"].setText("0.")
+        self.slt["icdX0"].setText("0.")
+        self.slt["icdY0"].setText("0.")
+        self.slt["icdZ0"].setText("0.")
         self.slt["cdfTf"].setText("3600.")
 
         # Evaluate sigma: simulation sigma (less trusted) > GPS sigma (more trusted).
@@ -2981,24 +2981,24 @@ class planeTrackingExample:
         # Simulation: parameters.
         self.sim["prmDt"].setText("5.")
         self.sim["prmExpOrd"].setText("3")
-        self.sim["cdiX0"].setText("0.5")
-        self.sim["cdiY0"].setText("0.5")
-        self.sim["cdiZ0"].setText("0.")
-        self.sim["cdiSigX0"].setText("%.6f" % sigPosSim)
-        self.sim["cdiSigY0"].setText("%.6f" % sigPosSim)
-        self.sim["cdiSigZ0"].setText("%.6f" % sigPosSim)
-        self.sim["cdiVX0"].setText("2.")
-        self.sim["cdiVY0"].setText("35.")
-        self.sim["cdiVZ0"].setText("2.")
-        self.sim["cdiSigVX0"].setText("%.6f" % sigVelSim)
-        self.sim["cdiSigVY0"].setText("%.6f" % sigVelSim)
-        self.sim["cdiSigVZ0"].setText("%.6f" % sigVelSim)
-        self.sim["cdiAX0"].setText("0.")
-        self.sim["cdiAY0"].setText("0.")
-        self.sim["cdiAZ0"].setText("0.")
-        self.sim["cdiSigAX0"].setText("%.6f" % sigAccSim)
-        self.sim["cdiSigAY0"].setText("%.6f" % sigAccSim)
-        self.sim["cdiSigAZ0"].setText("%.6f" % sigAccSim)
+        self.sim["icdX0"].setText("0.5")
+        self.sim["icdY0"].setText("0.5")
+        self.sim["icdZ0"].setText("0.")
+        self.sim["icdSigX0"].setText("%.6f" % sigPosSim)
+        self.sim["icdSigY0"].setText("%.6f" % sigPosSim)
+        self.sim["icdSigZ0"].setText("%.6f" % sigPosSim)
+        self.sim["icdVX0"].setText("2.")
+        self.sim["icdVY0"].setText("35.")
+        self.sim["icdVZ0"].setText("2.")
+        self.sim["icdSigVX0"].setText("%.6f" % sigVelSim)
+        self.sim["icdSigVY0"].setText("%.6f" % sigVelSim)
+        self.sim["icdSigVZ0"].setText("%.6f" % sigVelSim)
+        self.sim["icdAX0"].setText("0.")
+        self.sim["icdAY0"].setText("0.")
+        self.sim["icdAZ0"].setText("0.")
+        self.sim["icdSigAX0"].setText("%.6f" % sigAccSim)
+        self.sim["icdSigAY0"].setText("%.6f" % sigAccSim)
+        self.sim["icdSigAZ0"].setText("%.6f" % sigAccSim)
         self.sim["ctlThfTkoDt"].setText("0.")
         self.sim["ctlThfLdgDt"].setText("0.")
 
@@ -3021,9 +3021,9 @@ class planeTrackingExample:
         self.slt["fpePhix"].setText("0.")
         self.slt["fpePhiy"].setText("0.")
         self.slt["fpeTiZi"].setText("100 10, 3500 10, 3600 0")
-        self.slt["cdiX0"].setText("0.")
-        self.slt["cdiY0"].setText("0.")
-        self.slt["cdiZ0"].setText("0.")
+        self.slt["icdX0"].setText("0.")
+        self.slt["icdY0"].setText("0.")
+        self.slt["icdZ0"].setText("0.")
         self.slt["cdfTf"].setText("3600.")
 
         # Evaluate sigma: simulation sigma (less trusted) > GPS sigma (more trusted).
@@ -3034,24 +3034,24 @@ class planeTrackingExample:
         # Simulation: parameters.
         self.sim["prmDt"].setText("5.")
         self.sim["prmExpOrd"].setText("3")
-        self.sim["cdiX0"].setText("0.5")
-        self.sim["cdiY0"].setText("0.5")
-        self.sim["cdiZ0"].setText("0.")
-        self.sim["cdiSigX0"].setText("%.6f" % sigPosSim)
-        self.sim["cdiSigY0"].setText("%.6f" % sigPosSim)
-        self.sim["cdiSigZ0"].setText("%.6f" % sigPosSim)
-        self.sim["cdiVX0"].setText("0.5")
-        self.sim["cdiVY0"].setText("35.")
-        self.sim["cdiVZ0"].setText("0.5")
-        self.sim["cdiSigVX0"].setText("%.6f" % sigVelSim)
-        self.sim["cdiSigVY0"].setText("%.6f" % sigVelSim)
-        self.sim["cdiSigVZ0"].setText("%.6f" % sigVelSim)
-        self.sim["cdiAX0"].setText("0.")
-        self.sim["cdiAY0"].setText("0.")
-        self.sim["cdiAZ0"].setText("0.")
-        self.sim["cdiSigAX0"].setText("%.6f" % sigAccSim)
-        self.sim["cdiSigAY0"].setText("%.6f" % sigAccSim)
-        self.sim["cdiSigAZ0"].setText("%.6f" % sigAccSim)
+        self.sim["icdX0"].setText("0.5")
+        self.sim["icdY0"].setText("0.5")
+        self.sim["icdZ0"].setText("0.")
+        self.sim["icdSigX0"].setText("%.6f" % sigPosSim)
+        self.sim["icdSigY0"].setText("%.6f" % sigPosSim)
+        self.sim["icdSigZ0"].setText("%.6f" % sigPosSim)
+        self.sim["icdVX0"].setText("0.5")
+        self.sim["icdVY0"].setText("35.")
+        self.sim["icdVZ0"].setText("0.5")
+        self.sim["icdSigVX0"].setText("%.6f" % sigVelSim)
+        self.sim["icdSigVY0"].setText("%.6f" % sigVelSim)
+        self.sim["icdSigVZ0"].setText("%.6f" % sigVelSim)
+        self.sim["icdAX0"].setText("0.")
+        self.sim["icdAY0"].setText("0.")
+        self.sim["icdAZ0"].setText("0.")
+        self.sim["icdSigAX0"].setText("%.6f" % sigAccSim)
+        self.sim["icdSigAY0"].setText("%.6f" % sigAccSim)
+        self.sim["icdSigAZ0"].setText("%.6f" % sigAccSim)
         self.sim["ctlThfTkoDt"].setText("300.")
         self.sim["ctlThfLdgDt"].setText("300.")
 
@@ -3074,9 +3074,9 @@ class planeTrackingExample:
         self.slt["fpePhix"].setText("270.")
         self.slt["fpePhiy"].setText("0.")
         self.slt["fpeTiZi"].setText("300 5010., 2500 5150, 3400 5010., 3600 5000.")
-        self.slt["cdiX0"].setText("0.")
-        self.slt["cdiY0"].setText("0.")
-        self.slt["cdiZ0"].setText("5000.")
+        self.slt["icdX0"].setText("0.")
+        self.slt["icdY0"].setText("0.")
+        self.slt["icdZ0"].setText("5000.")
         self.slt["cdfTf"].setText("3600.")
 
         # Evaluate sigma: simulation sigma (less trusted) > GPS sigma (more trusted).
@@ -3087,24 +3087,24 @@ class planeTrackingExample:
         # Simulation: parameters.
         self.sim["prmDt"].setText("5.")
         self.sim["prmExpOrd"].setText("3")
-        self.sim["cdiX0"].setText("0.5")
-        self.sim["cdiY0"].setText("0.5")
-        self.sim["cdiZ0"].setText("5000.")
-        self.sim["cdiSigX0"].setText("%.6f" % sigPosSim)
-        self.sim["cdiSigY0"].setText("%.6f" % sigPosSim)
-        self.sim["cdiSigZ0"].setText("%.6f" % sigPosSim)
-        self.sim["cdiVX0"].setText("0.")
-        self.sim["cdiVY0"].setText("0.")
-        self.sim["cdiVZ0"].setText("0.")
-        self.sim["cdiSigVX0"].setText("%.6f" % sigVelSim)
-        self.sim["cdiSigVY0"].setText("%.6f" % sigVelSim)
-        self.sim["cdiSigVZ0"].setText("%.6f" % sigVelSim)
-        self.sim["cdiAX0"].setText("0.")
-        self.sim["cdiAY0"].setText("0.")
-        self.sim["cdiAZ0"].setText("0.")
-        self.sim["cdiSigAX0"].setText("%.6f" % sigAccSim)
-        self.sim["cdiSigAY0"].setText("%.6f" % sigAccSim)
-        self.sim["cdiSigAZ0"].setText("%.6f" % sigAccSim)
+        self.sim["icdX0"].setText("0.5")
+        self.sim["icdY0"].setText("0.5")
+        self.sim["icdZ0"].setText("5000.")
+        self.sim["icdSigX0"].setText("%.6f" % sigPosSim)
+        self.sim["icdSigY0"].setText("%.6f" % sigPosSim)
+        self.sim["icdSigZ0"].setText("%.6f" % sigPosSim)
+        self.sim["icdVX0"].setText("0.")
+        self.sim["icdVY0"].setText("0.")
+        self.sim["icdVZ0"].setText("0.")
+        self.sim["icdSigVX0"].setText("%.6f" % sigVelSim)
+        self.sim["icdSigVY0"].setText("%.6f" % sigVelSim)
+        self.sim["icdSigVZ0"].setText("%.6f" % sigVelSim)
+        self.sim["icdAX0"].setText("0.")
+        self.sim["icdAY0"].setText("0.")
+        self.sim["icdAZ0"].setText("0.")
+        self.sim["icdSigAX0"].setText("%.6f" % sigAccSim)
+        self.sim["icdSigAY0"].setText("%.6f" % sigAccSim)
+        self.sim["icdSigAZ0"].setText("%.6f" % sigAccSim)
         self.sim["ctlThfTkoDt"].setText("0.")
         self.sim["ctlThfLdgDt"].setText("0.")
 
@@ -3415,15 +3415,15 @@ class planeTrackingExample:
         # Initialize states.
         prmN = self.getLTISystemSize()
         states = np.zeros((prmN, 1), dtype=float)
-        states[0] = sim["cdiX0"]
-        states[1] = sim["cdiVX0"]
-        states[2] = sim["cdiAX0"]
-        states[3] = sim["cdiY0"]
-        states[4] = sim["cdiVY0"]
-        states[5] = sim["cdiAY0"]
-        states[6] = sim["cdiZ0"]
-        states[7] = sim["cdiVZ0"]
-        states[8] = sim["cdiAZ0"]
+        states[0] = sim["icdX0"]
+        states[1] = sim["icdVX0"]
+        states[2] = sim["icdAX0"]
+        states[3] = sim["icdY0"]
+        states[4] = sim["icdVY0"]
+        states[5] = sim["icdAY0"]
+        states[6] = sim["icdZ0"]
+        states[7] = sim["icdVZ0"]
+        states[8] = sim["icdAZ0"]
 
         return states
 
@@ -3433,15 +3433,15 @@ class planeTrackingExample:
         # Initialize state covariance.
         prmN = self.getLTISystemSize()
         matP = np.zeros((prmN, prmN), dtype=float)
-        matP[0, 0] = np.power(sim["cdiSigX0"], 2)
-        matP[1, 1] = np.power(sim["cdiSigVX0"], 2)
-        matP[2, 2] = np.power(sim["cdiSigAX0"], 2)
-        matP[3, 3] = np.power(sim["cdiSigY0"], 2)
-        matP[4, 4] = np.power(sim["cdiSigVY0"], 2)
-        matP[5, 5] = np.power(sim["cdiSigAY0"], 2)
-        matP[6, 6] = np.power(sim["cdiSigZ0"], 2)
-        matP[7, 7] = np.power(sim["cdiSigVZ0"], 2)
-        matP[8, 8] = np.power(sim["cdiSigAZ0"], 2)
+        matP[0, 0] = np.power(sim["icdSigX0"], 2)
+        matP[1, 1] = np.power(sim["icdSigVX0"], 2)
+        matP[2, 2] = np.power(sim["icdSigAX0"], 2)
+        matP[3, 3] = np.power(sim["icdSigY0"], 2)
+        matP[4, 4] = np.power(sim["icdSigVY0"], 2)
+        matP[5, 5] = np.power(sim["icdSigAY0"], 2)
+        matP[6, 6] = np.power(sim["icdSigZ0"], 2)
+        matP[7, 7] = np.power(sim["icdSigVZ0"], 2)
+        matP[8, 8] = np.power(sim["icdSigAZ0"], 2)
 
         return matP
 
