@@ -46,8 +46,14 @@ class mpl2DCanvas(FigureCanvasQTAgg):
         self.nrows = nrows
         self.ncols = ncols
         self.axes = []
+        self.twinAxes = []
         for idx in range(nrows*ncols):
-            self.axes.append(self.fig.add_subplot(nrows, ncols, idx+1))
+            axis = self.fig.add_subplot(nrows, ncols, idx+1)
+            axis.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
+            self.axes.append(axis)
+            self.twinAxes.append(None)
+        self.fig.tight_layout()
+        self.fig.subplots_adjust(hspace=0.3, wspace=0.3)
 
 class mpl3DCanvas(FigureCanvasQTAgg):
     """Matplotlib 3D canvas to be embedded in Qt widget"""
@@ -137,10 +143,27 @@ class viewer2DGUI(QMainWindow):
     def getAxis(self, idx=0):
         """Get viewer axis"""
 
-        # Return viewer axis.
+        # Check axis.
         if idx < 0 or idx >= self.nrows*self.ncols:
             return None
+
         return self.mcvs.axes[idx]
+
+    def getTwinAxis(self, idx=0, visible=True):
+        """Get viewer twin axis"""
+
+        # Check axis.
+        if idx < 0 or idx >= self.nrows*self.ncols:
+            return None
+
+        # Return viewer twin axis.
+        if self.mcvs.twinAxes[idx] is None:
+            self.mcvs.twinAxes[idx] = self.mcvs.axes[idx].twinx()
+        axis = self.mcvs.twinAxes[idx]
+        axis.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
+        axis.set_visible(visible)
+
+        return axis
 
     def draw(self):
         """Force draw of the scene"""
@@ -956,6 +979,8 @@ class planeTrackingExample:
                     for idx in [0, 1, 2, 3, 4, 5, 6, 7, 8]:
                         axis = self.vwr["2D"][key].getAxis(idx)
                         axis.set_xlabel("t")
+                        axis.cla()
+                        axis = self.vwr["2D"][key].getTwinAxis(idx, visible=False)
                         axis.cla()
                     self.vwr["2D"][key].draw()
         if vwrId in ("all", "simFrc"):
@@ -2409,7 +2434,7 @@ class planeTrackingExample:
         self.plotSltMsrSimVariables(key, 8, "AZ", opts)
 
     def plotSltMsrSimVariables(self, key, axisId, var, opts):
-        """Plot variables"""
+        """Plot solution, measurement and simulation variables"""
 
         # Plot variables.
         axis = self.vwr["2D"][key].getAxis(axisId)
@@ -2417,23 +2442,41 @@ class planeTrackingExample:
             time = self.kfm.time
             axis.plot(time, self.kfm.outputs[var], label="sim: "+var, marker="o", ms=3, c="g")
         if opts["pltMsr"] or self.vwr["ckbMsr"].isChecked():
-            vwrPosMks = float(self.msr["vwrPosMks"].text())
-            if vwrPosMks > 0:
-                eqnT, posX = np.array([]), np.array([])
-                for txt in self.msr["msrDat"]:
-                    msrData = self.msr["msrDat"][txt]
-                    if var not in msrData:
-                        continue
-                    if msrData["msrType"] != opts["msrType"]:
-                        continue
-                    eqnT = np.append(eqnT, msrData["T"])
-                    posX = np.append(posX, msrData[var])
-                axis.scatter(eqnT, posX, c="r", marker="^", alpha=1, s=vwrPosMks, label="msr: "+var)
+            self.plotMsrVariables(self.vwr["2D"][key], axisId, var, opts)
         if self.vwr["ckbSlt"].isChecked():
             axis.plot(self.slt["T"], self.slt[var], label="slt: "+var, marker="o", ms=3, c="b")
         axis.set_xlabel("t")
         axis.set_ylabel(var)
         axis.legend()
+
+    def plotMsrVariables(self, vwr, axisId, var, opts):
+        """Plot measurement variables"""
+
+        # Instantiate a second axes that shares the same x-axis.
+        msrAxis = vwr.getAxis(axisId)
+        if "twinAxis" in opts:
+            clr = opts["twinAxis"].split(":")
+            msrAxis.tick_params(axis='y', labelcolor="tab:"+clr[0]) # First axis color.
+            msrAxis = vwr.getTwinAxis(axisId)
+            msrAxis.tick_params(axis='y', labelcolor="tab:"+clr[1]) # Second axis color.
+
+        # Plot variables.
+        vwrPosMks = float(self.msr["vwrPosMks"].text())
+        if vwrPosMks > 0:
+            eqnT, posX = np.array([]), np.array([])
+            for txt in self.msr["msrDat"]:
+                msrData = self.msr["msrDat"][txt]
+                if var not in msrData:
+                    continue
+                if msrData["msrType"] != opts["msrType"]:
+                    continue
+                eqnT = np.append(eqnT, msrData["T"])
+                posX = np.append(posX, msrData[var])
+            msrAxis.scatter(eqnT, posX, c="r", marker="^", alpha=1, s=vwrPosMks, label="msr: "+var)
+
+        # Add legend to the second axes.
+        if "twinAxis" in opts:
+            msrAxis.legend(loc="upper center")
 
     def onPltSCLBtnClick(self):
         """Callback on plotting simulation control law variables"""
@@ -2473,9 +2516,10 @@ class planeTrackingExample:
                 axis.set_xlabel("t")
                 axis.set_ylabel(lbl+" - "+var)
                 axis.legend()
-        self.plotSimVariables(("predictor", key), 6, ("roll", "roll"))
-        self.plotSimVariables(("predictor", key), 7, ("pitch", "pitch"))
-        self.plotSimVariables(("predictor", key), 8, ("yaw", "yaw"))
+        opts = {"key": "predictor", "subKey": key, "start": 0}
+        self.plotSimVariables(6, "roll", "roll", opts)
+        self.plotSimVariables(7, "pitch", "pitch", opts)
+        self.plotSimVariables(8, "yaw", "yaw", opts)
 
     def onPltSPNBtnClick(self):
         """Callback on plotting simulation process noise"""
@@ -2505,15 +2549,19 @@ class planeTrackingExample:
             return
 
         # Plot simulation process noise.
-        self.plotSimVariables(("predictor", "simPrN"), 0, ("X", "$W_{x}$"), start=1)
-        self.plotSimVariables(("predictor", "simPrN"), 1, ("Y", "$W_{y}$"), start=1)
-        self.plotSimVariables(("predictor", "simPrN"), 2, ("Z", "$W_{z}$"), start=1)
-        self.plotSimVariables(("predictor", "simPrN"), 3, ("VX", "$W_{vx}$"), start=1)
-        self.plotSimVariables(("predictor", "simPrN"), 4, ("VY", "$W_{vy}$"), start=1)
-        self.plotSimVariables(("predictor", "simPrN"), 5, ("VZ", "$W_{vz}$"), start=1)
-        self.plotSimVariables(("predictor", "simPrN"), 6, ("AX", "$W_{ax}$"), start=1)
-        self.plotSimVariables(("predictor", "simPrN"), 7, ("AY", "$W_{ay}$"), start=1)
-        self.plotSimVariables(("predictor", "simPrN"), 8, ("AZ", "$W_{az}$"), start=1)
+        opts = {"key": "predictor", "subKey": "simPrN", "start": 1, "twinAxis": "green:red"}
+        opts["msrType"] = "x"
+        self.plotMsrSimVariables(0, "X", "$W_{x}$", opts)
+        self.plotMsrSimVariables(1, "Y", "$W_{y}$", opts)
+        self.plotMsrSimVariables(2, "Z", "$W_{z}$", opts)
+        opts["msrType"] = "v"
+        self.plotMsrSimVariables(3, "VX", "$W_{vx}$", opts)
+        self.plotMsrSimVariables(4, "VY", "$W_{vy}$", opts)
+        self.plotMsrSimVariables(5, "VZ", "$W_{vz}$", opts)
+        opts["msrType"] = "a"
+        self.plotMsrSimVariables(6, "AX", "$W_{ax}$", opts)
+        self.plotMsrSimVariables(7, "AY", "$W_{ay}$", opts)
+        self.plotMsrSimVariables(8, "AZ", "$W_{az}$", opts)
 
     def onPltSFrBtnClick(self):
         """Callback on plotting simulation forces"""
@@ -2600,7 +2648,7 @@ class planeTrackingExample:
             markers.append("^")
             colors.append("r")
         key = "simInv"
-        for idx, var in enumerate(self.getStateKeys()):
+        for idx, var in zip([0, 3, 6, 1, 4, 7, 2, 5, 8], self.getStateKeys()):
             axis = self.vwr["2D"][key].getAxis(idx)
             for subKey, lbl, mkr, clr in zip(subKeys, labels, markers, colors):
                 axis.scatter(self.kfm.save["corrector"][key][var]["T"],
@@ -2692,15 +2740,19 @@ class planeTrackingExample:
             return
 
         # Plot simulation covariance variables.
-        self.plotSimVariables(("predictor", "simDgP"), 0, ("X", "$P_{xx}$"))
-        self.plotSimVariables(("predictor", "simDgP"), 1, ("Y", "$P_{yy}$"))
-        self.plotSimVariables(("predictor", "simDgP"), 2, ("Z", "$P_{zz}$"))
-        self.plotSimVariables(("predictor", "simDgP"), 3, ("VX", "$P_{vxvx}$"))
-        self.plotSimVariables(("predictor", "simDgP"), 4, ("VY", "$P_{vyvy}$"))
-        self.plotSimVariables(("predictor", "simDgP"), 5, ("VZ", "$P_{vzvz}$"))
-        self.plotSimVariables(("predictor", "simDgP"), 6, ("AX", "$P_{axax}$"))
-        self.plotSimVariables(("predictor", "simDgP"), 7, ("AY", "$P_{ayay}$"))
-        self.plotSimVariables(("predictor", "simDgP"), 8, ("AZ", "$P_{azaz}$"))
+        opts = {"key": "predictor", "subKey": "simDgP", "start": 0, "twinAxis": "green:red"}
+        opts["msrType"] = "x"
+        self.plotMsrSimVariables(0, "X", "$P_{xx}$", opts)
+        self.plotMsrSimVariables(1, "Y", "$P_{yy}$", opts)
+        self.plotMsrSimVariables(2, "Z", "$P_{zz}$", opts)
+        opts["msrType"] = "v"
+        self.plotMsrSimVariables(3, "VX", "$P_{vxvx}$", opts)
+        self.plotMsrSimVariables(4, "VY", "$P_{vyvy}$", opts)
+        self.plotMsrSimVariables(5, "VZ", "$P_{vzvz}$", opts)
+        opts["msrType"] = "a"
+        self.plotMsrSimVariables(6, "AX", "$P_{axax}$", opts)
+        self.plotMsrSimVariables(7, "AY", "$P_{ayay}$", opts)
+        self.plotMsrSimVariables(8, "AZ", "$P_{azaz}$", opts)
 
     def onPltSKGBtnClick(self):
         """Callback on plotting simulation Kalman gain diagonal terms"""
@@ -2730,26 +2782,38 @@ class planeTrackingExample:
             return
 
         # Plot simulation Kalman gain variables.
-        self.plotSimVariables(("corrector", "simDgK"), 0, ("X", "$K_{xx}$"))
-        self.plotSimVariables(("corrector", "simDgK"), 1, ("Y", "$K_{yy}$"))
-        self.plotSimVariables(("corrector", "simDgK"), 2, ("Z", "$K_{zz}$"))
-        self.plotSimVariables(("corrector", "simDgK"), 3, ("VX", "$K_{vxvx}$"))
-        self.plotSimVariables(("corrector", "simDgK"), 4, ("VY", "$K_{vyvy}$"))
-        self.plotSimVariables(("corrector", "simDgK"), 5, ("VZ", "$K_{vzvz}$"))
-        self.plotSimVariables(("corrector", "simDgK"), 6, ("AX", "$K_{axax}$"))
-        self.plotSimVariables(("corrector", "simDgK"), 7, ("AY", "$K_{ayay}$"))
-        self.plotSimVariables(("corrector", "simDgK"), 8, ("AZ", "$K_{azaz}$"))
+        opts = {"key": "corrector", "subKey": "simDgK", "start": 0, "twinAxis": "green:red"}
+        opts["msrType"] = "x"
+        self.plotMsrSimVariables(0, "X", "$K_{xx}$", opts)
+        self.plotMsrSimVariables(1, "Y", "$K_{yy}$", opts)
+        self.plotMsrSimVariables(2, "Z", "$K_{zz}$", opts)
+        opts["msrType"] = "v"
+        self.plotMsrSimVariables(3, "VX", "$K_{vxvx}$", opts)
+        self.plotMsrSimVariables(4, "VY", "$K_{vyvy}$", opts)
+        self.plotMsrSimVariables(5, "VZ", "$K_{vzvz}$", opts)
+        opts["msrType"] = "a"
+        self.plotMsrSimVariables(6, "AX", "$K_{axax}$", opts)
+        self.plotMsrSimVariables(7, "AY", "$K_{ayay}$", opts)
+        self.plotMsrSimVariables(8, "AZ", "$K_{azaz}$", opts)
 
-    def plotSimVariables(self, keys, axisId, varLbl, start=0):
+    def plotMsrSimVariables(self, axisId, var, lbl, opts):
+        """Plot measurement and simulation variables"""
+
+        # Plot variables.
+        subKey = opts["subKey"]
+        if self.vwr["ckbMsr"].isChecked():
+            self.plotMsrVariables(self.vwr["2D"][subKey], axisId, var, opts)
+        self.plotSimVariables(axisId, var, lbl, opts)
+
+    def plotSimVariables(self, axisId, var, lbl, opts):
         """Plot simulation variables"""
 
-        # Plot simulation variables.
-        key, subKey = keys[0], keys[1]
+        # Plot variables.
+        key, subKey, start = opts["key"], opts["subKey"], opts["start"]
         axis = self.vwr["2D"][subKey].getAxis(axisId)
         time = self.kfm.time[start:]
         if "T" in self.kfm.save[key][subKey]:
             time = self.kfm.save[key][subKey]["T"]
-        var, lbl = varLbl[0], varLbl[1]
         axis.plot(time, self.kfm.save[key][subKey][var], label=lbl, marker="o", ms=3, c="g")
         axis.set_xlabel("t")
         axis.set_ylabel(lbl)
