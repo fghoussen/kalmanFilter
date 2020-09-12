@@ -1032,7 +1032,7 @@ class planeTrackingExample:
 
         # Time.
         prmTf = float(self.slt["fcdTf"].text())
-        vwrNbPt = float(self.slt["vwrNbPt"].text())
+        vwrNbPt = int(self.slt["vwrNbPt"].text())
         eqnT = np.linspace(0., prmTf, vwrNbPt)
 
         # Compute solution.
@@ -1152,7 +1152,7 @@ class planeTrackingExample:
         prmT0 = float(txt.split(";")[1].split()[1])
         prmTf = float(txt.split(";")[2].split()[1])
         prmDt = float(txt.split(";")[3].split()[1])
-        prmNbPt = (prmTf-prmT0)/prmDt
+        prmNbPt = int((prmTf-prmT0)/prmDt)
         eqnT = np.linspace(prmT0, prmTf, prmNbPt)
         msrData["T"] = eqnT
 
@@ -1171,7 +1171,7 @@ class planeTrackingExample:
         prmT0 = float(txt.split(";")[1].split()[1])
         prmTf = float(txt.split(";")[2].split()[1])
         prmDt = float(txt.split(";")[3].split()[1])
-        prmNbPt = (prmTf-prmT0)/prmDt
+        prmNbPt = int((prmTf-prmT0)/prmDt)
         eqnT = np.linspace(prmT0, prmTf, prmNbPt)
         msrData["T"] = eqnT
 
@@ -1191,7 +1191,7 @@ class planeTrackingExample:
         prmT0 = float(txt.split(";")[1].split()[1])
         prmTf = float(txt.split(";")[2].split()[1])
         prmDt = float(txt.split(";")[3].split()[1])
-        prmNbPt = (prmTf-prmT0)/prmDt
+        prmNbPt = int((prmTf-prmT0)/prmDt)
         eqnT = np.linspace(prmT0, prmTf, prmNbPt)
         msrData["T"] = eqnT
 
@@ -1708,7 +1708,7 @@ class planeTrackingExample:
 
         # Time.
         prmTf = float(self.slt["fcdTf"].text())
-        vwrNbPt = float(self.slt["vwrNbPt"].text())
+        vwrNbPt = int(self.slt["vwrNbPt"].text())
         eqnT = np.linspace(0., prmTf, vwrNbPt)
 
         # Compute lagrange Z polynomial.
