@@ -1008,7 +1008,9 @@ class planeTrackingExample:
 
         # Compute solution if needed.
         okSlt = 1 if self.slt["sltId"] == self.getSltId() else 0
-        if not okSlt:
+        vwrNbPt = int(self.slt["vwrNbPt"].text())
+        redrawSlt = 1 if "T" in self.slt and len(self.slt["T"]) != vwrNbPt else 0
+        if not okSlt or redrawSlt:
             self.computeSlt()
 
         # Track solution features.
@@ -1965,7 +1967,9 @@ class planeTrackingExample:
         # Compute measurements if needed.
         okSlt = 1 if self.msr["sltId"] == self.getSltId() else 0
         okMsr = 1 if self.msr["msrId"] == self.getMsrId() else 0
-        if not okSlt:
+        vwrNbPt = int(self.slt["vwrNbPt"].text())
+        redrawSlt = 1 if "T" in self.slt and len(self.slt["T"]) != vwrNbPt else 0
+        if not okSlt or redrawSlt:
             self.computeSlt()
         if not okMsr:
             self.computeMsr()
