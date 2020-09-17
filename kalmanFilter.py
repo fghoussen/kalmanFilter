@@ -564,11 +564,16 @@ class kalmanFilterModel():
         self.savePredictor(time, outputs, matP)
 
         # Solve: https://www.kalmanfilter.net/multiSummary.html.
+        prmVrb, self.sim["simItNb"] = self.sim["prmVrb"], 0
         prmDt, prmTf = self.sim["prmDt"], self.sim["fcdTf"]
         while time < prmTf:
             # Cut off time.
             if time+prmDt > prmTf:
                 prmDt = prmTf-time
+
+            # Set verbose only for some multiple of iterations.
+            self.sim["simItNb"] = self.sim["simItNb"] + 1
+            self.sim["prmVrb"] = prmVrb if self.sim["simItNb"]%self.sim["prmVrbIt"] == 0 else 0
 
             # Solve (= corrector + predictor) with Kalman filter.
             newTime, timeDt, states, matP = self.corrector(time, prmDt, matP, states)
@@ -602,7 +607,7 @@ class kalmanFilterModel():
         newTime = msrData[0] # Cut off time to measurement time.
         msrLst = msrData[1]
         if self.sim["prmVrb"] >= 1:
-            print("  "*2+"Corrector: time %.3f" % newTime)
+            print("  "*2+"Corrector: time %.3f, iteration %d" % (newTime, self.sim["simItNb"]))
 
         # Get measurement z_{n}.
         vecZ, matH, msrFlags = self.getMsr(msrLst)
@@ -728,7 +733,7 @@ class kalmanFilterModel():
 
         # Predict states.
         if self.sim["prmVrb"] >= 1:
-            print("  "*2+"Predictor: time %.3f" % newTime)
+            print("  "*2+"Predictor: time %.3f, iteration %d" % (newTime, self.sim["simItNb"]))
         newStates, matF, matQ = self.predictStates(timeDt, newTime, states)
 
         # Outputs equation: y_{n+1,n+1} = C*x_{n+1,n+1} + D*u_{n+1,n+1}.
@@ -2096,6 +2101,7 @@ class planeTrackingExample:
         self.sim["prmExpOrd"] = QLineEdit("N.A.", self.ctrGUI)
         self.sim["prmProNseSig"] = QLineEdit("N.A.", self.ctrGUI)
         self.sim["prmVrb"] = QLineEdit("1", self.ctrGUI)
+        self.sim["prmVrbIt"] = QLineEdit("100", self.ctrGUI)
         self.sim["icdX0"] = QLineEdit("N.A.", self.ctrGUI)
         self.sim["icdY0"] = QLineEdit("N.A.", self.ctrGUI)
         self.sim["icdZ0"] = QLineEdit("N.A.", self.ctrGUI)
@@ -2180,6 +2186,8 @@ class planeTrackingExample:
         gdlPrm.addWidget(QLabel("Solver:", simGUI), 3, 0)
         gdlPrm.addWidget(QLabel("verbose level", simGUI), 3, 1)
         gdlPrm.addWidget(self.sim["prmVrb"], 3, 2)
+        gdlPrm.addWidget(QLabel("verbose every n iteration(s)", simGUI), 3, 3)
+        gdlPrm.addWidget(self.sim["prmVrbIt"], 3, 4)
 
         # Set group box layout.
         gpbPrm = QGroupBox(simGUI)
