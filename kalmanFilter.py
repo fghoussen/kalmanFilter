@@ -2848,11 +2848,13 @@ class planeTrackingExample:
         qrbSL = QRadioButton("Straight line", self.ctrGUI)
         qrbUD = QRadioButton("Up-down", self.ctrGUI)
         qrbZZ = QRadioButton("Zig-zag", self.ctrGUI)
+        qrbCc = QRadioButton("Circle", self.ctrGUI)
         qrbRT = QRadioButton("Round trip", self.ctrGUI)
         qrbLP = QRadioButton("Looping", self.ctrGUI)
         qrbSL.toggled.connect(self.onExampleClicked)
         qrbUD.toggled.connect(self.onExampleClicked)
         qrbZZ.toggled.connect(self.onExampleClicked)
+        qrbCc.toggled.connect(self.onExampleClicked)
         qrbRT.toggled.connect(self.onExampleClicked)
         qrbLP.toggled.connect(self.onExampleClicked)
         qrbSL.setChecked(True)
@@ -2862,6 +2864,7 @@ class planeTrackingExample:
         expLay.addWidget(qrbSL)
         expLay.addWidget(qrbUD)
         expLay.addWidget(qrbZZ)
+        expLay.addWidget(qrbCc)
         expLay.addWidget(qrbRT)
         expLay.addWidget(qrbLP)
         expGUI.setLayout(expLay)
@@ -2894,6 +2897,8 @@ class planeTrackingExample:
                 self.onUpDownExampleClicked(sigPosGPS, sigVelGPS, sigAccSensor)
             if qrb.text() == "Zig-zag":
                 self.onZigZagExampleClicked(sigPosGPS, sigVelGPS, sigAccSensor)
+            if qrb.text() == "Circle":
+                self.onCircleExampleClicked(sigPosGPS, sigVelGPS, sigAccSensor)
             if qrb.text() == "Round trip":
                 self.onRoundTripExampleClicked(sigPosGPS, sigVelGPS, sigAccSensor)
             if qrb.text() == "Looping":
@@ -3075,6 +3080,59 @@ class planeTrackingExample:
         self.sim["icdSigVY0"].setText("%.6f" % sigVelSim)
         self.sim["icdSigVZ0"].setText("%.6f" % sigVelSim)
         self.sim["icdAX0"].setText("0.")
+        self.sim["icdAY0"].setText("0.")
+        self.sim["icdAZ0"].setText("0.")
+        self.sim["icdSigAX0"].setText("%.6f" % sigAccSim)
+        self.sim["icdSigAY0"].setText("%.6f" % sigAccSim)
+        self.sim["icdSigAZ0"].setText("%.6f" % sigAccSim)
+        self.sim["ctlThfTkoDt"].setText("0.")
+        self.sim["ctlThfLdgDt"].setText("0.")
+
+        # Viewer options.
+        keys = [("vwrVelLgh", "0"), ("vwrVelALR", "0.3"),
+                ("vwrAccLgh", "0"), ("vwrAccALR", "0.3")]
+        for key in keys:
+            self.slt[key[0]].setText(key[1])
+            self.msr[key[0]].setText(key[1])
+            self.sim[key[0]].setText(key[1])
+
+    def onCircleExampleClicked(self, sigPosGPS, sigVelGPS, sigAccSensor):
+        """Callback on click: circle example radio button"""
+
+        # Flight path equation: parameters.
+        self.slt["fpeAx"].setText("10000.")
+        self.slt["fpeAy"].setText("10000.")
+        self.slt["fpeTx"].setText("3600.")
+        self.slt["fpeTy"].setText("3600.")
+        self.slt["fpePhix"].setText("0.")
+        self.slt["fpePhiy"].setText("0.")
+        self.slt["fpeTiZi"].setText("3600 10000.")
+        self.slt["icdX0"].setText("0.")
+        self.slt["icdY0"].setText("0.")
+        self.slt["icdZ0"].setText("10000.")
+        self.slt["fcdTf"].setText("3600.")
+
+        # Evaluate sigma: simulation sigma (less trusted) > GPS sigma (more trusted).
+        sigPosSim = 2.*sigPosGPS
+        sigVelSim = 2.*sigVelGPS
+        sigAccSim = 2.*sigAccSensor
+
+        # Simulation: parameters.
+        self.sim["prmDt"].setText("5.")
+        self.sim["prmExpOrd"].setText("3")
+        self.sim["icdX0"].setText("0.5")
+        self.sim["icdY0"].setText("0.5")
+        self.sim["icdZ0"].setText("10000.")
+        self.sim["icdSigX0"].setText("%.6f" % sigPosSim)
+        self.sim["icdSigY0"].setText("%.6f" % sigPosSim)
+        self.sim["icdSigZ0"].setText("%.6f" % sigPosSim)
+        self.sim["icdVX0"].setText("0.")
+        self.sim["icdVY0"].setText("1.")
+        self.sim["icdVZ0"].setText("0.")
+        self.sim["icdSigVX0"].setText("%.6f" % sigVelSim)
+        self.sim["icdSigVY0"].setText("%.6f" % sigVelSim)
+        self.sim["icdSigVZ0"].setText("%.6f" % sigVelSim)
+        self.sim["icdAX0"].setText("-1.")
         self.sim["icdAY0"].setText("0.")
         self.sim["icdAZ0"].setText("0.")
         self.sim["icdSigAX0"].setText("%.6f" % sigAccSim)
