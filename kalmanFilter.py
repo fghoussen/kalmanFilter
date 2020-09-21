@@ -582,6 +582,11 @@ class kalmanFilterModel():
             # Increase time.
             time = time+timeDt
 
+        # Verbose.
+        self.sim["prmVrb"] = prmVrb
+        if self.sim["prmVrb"] >= 1:
+            print("  "*2+"End: time %.3f, iteration %d" % (time, self.sim["simItNb"]))
+
     def corrector(self, time, prmDt, matP, states):
         """Solve corrector step"""
 
