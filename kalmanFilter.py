@@ -2845,23 +2845,23 @@ class planeTrackingExample:
         expGUI.setAlignment(Qt.AlignHCenter)
 
         # Set radio button.
-        qrbSL = QRadioButton("Straight line", self.ctrGUI)
+        qrb3L = QRadioButton("XYZ line", self.ctrGUI)
         qrbUD = QRadioButton("Up-down", self.ctrGUI)
         qrbZZ = QRadioButton("Zig-zag", self.ctrGUI)
         qrbCc = QRadioButton("Circle", self.ctrGUI)
         qrbRT = QRadioButton("Round trip", self.ctrGUI)
         qrbLP = QRadioButton("Looping", self.ctrGUI)
-        qrbSL.toggled.connect(self.onExampleClicked)
+        qrb3L.toggled.connect(self.onExampleClicked)
         qrbUD.toggled.connect(self.onExampleClicked)
         qrbZZ.toggled.connect(self.onExampleClicked)
         qrbCc.toggled.connect(self.onExampleClicked)
         qrbRT.toggled.connect(self.onExampleClicked)
         qrbLP.toggled.connect(self.onExampleClicked)
-        qrbSL.setChecked(True)
+        qrb3L.setChecked(True)
 
         # Set group box layout.
         expLay = QHBoxLayout()
-        expLay.addWidget(qrbSL)
+        expLay.addWidget(qrb3L)
         expLay.addWidget(qrbUD)
         expLay.addWidget(qrbZZ)
         expLay.addWidget(qrbCc)
@@ -2891,8 +2891,8 @@ class planeTrackingExample:
             self.sim["ctlThfTkoK"].setText("60")
             self.sim["ctlThfFlgK"].setText("55")
             self.sim["ctlThfLdgK"].setText("40")
-            if qrb.text() == "Straight line":
-                self.onStraightLineExampleClicked(sigPosGPS, sigVelGPS, sigAccSensor)
+            if qrb.text() == "XYZ line":
+                self.onXYZLineExampleClicked(sigPosGPS, sigVelGPS, sigAccSensor)
             if qrb.text() == "Up-down":
                 self.onUpDownExampleClicked(sigPosGPS, sigVelGPS, sigAccSensor)
             if qrb.text() == "Zig-zag":
@@ -2937,8 +2937,8 @@ class planeTrackingExample:
         sigProNse = (sigPosGPS+sigVelGPS+sigAccSensor)/3.
         self.sim["prmProNseSig"].setText("%.6f" % sigProNse)
 
-    def onStraightLineExampleClicked(self, sigPosGPS, sigVelGPS, sigAccSensor):
-        """Callback on click: straight line example radio button"""
+    def onXYZLineExampleClicked(self, sigPosGPS, sigVelGPS, sigAccSensor):
+        """Callback on click: XYZ line example radio button"""
 
         # Flight path equation: parameters.
         self.slt["fpeAx"].setText("10000.")
@@ -2947,11 +2947,11 @@ class planeTrackingExample:
         self.slt["fpeTy"].setText("360000.")
         self.slt["fpePhix"].setText("270.")
         self.slt["fpePhiy"].setText("0.")
-        self.slt["fpeTiZi"].setText("3600 10000.")
+        self.slt["fpeTiZi"].setText("360. 10000.")
         self.slt["icdX0"].setText("0.")
         self.slt["icdY0"].setText("0.")
         self.slt["icdZ0"].setText("0.")
-        self.slt["fcdTf"].setText("3600.")
+        self.slt["fcdTf"].setText("360.")
 
         # Evaluate sigma: simulation sigma (less trusted) > GPS sigma (more trusted).
         sigPosSim = 2.*sigPosGPS
