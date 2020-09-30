@@ -2846,12 +2846,14 @@ class planeTrackingExample:
 
         # Set radio button.
         qrb3L = QRadioButton("XYZ line", self.ctrGUI)
+        qrb2L = QRadioButton("XY line", self.ctrGUI)
         qrbUD = QRadioButton("Up-down", self.ctrGUI)
         qrbZZ = QRadioButton("Zig-zag", self.ctrGUI)
         qrbCc = QRadioButton("Circle", self.ctrGUI)
         qrbRT = QRadioButton("Round trip", self.ctrGUI)
         qrbLP = QRadioButton("Looping", self.ctrGUI)
         qrb3L.toggled.connect(self.onExampleClicked)
+        qrb2L.toggled.connect(self.onExampleClicked)
         qrbUD.toggled.connect(self.onExampleClicked)
         qrbZZ.toggled.connect(self.onExampleClicked)
         qrbCc.toggled.connect(self.onExampleClicked)
@@ -2862,6 +2864,7 @@ class planeTrackingExample:
         # Set group box layout.
         expLay = QHBoxLayout()
         expLay.addWidget(qrb3L)
+        expLay.addWidget(qrb2L)
         expLay.addWidget(qrbUD)
         expLay.addWidget(qrbZZ)
         expLay.addWidget(qrbCc)
@@ -2893,6 +2896,8 @@ class planeTrackingExample:
             self.sim["ctlThfLdgK"].setText("40")
             if qrb.text() == "XYZ line":
                 self.onXYZLineExampleClicked(sigPosGPS, sigVelGPS, sigAccSensor)
+            if qrb.text() == "XY line":
+                self.onXYLineExampleClicked(sigPosGPS, sigVelGPS, sigAccSensor)
             if qrb.text() == "Up-down":
                 self.onUpDownExampleClicked(sigPosGPS, sigVelGPS, sigAccSensor)
             if qrb.text() == "Zig-zag":
@@ -2989,6 +2994,28 @@ class planeTrackingExample:
             self.slt[key[0]].setText(key[1])
             self.msr[key[0]].setText(key[1])
             self.sim[key[0]].setText(key[1])
+
+    def onXYLineExampleClicked(self, sigPosGPS, sigVelGPS, sigAccSensor):
+        """Callback on click: XY line example radio button"""
+
+        # Set XYZ line.
+        self.onXYZLineExampleClicked(sigPosGPS, sigVelGPS, sigAccSensor)
+
+        # Evaluate sigma: simulation sigma (less trusted) > GPS sigma (more trusted).
+        sigPosSim = 2.*sigPosGPS
+        sigVelSim = 2.*sigVelGPS
+        sigAccSim = 2.*sigAccSensor
+
+        # Kill Z axis.
+        self.slt["fpeTiZi"].setText("360. 0.")
+        self.slt["icdZ0"].setText("0.")
+        self.sim["icdZ0"].setText("0.")
+        self.sim["icdSigZ0"].setText("%.6f" % sigPosSim)
+        self.sim["icdVZ0"].setText("0.")
+        self.sim["icdSigVZ0"].setText("%.6f" % sigVelSim)
+        self.sim["icdAZ0"].setText("0.")
+        self.sim["icdSigAZ0"].setText("%.6f" % sigAccSim)
+
 
     def onUpDownExampleClicked(self, sigPosGPS, sigVelGPS, sigAccSensor):
         """Callback on click: up-down example radio button"""
