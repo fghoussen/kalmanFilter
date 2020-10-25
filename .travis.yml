@@ -1,0 +1,15 @@
+language: python
+
+dist: focal
+
+python:
+  - "3.8"
+
+install:
+  - pip install numpy scipy
+  - pip install matplotlib
+  - pip install PyQt5
+  - pip install pylint
+
+script:
+  - ./dev.sh
