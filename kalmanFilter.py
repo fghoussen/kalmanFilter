@@ -2912,6 +2912,16 @@ class planeTrackingExample:
             self.sim["ctlPtcMax"].setText("30.")
             self.sim["ctlYawMax"].setText("45.")
 
+        # Set sigma of process noise as the average of the sigma's of all measurements.
+        sigProNse = (sigPosGPS+sigVelGPS+sigAccSensor)/3.
+        self.sim["prmProNseSig"].setText("%.6f" % sigProNse)
+
+        # Set example measurements.
+        self.onExampleClickedResetMsr(sigPosGPS, sigVelGPS, sigAccSensor)
+
+    def onExampleClickedResetMsr(self, sigPosGPS, sigVelGPS, sigAccSensor):
+        """Callback on click: measurement example radio button"""
+
         # Reset all previous measurements.
         for idx in range(self.msr["msrLst"].count()):
             self.msr["msrLst"].item(idx).setText("")
@@ -2937,10 +2947,6 @@ class planeTrackingExample:
         self.msr["addDt"].setText("0.1") # IMU sensors provide more data than GPS.
         self.msr["addSigma"].setText("%.6f" % sigAccSensor)
         self.onAddMsrBtnClick() # Adding "a" measurement.
-
-        # Set sigma of process noise as the average of the sigma's of all measurements.
-        sigProNse = (sigPosGPS+sigVelGPS+sigAccSensor)/3.
-        self.sim["prmProNseSig"].setText("%.6f" % sigProNse)
 
     def onXYZLineExampleClicked(self, sigPosGPS, sigVelGPS, sigAccSensor):
         """Callback on click: XYZ line example radio button"""
