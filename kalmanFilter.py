@@ -32,7 +32,7 @@ class mpl2DCanvas(FigureCanvasQTAgg):
 
         # Initialize.
         fig = plt.figure()
-        super(mpl2DCanvas, self).__init__(fig)
+        super().__init__(fig)
         self.setParent(parent)
         self.fig = fig
         self.nrows = 0
@@ -63,7 +63,7 @@ class mpl3DCanvas(FigureCanvasQTAgg):
 
         # Initialize.
         fig = plt.figure()
-        super(mpl3DCanvas, self).__init__(fig)
+        super().__init__(fig)
         self.setParent(parent)
         self.axes = fig.add_subplot(111, projection=Axes3D.name)
 
@@ -74,7 +74,7 @@ class viewer2DGUI(QMainWindow):
         """Initialize"""
 
         # Initialize.
-        super(viewer2DGUI, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.mcvs = mpl2DCanvas(self)
         self.closed = False
         self.nrows = 0
@@ -185,7 +185,7 @@ class viewer3DGUI(QMainWindow):
         """Initialize"""
 
         # Initialize.
-        super(viewer3DGUI, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.mcvs = mpl3DCanvas(self)
         self.closed = False
         self.rangeMin = QLineEdit("N.A.", self)
