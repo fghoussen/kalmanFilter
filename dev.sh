@@ -12,7 +12,7 @@ pylint --module-naming-style=camelCase          \
        --inlinevar-naming-style=camelCase       \
        --extension-pkg-whitelist=PyQt5          \
        --disable=E1136,R0904,C0302              \
-       kalmanFilter.py                          \
+       *.py                                     \
        |                                        \
        awk 'BEGIN{rate = 0;}
             {print $0; if ($2 == "code" && $5 == "rated") {split($7, tokens, "/"); rate=tokens[1];}}
