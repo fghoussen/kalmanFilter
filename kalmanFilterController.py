@@ -2,7 +2,7 @@
 
 """Kalman filter MVC (Model-View-Controller)"""
 
-from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget
+from PyQt5.QtWidgets import QMainWindow, QWidget
 from PyQt5.QtWidgets import QLabel, QComboBox, QPushButton, QHBoxLayout, QVBoxLayout
 from PyQt5.QtWidgets import QGroupBox, QGridLayout
 from PyQt5.QtWidgets import QScrollArea

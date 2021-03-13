@@ -3,7 +3,7 @@
 """Kalman filter MVC (Model-View-Controller)"""
 
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget
+from PyQt5.QtWidgets import QApplication
 
 from kalmanFilterController import kalmanFilterController
 
