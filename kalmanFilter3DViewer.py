@@ -30,7 +30,7 @@ class mpl3DCanvas(FigureCanvasQTAgg):
         self.setParent(parent)
         self.axes = fig.add_subplot(111, projection=Axes3D.name)
 
-class viewer3DGUI(QMainWindow):
+class kalmanFilter3DViewer(QMainWindow):
     """3D viewer"""
 
     def __init__(self, *args, **kwargs):

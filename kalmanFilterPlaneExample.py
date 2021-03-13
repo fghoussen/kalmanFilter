@@ -14,8 +14,8 @@ from PyQt5.QtWidgets import QListWidget, QCheckBox, QRadioButton
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QDoubleValidator
 
-from viewer2DGUI import viewer2DGUI
-from viewer3DGUI import viewer3DGUI
+from kalmanFilter2DViewer import kalmanFilter2DViewer
+from kalmanFilter3DViewer import kalmanFilter3DViewer
 from kalmanFilterModel import kalmanFilterModel
 
 class kalmanFilterPlaneExample:
@@ -54,7 +54,7 @@ class kalmanFilterPlaneExample:
 
         # Create viewer.
         if not self.vwr["3D"] or self.vwr["3D"].closed:
-            self.vwr["3D"] = viewer3DGUI(self.ctrGUI)
+            self.vwr["3D"] = kalmanFilter3DViewer(self.ctrGUI)
             self.vwr["3D"].setUp(self.slt["fcdTf"].text())
         self.vwr["3D"].setWindowTitle("Kalman filter viewer")
         self.vwr["3D"].show()
@@ -823,7 +823,7 @@ class kalmanFilterPlaneExample:
         # Create or retrieve viewer.
         print("Plot Lagrange T-Z polynomial")
         if not self.vwr["2D"]["fpeTZP"] or self.vwr["2D"]["fpeTZP"].closed:
-            self.vwr["2D"]["fpeTZP"] = viewer2DGUI(self.ctrGUI)
+            self.vwr["2D"]["fpeTZP"] = kalmanFilter2DViewer(self.ctrGUI)
             self.vwr["2D"]["fpeTZP"].setUp(self.slt["fcdTf"].text())
             self.vwr["2D"]["fpeTZP"].setWindowTitle("Flight path equation: Lagrange T-Z polynomial")
             self.vwr["2D"]["fpeTZP"].show()
@@ -1070,7 +1070,7 @@ class kalmanFilterPlaneExample:
         # Create or retrieve viewer.
         print("Plot measurement data")
         if not self.vwr["2D"]["msrDat"] or self.vwr["2D"]["msrDat"].closed:
-            self.vwr["2D"]["msrDat"] = viewer2DGUI(self.ctrGUI)
+            self.vwr["2D"]["msrDat"] = kalmanFilter2DViewer(self.ctrGUI)
             self.vwr["2D"]["msrDat"].setUp(self.slt["fcdTf"].text(), nrows=3, ncols=3)
             self.vwr["2D"]["msrDat"].setWindowTitle("Measurements: data")
             self.vwr["2D"]["msrDat"].show()
@@ -1510,7 +1510,7 @@ class kalmanFilterPlaneExample:
         # Create or retrieve viewer.
         print("Plot simulation output variables")
         if not self.vwr["2D"]["simOVr"] or self.vwr["2D"]["simOVr"].closed:
-            self.vwr["2D"]["simOVr"] = viewer2DGUI(self.ctrGUI)
+            self.vwr["2D"]["simOVr"] = kalmanFilter2DViewer(self.ctrGUI)
             self.vwr["2D"]["simOVr"].setUp(self.slt["fcdTf"].text(), nrows=3, ncols=3)
             self.vwr["2D"]["simOVr"].setWindowTitle("Simulation: outputs")
             self.vwr["2D"]["simOVr"].show()
@@ -1614,7 +1614,7 @@ class kalmanFilterPlaneExample:
         # Create or retrieve viewer.
         print("Plot simulation control law variables")
         if not self.vwr["2D"]["simCLV"] or self.vwr["2D"]["simCLV"].closed:
-            self.vwr["2D"]["simCLV"] = viewer2DGUI(self.ctrGUI)
+            self.vwr["2D"]["simCLV"] = kalmanFilter2DViewer(self.ctrGUI)
             self.vwr["2D"]["simCLV"].setUp(self.slt["fcdTf"].text(), nrows=3, ncols=3)
             self.vwr["2D"]["simCLV"].setWindowTitle("Simulation: control law")
             self.vwr["2D"]["simCLV"].show()
@@ -1657,7 +1657,7 @@ class kalmanFilterPlaneExample:
         # Create or retrieve viewer.
         print("Plot simulation process noise")
         if not self.vwr["2D"]["simPrN"] or self.vwr["2D"]["simPrN"].closed:
-            self.vwr["2D"]["simPrN"] = viewer2DGUI(self.ctrGUI)
+            self.vwr["2D"]["simPrN"] = kalmanFilter2DViewer(self.ctrGUI)
             self.vwr["2D"]["simPrN"].setUp(self.slt["fcdTf"].text(), nrows=3, ncols=3)
             self.vwr["2D"]["simPrN"].setWindowTitle("Simulation: process noise")
             self.vwr["2D"]["simPrN"].show()
@@ -1699,7 +1699,7 @@ class kalmanFilterPlaneExample:
         # Create or retrieve viewer.
         print("Plot simulation forces")
         if not self.vwr["2D"]["simFrc"] or self.vwr["2D"]["simFrc"].closed:
-            self.vwr["2D"]["simFrc"] = viewer2DGUI(self.ctrGUI)
+            self.vwr["2D"]["simFrc"] = kalmanFilter2DViewer(self.ctrGUI)
             self.vwr["2D"]["simFrc"].setUp(self.slt["fcdTf"].text(), nrows=1, ncols=3)
             self.vwr["2D"]["simFrc"].setWindowTitle("Simulation: forces")
             self.vwr["2D"]["simFrc"].show()
@@ -1746,7 +1746,7 @@ class kalmanFilterPlaneExample:
         # Create or retrieve viewer.
         print("Plot simulation innovation")
         if not self.vwr["2D"]["simInv"] or self.vwr["2D"]["simInv"].closed:
-            self.vwr["2D"]["simInv"] = viewer2DGUI(self.ctrGUI)
+            self.vwr["2D"]["simInv"] = kalmanFilter2DViewer(self.ctrGUI)
             self.vwr["2D"]["simInv"].setUp(self.slt["fcdTf"].text(), nrows=3, ncols=3)
             self.vwr["2D"]["simInv"].setWindowTitle("Simulation: innovation")
             self.vwr["2D"]["simInv"].show()
@@ -1794,7 +1794,7 @@ class kalmanFilterPlaneExample:
         # Create or retrieve viewer.
         print("Plot simulation time scheme variables")
         if not self.vwr["2D"]["simTSV"] or self.vwr["2D"]["simTSV"].closed:
-            self.vwr["2D"]["simTSV"] = viewer2DGUI(self.ctrGUI)
+            self.vwr["2D"]["simTSV"] = kalmanFilter2DViewer(self.ctrGUI)
             self.vwr["2D"]["simTSV"].setUp(self.slt["fcdTf"].text(), nrows=1, ncols=2)
             self.vwr["2D"]["simTSV"].setWindowTitle("Simulation: time scheme")
             self.vwr["2D"]["simTSV"].show()
@@ -1848,7 +1848,7 @@ class kalmanFilterPlaneExample:
         # Create or retrieve viewer.
         print("Plot simulation covariance diagonal terms")
         if not self.vwr["2D"]["simDgP"] or self.vwr["2D"]["simDgP"].closed:
-            self.vwr["2D"]["simDgP"] = viewer2DGUI(self.ctrGUI)
+            self.vwr["2D"]["simDgP"] = kalmanFilter2DViewer(self.ctrGUI)
             self.vwr["2D"]["simDgP"].setUp(self.slt["fcdTf"].text(), nrows=3, ncols=3)
             self.vwr["2D"]["simDgP"].setWindowTitle("Simulation: covariance")
             self.vwr["2D"]["simDgP"].show()
@@ -1890,7 +1890,7 @@ class kalmanFilterPlaneExample:
         # Create or retrieve viewer.
         print("Plot simulation Kalman gain diagonal terms")
         if not self.vwr["2D"]["simDgK"] or self.vwr["2D"]["simDgK"].closed:
-            self.vwr["2D"]["simDgK"] = viewer2DGUI(self.ctrGUI)
+            self.vwr["2D"]["simDgK"] = kalmanFilter2DViewer(self.ctrGUI)
             self.vwr["2D"]["simDgK"].setUp(self.slt["fcdTf"].text(), nrows=3, ncols=3)
             self.vwr["2D"]["simDgK"].setWindowTitle("Simulation: Kalman gain")
             self.vwr["2D"]["simDgK"].show()

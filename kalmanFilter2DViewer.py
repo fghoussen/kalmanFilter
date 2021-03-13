@@ -46,7 +46,7 @@ class mpl2DCanvas(FigureCanvasQTAgg):
         self.fig.tight_layout()
         self.fig.subplots_adjust(hspace=0.3, wspace=0.3)
 
-class viewer2DGUI(QMainWindow):
+class kalmanFilter2DViewer(QMainWindow):
     """2D viewer"""
 
     def __init__(self, *args, **kwargs):
