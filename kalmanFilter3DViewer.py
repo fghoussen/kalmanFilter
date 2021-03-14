@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from PyQt5.QtWidgets import QLineEdit
-from PyQt5.QtWidgets import QMessageBox
 from PyQt5.QtWidgets import QCheckBox
 from PyQt5.QtGui import QDoubleValidator
 
@@ -37,7 +36,6 @@ class kalmanFilter3DViewer(kalmanFilterViewer):
         # Initialize.
         super().__init__(*args, **kwargs)
         self.mcvs = mpl3DCanvas(self)
-        self.closed = False
         self.rangeMin = QLineEdit("N.A.", self)
         self.rangeMax = QLineEdit("N.A.", self)
         self.rangeMin.setValidator(QDoubleValidator())
@@ -50,38 +48,6 @@ class kalmanFilter3DViewer(kalmanFilterViewer):
         self.buildGUI(self.mcvs, \
                       self.rangeMin, self.rangeMax, \
                       self.onPltTRGBtnClick)
-
-    def onPltTRGBtnClick(self):
-        """Callback on changing plot time range"""
-
-        # Check validity.
-        rangeMin = float(self.rangeMin.text())
-        rangeMax = float(self.rangeMax.text())
-        if rangeMin >= rangeMax:
-            msg = QMessageBox(self)
-            msg.setIcon(QMessageBox.Critical)
-            msg.setText("Error - plot: min >= max")
-            msg.exec_()
-            return
-
-        # Plot, scatter, quiver.
-        axis = self.getAxis()
-        axis.cla()
-        for lbl in self.plot3D:
-            self.viewPlot3D(lbl, self.plot3D[lbl])
-        for lbl in self.scatter3D:
-            self.viewScatter3D(lbl, self.scatter3D[lbl])
-        for lbl in self.quiver3D:
-            self.viewQuiver3D(lbl, self.quiver3D[lbl])
-
-        # 3D viewer: order and show legend.
-        handles, labels = axis.get_legend_handles_labels()
-        if len(handles) > 0 and len(labels) > 0:
-            labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: t[0]))
-            axis.legend(handles, labels)
-
-        # Draw scene.
-        self.mcvs.draw()
 
     def setUp(self, rangeMax, rangeMin="0."):
         """Set up"""
@@ -119,13 +85,6 @@ class kalmanFilter3DViewer(kalmanFilterViewer):
 
         # Set range and draw scene.
         self.onPltTRGBtnClick()
-
-    def closeEvent(self, event):
-        """Callback on closing window"""
-
-        # Mark window as closed.
-        self.closed = True
-        event.accept()
 
     def addPlot(self, lbl, data, clr):
         """Add plot to data to view"""
@@ -209,3 +168,32 @@ class kalmanFilter3DViewer(kalmanFilterViewer):
         eqnU, eqnV, eqnW = self.setRange(data["T"], eqnU, eqnV, eqnW)
         axis.quiver3D(eqnX, eqnY, eqnZ, eqnU, eqnV, eqnW, color=clr,
                       length=vwrLgh, normalize=vwrNrm, arrow_length_ratio=vwrALR, label=lbl)
+
+    def onPltTRGBtnClick(self):
+        """Callback on changing plot time range"""
+
+        # Check validity.
+        rangeMin = float(self.rangeMin.text())
+        rangeMax = float(self.rangeMax.text())
+        if rangeMin >= rangeMax:
+            self.throwErrorMsg("plot: min >= max")
+            return
+
+        # Plot, scatter, quiver.
+        axis = self.getAxis()
+        axis.cla()
+        for lbl in self.plot3D:
+            self.viewPlot3D(lbl, self.plot3D[lbl])
+        for lbl in self.scatter3D:
+            self.viewScatter3D(lbl, self.scatter3D[lbl])
+        for lbl in self.quiver3D:
+            self.viewQuiver3D(lbl, self.quiver3D[lbl])
+
+        # 3D viewer: order and show legend.
+        handles, labels = axis.get_legend_handles_labels()
+        if len(handles) > 0 and len(labels) > 0:
+            labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: t[0]))
+            axis.legend(handles, labels)
+
+        # Draw scene.
+        self.mcvs.draw()

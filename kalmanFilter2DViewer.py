@@ -6,7 +6,6 @@ import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from PyQt5.QtWidgets import QLineEdit
-from PyQt5.QtWidgets import QMessageBox
 from PyQt5.QtGui import QDoubleValidator
 
 from kalmanFilterViewer import kalmanFilterViewer
@@ -53,7 +52,6 @@ class kalmanFilter2DViewer(kalmanFilterViewer):
         # Initialize.
         super().__init__(*args, **kwargs)
         self.mcvs = mpl2DCanvas(self)
-        self.closed = False
         self.nrows = 0
         self.ncols = 0
         self.rangeMin = QLineEdit("N.A.", self)
@@ -65,28 +63,6 @@ class kalmanFilter2DViewer(kalmanFilterViewer):
         self.buildGUI(self.mcvs, \
                       self.rangeMin, self.rangeMax, \
                       self.onPltTRGBtnClick)
-
-    def onPltTRGBtnClick(self):
-        """Callback on changing plot time range"""
-
-        # Check validity.
-        rangeMin = float(self.rangeMin.text())
-        rangeMax = float(self.rangeMax.text())
-        if rangeMin >= rangeMax:
-            msg = QMessageBox(self)
-            msg.setIcon(QMessageBox.Critical)
-            msg.setText("Error - plot: min >= max")
-            msg.exec_()
-            return
-
-        # Set range for all axis.
-        for row in range(self.nrows):
-            for col in range(self.ncols):
-                axis = self.getAxis(col+row*self.ncols)
-                axis.set_xlim(rangeMin, rangeMax)
-
-        # Draw scene.
-        self.mcvs.draw()
 
     def setUp(self, rangeMax, rangeMin="0.", nrows=1, ncols=1):
         """Set up"""
@@ -129,9 +105,21 @@ class kalmanFilter2DViewer(kalmanFilterViewer):
         # Set range and draw scene.
         self.onPltTRGBtnClick()
 
-    def closeEvent(self, event):
-        """Callback on closing window"""
+    def onPltTRGBtnClick(self):
+        """Callback on changing plot time range"""
 
-        # Mark window as closed.
-        self.closed = True
-        event.accept()
+        # Check validity.
+        rangeMin = float(self.rangeMin.text())
+        rangeMax = float(self.rangeMax.text())
+        if rangeMin >= rangeMax:
+            self.throwErrorMsg("plot: min >= max")
+            return
+
+        # Set range for all axis.
+        for row in range(self.nrows):
+            for col in range(self.ncols):
+                axis = self.getAxis(col+row*self.ncols)
+                axis.set_xlim(rangeMin, rangeMax)
+
+        # Draw scene.
+        self.mcvs.draw()

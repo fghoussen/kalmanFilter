@@ -8,9 +8,17 @@ from PyQt5.QtWidgets import QMainWindow
 from PyQt5.QtWidgets import QLabel, QPushButton, QHBoxLayout, QVBoxLayout
 from PyQt5.QtWidgets import QWidget
 from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QMessageBox
 
 class kalmanFilterViewer(QMainWindow):
-    """2D viewer"""
+    """Viewer"""
+
+    def __init__(self, *args, **kwargs):
+        """Initialize"""
+
+        # Initialize.
+        super().__init__(*args, **kwargs)
+        self.closed = False
 
     def buildGUI(self, mcvs, rangeMin, rangeMax, onPltTRGBtnClick):
         """Build GUI"""
@@ -38,3 +46,19 @@ class kalmanFilterViewer(QMainWindow):
         vwrGUI = QWidget(self)
         vwrGUI.setLayout(rootLayout)
         self.setCentralWidget(vwrGUI)
+
+    def throwErrorMsg(self, msg):
+        """Throw error message."""
+
+        # Throw error message.
+        msg = QMessageBox(self)
+        msg.setIcon(QMessageBox.Critical)
+        msg.setText(msg)
+        msg.exec_()
+
+    def closeEvent(self, event):
+        """Callback on closing window"""
+
+        # Mark window as closed.
+        self.closed = True
+        event.accept()
