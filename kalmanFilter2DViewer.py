@@ -5,18 +5,16 @@
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
-from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
-from PyQt5.QtWidgets import QMainWindow, QWidget
-from PyQt5.QtWidgets import QLabel, QPushButton, QHBoxLayout, QVBoxLayout
 from PyQt5.QtWidgets import QLineEdit
 from PyQt5.QtWidgets import QMessageBox
-from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QDoubleValidator
+
+from kalmanFilterViewer import kalmanFilterViewer
 
 matplotlib.use("Qt5Agg")
 
 class mpl2DCanvas(FigureCanvasQTAgg):
-    """Matplotlib 2D canvas to be embedded in Qt widget"""
+    """Matplotlib 2D canvas to be embedded in widget"""
 
     def __init__(self, parent=None):
         """Initialize"""
@@ -46,7 +44,7 @@ class mpl2DCanvas(FigureCanvasQTAgg):
         self.fig.tight_layout()
         self.fig.subplots_adjust(hspace=0.3, wspace=0.3)
 
-class kalmanFilter2DViewer(QMainWindow):
+class kalmanFilter2DViewer(kalmanFilterViewer):
     """2D viewer"""
 
     def __init__(self, *args, **kwargs):
@@ -63,29 +61,10 @@ class kalmanFilter2DViewer(QMainWindow):
         self.rangeMin.setValidator(QDoubleValidator())
         self.rangeMax.setValidator(QDoubleValidator())
 
-        # Set window as non modal.
-        self.setWindowModality(Qt.NonModal)
-
-        # Set the layout
-        subLayout1 = QVBoxLayout()
-        subLayout1.addWidget(NavigationToolbar(self.mcvs, self))
-        subLayout1.addWidget(self.mcvs)
-        subLayout2 = QHBoxLayout()
-        subLayout2.addWidget(QLabel("time min:", self))
-        subLayout2.addWidget(self.rangeMin)
-        subLayout2.addWidget(QLabel("time max:", self))
-        subLayout2.addWidget(self.rangeMax)
-        pltTRGBtn = QPushButton("Set range", self)
-        pltTRGBtn.clicked.connect(self.onPltTRGBtnClick)
-        subLayout2.addWidget(pltTRGBtn)
-        rootLayout = QVBoxLayout()
-        rootLayout.addLayout(subLayout1)
-        rootLayout.addLayout(subLayout2)
-
         # Build the GUI.
-        vwrGUI = QWidget(self)
-        vwrGUI.setLayout(rootLayout)
-        self.setCentralWidget(vwrGUI)
+        self.buildGUI(self.mcvs, \
+                      self.rangeMin, self.rangeMax, \
+                      self.onPltTRGBtnClick)
 
     def onPltTRGBtnClick(self):
         """Callback on changing plot time range"""
