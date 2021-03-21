@@ -11,7 +11,7 @@ pylint --module-naming-style=camelCase          \
        --class-attribute-naming-style=camelCase \
        --inlinevar-naming-style=camelCase       \
        --extension-pkg-whitelist=PyQt5          \
-       --disable=E1136,R0904,C0302              \
+       --disable=R0904,C0302                    \
        *.py                                     \
        |                                        \
        awk 'BEGIN{rate = 0;}

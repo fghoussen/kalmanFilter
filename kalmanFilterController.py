@@ -44,7 +44,7 @@ class kalmanFilterController(QMainWindow):
         comboEx = QComboBox(self)
         for example in self.examples:
             comboEx.addItem(example.getName())
-        comboEx.activated[str].connect(self.onExampleChanged)
+        comboEx.activated.connect(self.onExampleChanged)
 
         # Create a layout.
         layEx = QHBoxLayout()
