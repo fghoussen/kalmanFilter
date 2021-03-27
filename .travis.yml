@@ -5,7 +5,11 @@ dist: focal
 python:
   - "3.8"
 
+services:
+  - xvfb # X virtual framebuffer: display server implementing X11 in virtual memory without screen output.
+
 install:
+  - sudo apt-get install libqt5gui5 libegl1-mesa-dev libxcb*-dev # For xvfb.
   - pip install numpy scipy
   - pip install matplotlib
   - pip install PyQt5
@@ -13,3 +17,4 @@ install:
 
 script:
   - ./dev.sh
+  - ./tst.py
