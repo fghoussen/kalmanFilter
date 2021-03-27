@@ -41,6 +41,7 @@ class kalmanFilterPlaneExample:
         self.vwr["2D"]["simDgP"] = None
         self.vwr["2D"]["simDgK"] = None
         self.kfm = kalmanFilterModel(self)
+        self.expQRB = {}
 
     @staticmethod
     def getName():
@@ -1958,31 +1959,31 @@ class kalmanFilterPlaneExample:
         expGUI.setAlignment(Qt.AlignHCenter)
 
         # Set radio button.
-        qrb3L = QRadioButton("XYZ line", self.ctrGUI)
-        qrb2L = QRadioButton("XY line", self.ctrGUI)
-        qrbUD = QRadioButton("Up-down", self.ctrGUI)
-        qrbZZ = QRadioButton("Zig-zag", self.ctrGUI)
-        qrbCc = QRadioButton("Circle", self.ctrGUI)
-        qrbRT = QRadioButton("Round trip", self.ctrGUI)
-        qrbLP = QRadioButton("Looping", self.ctrGUI)
-        qrb3L.toggled.connect(self.onExampleClicked)
-        qrb2L.toggled.connect(self.onExampleClicked)
-        qrbUD.toggled.connect(self.onExampleClicked)
-        qrbZZ.toggled.connect(self.onExampleClicked)
-        qrbCc.toggled.connect(self.onExampleClicked)
-        qrbRT.toggled.connect(self.onExampleClicked)
-        qrbLP.toggled.connect(self.onExampleClicked)
-        qrb3L.setChecked(True)
+        self.expQRB["3L"] = QRadioButton("XYZ line", self.ctrGUI)
+        self.expQRB["2L"] = QRadioButton("XY line", self.ctrGUI)
+        self.expQRB["UD"] = QRadioButton("Up-down", self.ctrGUI)
+        self.expQRB["ZZ"] = QRadioButton("Zig-zag", self.ctrGUI)
+        self.expQRB["Cc"] = QRadioButton("Circle", self.ctrGUI)
+        self.expQRB["RT"] = QRadioButton("Round trip", self.ctrGUI)
+        self.expQRB["LP"] = QRadioButton("Looping", self.ctrGUI)
+        self.expQRB["3L"].toggled.connect(self.onExampleClicked)
+        self.expQRB["2L"].toggled.connect(self.onExampleClicked)
+        self.expQRB["UD"].toggled.connect(self.onExampleClicked)
+        self.expQRB["ZZ"].toggled.connect(self.onExampleClicked)
+        self.expQRB["Cc"].toggled.connect(self.onExampleClicked)
+        self.expQRB["RT"].toggled.connect(self.onExampleClicked)
+        self.expQRB["LP"].toggled.connect(self.onExampleClicked)
+        self.expQRB["3L"].setChecked(True)
 
         # Set group box layout.
         expLay = QHBoxLayout()
-        expLay.addWidget(qrb3L)
-        expLay.addWidget(qrb2L)
-        expLay.addWidget(qrbUD)
-        expLay.addWidget(qrbZZ)
-        expLay.addWidget(qrbCc)
-        expLay.addWidget(qrbRT)
-        expLay.addWidget(qrbLP)
+        expLay.addWidget(self.expQRB["3L"])
+        expLay.addWidget(self.expQRB["2L"])
+        expLay.addWidget(self.expQRB["UD"])
+        expLay.addWidget(self.expQRB["ZZ"])
+        expLay.addWidget(self.expQRB["Cc"])
+        expLay.addWidget(self.expQRB["RT"])
+        expLay.addWidget(self.expQRB["LP"])
         expGUI.setLayout(expLay)
 
         return expGUI
