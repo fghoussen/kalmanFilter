@@ -41,7 +41,7 @@ class kalmanFilterPlaneExample:
         self.vwr["2D"]["simDgP"] = None
         self.vwr["2D"]["simDgK"] = None
         self.kfm = kalmanFilterModel(self)
-        self.expQRB = {}
+        self.expGUI = {"QRB": {}, "QPB": {}}
 
     @staticmethod
     def getName():
@@ -802,9 +802,9 @@ class kalmanFilterPlaneExample:
         gdlXi.addWidget(QLabel(title, sltGUI), 4, 0, 1, 6)
         gdlXi.addWidget(QLabel("t<sub>i</sub> z<sub>i</sub>", sltGUI), 5, 0)
         gdlXi.addWidget(self.slt["fpeTiZi"], 5, 1, 1, 4)
-        pltTZPBtn = QPushButton("Plot z(t)", sltGUI)
-        pltTZPBtn.clicked.connect(self.onPltTZPBtnClick)
-        gdlXi.addWidget(pltTZPBtn, 5, 5)
+        self.expGUI["QPB"]["TZP"] = QPushButton("Plot z(t)", sltGUI)
+        self.expGUI["QPB"]["TZP"].clicked.connect(self.onPltTZPBtnClick)
+        gdlXi.addWidget(self.expGUI["QPB"]["TZP"], 5, 5)
 
         # Set group box layout.
         gpbXi = QGroupBox(sltGUI)
@@ -1049,9 +1049,9 @@ class kalmanFilterPlaneExample:
         gdlAdd.addWidget(self.msr["addDt"], 1, 3)
         gdlAdd.addWidget(QLabel("<em>&sigma;</em>:", msrGUI), 1, 4)
         gdlAdd.addWidget(self.msr["addSigma"], 1, 5)
-        pltMsrBtn = QPushButton("Plot measurements", msrGUI)
-        pltMsrBtn.clicked.connect(self.onPltMsrBtnClick)
-        gdlAdd.addWidget(pltMsrBtn, 2, 0, 1, 6)
+        self.expGUI["QPB"]["Msr"] = QPushButton("Plot measurements", msrGUI)
+        self.expGUI["QPB"]["Msr"].clicked.connect(self.onPltMsrBtnClick)
+        gdlAdd.addWidget(self.expGUI["QPB"]["Msr"], 2, 0, 1, 6)
 
         # Set group box layout.
         gpbAdd = QGroupBox(msrGUI)
@@ -1469,33 +1469,33 @@ class kalmanFilterPlaneExample:
         """Fill simulation GUI: post processing"""
 
         # Create push buttons.
-        pltSOVBtn = QPushButton("Output variables", simGUI)
-        pltSOVBtn.clicked.connect(self.onPltSOVBtnClick)
-        pltSCLBtn = QPushButton("Control law", simGUI)
-        pltSCLBtn.clicked.connect(self.onPltSCLBtnClick)
-        pltSPNBtn = QPushButton("Process noise", simGUI)
-        pltSPNBtn.clicked.connect(self.onPltSPNBtnClick)
-        pltSFrBtn = QPushButton("Forces", simGUI)
-        pltSFrBtn.clicked.connect(self.onPltSFrBtnClick)
-        pltSKIBtn = QPushButton("Innovation", simGUI)
-        pltSKIBtn.clicked.connect(self.onPltSKIBtnClick)
-        pltSTSBtn = QPushButton("Time scheme", simGUI)
-        pltSTSBtn.clicked.connect(self.onPltSTSBtnClick)
-        pltSCvBtn = QPushButton("Covariance", simGUI)
-        pltSCvBtn.clicked.connect(self.onPltSCvBtnClick)
-        pltSKGBtn = QPushButton("Kalman gain", simGUI)
-        pltSKGBtn.clicked.connect(self.onPltSKGBtnClick)
+        self.expGUI["QPB"]["SOV"] = QPushButton("Output variables", simGUI)
+        self.expGUI["QPB"]["SOV"].clicked.connect(self.onPltSOVBtnClick)
+        self.expGUI["QPB"]["SCL"] = QPushButton("Control law", simGUI)
+        self.expGUI["QPB"]["SCL"].clicked.connect(self.onPltSCLBtnClick)
+        self.expGUI["QPB"]["SPN"] = QPushButton("Process noise", simGUI)
+        self.expGUI["QPB"]["SPN"].clicked.connect(self.onPltSPNBtnClick)
+        self.expGUI["QPB"]["SFr"] = QPushButton("Forces", simGUI)
+        self.expGUI["QPB"]["SFr"].clicked.connect(self.onPltSFrBtnClick)
+        self.expGUI["QPB"]["SKI"] = QPushButton("Innovation", simGUI)
+        self.expGUI["QPB"]["SKI"].clicked.connect(self.onPltSKIBtnClick)
+        self.expGUI["QPB"]["STS"] = QPushButton("Time scheme", simGUI)
+        self.expGUI["QPB"]["STS"].clicked.connect(self.onPltSTSBtnClick)
+        self.expGUI["QPB"]["SCv"] = QPushButton("Covariance", simGUI)
+        self.expGUI["QPB"]["SCv"].clicked.connect(self.onPltSCvBtnClick)
+        self.expGUI["QPB"]["SKG"] = QPushButton("Kalman gain", simGUI)
+        self.expGUI["QPB"]["SKG"].clicked.connect(self.onPltSKGBtnClick)
 
         # Create simulation GUI: simulation post processing.
         gdlPpg = QGridLayout(simGUI)
-        gdlPpg.addWidget(pltSOVBtn, 0, 0)
-        gdlPpg.addWidget(pltSTSBtn, 0, 1)
-        gdlPpg.addWidget(pltSCLBtn, 1, 0)
-        gdlPpg.addWidget(pltSPNBtn, 1, 1)
-        gdlPpg.addWidget(pltSFrBtn, 2, 0)
-        gdlPpg.addWidget(pltSKIBtn, 2, 1)
-        gdlPpg.addWidget(pltSCvBtn, 3, 0)
-        gdlPpg.addWidget(pltSKGBtn, 3, 1)
+        gdlPpg.addWidget(self.expGUI["QPB"]["SOV"], 0, 0)
+        gdlPpg.addWidget(self.expGUI["QPB"]["STS"], 0, 1)
+        gdlPpg.addWidget(self.expGUI["QPB"]["SCL"], 1, 0)
+        gdlPpg.addWidget(self.expGUI["QPB"]["SPN"], 1, 1)
+        gdlPpg.addWidget(self.expGUI["QPB"]["SFr"], 2, 0)
+        gdlPpg.addWidget(self.expGUI["QPB"]["SKI"], 2, 1)
+        gdlPpg.addWidget(self.expGUI["QPB"]["SCv"], 3, 0)
+        gdlPpg.addWidget(self.expGUI["QPB"]["SKG"], 3, 1)
 
         # Set group box layout.
         gpbPpg = QGroupBox(simGUI)
@@ -1959,31 +1959,31 @@ class kalmanFilterPlaneExample:
         expGUI.setAlignment(Qt.AlignHCenter)
 
         # Set radio button.
-        self.expQRB["3L"] = QRadioButton("XYZ line", self.ctrGUI)
-        self.expQRB["2L"] = QRadioButton("XY line", self.ctrGUI)
-        self.expQRB["UD"] = QRadioButton("Up-down", self.ctrGUI)
-        self.expQRB["ZZ"] = QRadioButton("Zig-zag", self.ctrGUI)
-        self.expQRB["Cc"] = QRadioButton("Circle", self.ctrGUI)
-        self.expQRB["RT"] = QRadioButton("Round trip", self.ctrGUI)
-        self.expQRB["LP"] = QRadioButton("Looping", self.ctrGUI)
-        self.expQRB["3L"].toggled.connect(self.onExampleClicked)
-        self.expQRB["2L"].toggled.connect(self.onExampleClicked)
-        self.expQRB["UD"].toggled.connect(self.onExampleClicked)
-        self.expQRB["ZZ"].toggled.connect(self.onExampleClicked)
-        self.expQRB["Cc"].toggled.connect(self.onExampleClicked)
-        self.expQRB["RT"].toggled.connect(self.onExampleClicked)
-        self.expQRB["LP"].toggled.connect(self.onExampleClicked)
-        self.expQRB["3L"].setChecked(True)
+        self.expGUI["QRB"]["3L"] = QRadioButton("XYZ line", self.ctrGUI)
+        self.expGUI["QRB"]["2L"] = QRadioButton("XY line", self.ctrGUI)
+        self.expGUI["QRB"]["UD"] = QRadioButton("Up-down", self.ctrGUI)
+        self.expGUI["QRB"]["ZZ"] = QRadioButton("Zig-zag", self.ctrGUI)
+        self.expGUI["QRB"]["Cc"] = QRadioButton("Circle", self.ctrGUI)
+        self.expGUI["QRB"]["RT"] = QRadioButton("Round trip", self.ctrGUI)
+        self.expGUI["QRB"]["LP"] = QRadioButton("Looping", self.ctrGUI)
+        self.expGUI["QRB"]["3L"].toggled.connect(self.onExampleClicked)
+        self.expGUI["QRB"]["2L"].toggled.connect(self.onExampleClicked)
+        self.expGUI["QRB"]["UD"].toggled.connect(self.onExampleClicked)
+        self.expGUI["QRB"]["ZZ"].toggled.connect(self.onExampleClicked)
+        self.expGUI["QRB"]["Cc"].toggled.connect(self.onExampleClicked)
+        self.expGUI["QRB"]["RT"].toggled.connect(self.onExampleClicked)
+        self.expGUI["QRB"]["LP"].toggled.connect(self.onExampleClicked)
+        self.expGUI["QRB"]["3L"].setChecked(True)
 
         # Set group box layout.
         expLay = QHBoxLayout()
-        expLay.addWidget(self.expQRB["3L"])
-        expLay.addWidget(self.expQRB["2L"])
-        expLay.addWidget(self.expQRB["UD"])
-        expLay.addWidget(self.expQRB["ZZ"])
-        expLay.addWidget(self.expQRB["Cc"])
-        expLay.addWidget(self.expQRB["RT"])
-        expLay.addWidget(self.expQRB["LP"])
+        expLay.addWidget(self.expGUI["QRB"]["3L"])
+        expLay.addWidget(self.expGUI["QRB"]["2L"])
+        expLay.addWidget(self.expGUI["QRB"]["UD"])
+        expLay.addWidget(self.expGUI["QRB"]["ZZ"])
+        expLay.addWidget(self.expGUI["QRB"]["Cc"])
+        expLay.addWidget(self.expGUI["QRB"]["RT"])
+        expLay.addWidget(self.expGUI["QRB"]["LP"])
         expGUI.setLayout(expLay)
 
         return expGUI

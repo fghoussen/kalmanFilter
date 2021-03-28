@@ -24,9 +24,11 @@ class testKalmanFilter(unittest.TestCase):
         ctrWin.comboEx.setCurrentText("plane tracking")
         for example in ctrWin.examples:
             if example.getName() == ctrWin.comboEx.currentText():
-                QTest.mouseClick(example.expQRB["3L"], QtCore.Qt.LeftButton)
+                for key in example.expGUI["QPB"]:
+                    QTest.mouseClick(example.expGUI["QPB"][key], QtCore.Qt.LeftButton)
+                QTest.mouseClick(example.expGUI["QRB"]["3L"], QtCore.Qt.LeftButton)
         QTest.mouseClick(ctrWin.updateBtn, QtCore.Qt.LeftButton)
-        QtCore.QTimer.singleShot(5 * 1000, QtCore.QCoreApplication.quit)
+        QtCore.QTimer.singleShot(30 * 1000, QtCore.QCoreApplication.quit)
         app.exec_()
 
 # Main program.
