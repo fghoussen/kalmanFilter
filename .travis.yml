@@ -14,7 +14,9 @@ install:
   - pip install matplotlib
   - pip install PyQt5
   - pip install pylint
+  - pip install coverage
 
 script:
   - ./dev.sh
   - ./tst.py
+  - ./cov.sh
