@@ -127,3 +127,12 @@ class kalmanFilterController(QMainWindow):
                 example.updateViewer()
                 break
         print("********** Update : end **********")
+
+    def closeEvent(self, event):
+        """Callback on close"""
+
+        # Clean on close.
+        for example in self.examples:
+            if example.getName() == self.comboEx.currentText():
+                example.closeEvent()
+        event.accept()

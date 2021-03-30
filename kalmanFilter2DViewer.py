@@ -19,6 +19,7 @@ class mpl2DCanvas(FigureCanvasQTAgg):
         """Initialize"""
 
         # Initialize.
+        plt.close('all')
         fig = plt.figure()
         super().__init__(fig)
         self.setParent(parent)

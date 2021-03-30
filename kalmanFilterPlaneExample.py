@@ -2921,3 +2921,13 @@ class kalmanFilterPlaneExample:
 
         # Get outputs keys.
         return self.getStateKeys()
+
+    def closeEvent(self):
+        """Callback on close"""
+
+        # Clean on close.
+        for key in self.vwr["2D"]:
+            if self.vwr["2D"][key]:
+                self.vwr["2D"][key].close()
+        if self.vwr["3D"]:
+            self.vwr["3D"].close()
