@@ -6,7 +6,6 @@ import unittest
 
 import functools
 
-import sys
 from PyQt5 import QtCore
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtTest import QTest
