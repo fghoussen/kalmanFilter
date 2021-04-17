@@ -19,17 +19,52 @@ class testKalmanFilter(unittest.TestCase):
 
     @staticmethod
     def testKalmanFilterPlaneExampleXYZLine():
-        """Kalman filter test: plane example"""
+        """Kalman filter test: plane example - XYZ line"""
 
         # Kalman filter test.
         testKalmanFilter.kalmanFilterPlaneExample("3L")
 
     @staticmethod
     def testKalmanFilterPlaneExampleXYLine():
-        """Kalman filter test: plane example"""
+        """Kalman filter test: plane example - XY line"""
 
         # Kalman filter test.
         testKalmanFilter.kalmanFilterPlaneExample("2L")
+
+    @staticmethod
+    def testKalmanFilterPlaneExampleUpDown():
+        """Kalman filter test: plane example - Up-down"""
+
+        # Kalman filter test.
+        testKalmanFilter.kalmanFilterPlaneExample("UD")
+
+    @staticmethod
+    def testKalmanFilterPlaneExampleZigZag():
+        """Kalman filter test: plane example - Zig-zag"""
+
+        # Kalman filter test.
+        testKalmanFilter.kalmanFilterPlaneExample("ZZ")
+
+    @staticmethod
+    def testKalmanFilterPlaneExampleCircle():
+        """Kalman filter test: plane example - Circle"""
+
+        # Kalman filter test.
+        testKalmanFilter.kalmanFilterPlaneExample("Cc")
+
+    @staticmethod
+    def testKalmanFilterPlaneExampleRoundTrip():
+        """Kalman filter test: plane example - Round trip"""
+
+        # Kalman filter test.
+        testKalmanFilter.kalmanFilterPlaneExample("RT")
+
+    @staticmethod
+    def testKalmanFilterPlaneExampleLooping():
+        """Kalman filter test: plane example - Looping"""
+
+        # Kalman filter test.
+        testKalmanFilter.kalmanFilterPlaneExample("LP")
 
     @staticmethod
     def onTestEnd(ctrWin):
