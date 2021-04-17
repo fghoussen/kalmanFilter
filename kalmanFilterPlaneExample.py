@@ -1220,7 +1220,7 @@ class kalmanFilterPlaneExample:
         self.sim["prmExpOrd"] = QLineEdit("N.A.", self.ctrGUI)
         self.sim["prmProNseSig"] = QLineEdit("N.A.", self.ctrGUI)
         self.sim["prmVrb"] = QLineEdit("1", self.ctrGUI)
-        self.sim["prmVrbIt"] = QLineEdit("100", self.ctrGUI)
+        self.sim["prmVrbIt"] = QLineEdit("5000", self.ctrGUI)
         self.sim["icdX0"] = QLineEdit("N.A.", self.ctrGUI)
         self.sim["icdY0"] = QLineEdit("N.A.", self.ctrGUI)
         self.sim["icdZ0"] = QLineEdit("N.A.", self.ctrGUI)
