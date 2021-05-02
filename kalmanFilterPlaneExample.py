@@ -42,6 +42,7 @@ class kalmanFilterPlaneExample:
         self.vwr["2D"]["simDgK"] = None
         self.kfm = kalmanFilterModel(self)
         self.expGUI = {"QRB": {}, "QPB": {}}
+        np.random.seed(0) # Make sure measures can be reproduced (in particular for tests).
 
     @staticmethod
     def getName():
@@ -2002,6 +2003,7 @@ class kalmanFilterPlaneExample:
         sigVelGPS = 0.5 # GPS: sigma v (0.5 m/s).
         sigAccSensor = 0.0001 # IMU accelerometers: sigma a (from 10 mg to 1µg).
         qrb = self.ctrGUI.sender()
+        print("Select", qrb.text(), "example")
         if qrb.isChecked():
             self.sim["prmM"].setText("1000.")
             self.sim["prmC"].setText("50.")
@@ -2043,13 +2045,13 @@ class kalmanFilterPlaneExample:
         # Initialize the measurement list with GPS measurements (x, v).
         self.msr["addType"].setCurrentIndex(0) # Set combo to "x".
         self.msr["addT0"].setText("0.")
-        self.msr["addTf"].setText("3600.")
+        self.msr["addTf"].setText(self.slt["fcdTf"].text())
         self.msr["addDt"].setText("1.") # GPS frequency: 1 s.
         self.msr["addSigma"].setText("%.6f" % sigPosGPS)
         self.onAddMsrBtnClick() # Adding "x" measurement.
         self.msr["addType"].setCurrentIndex(1) # Set combo to "v".
         self.msr["addT0"].setText("0.")
-        self.msr["addTf"].setText("3600.")
+        self.msr["addTf"].setText(self.slt["fcdTf"].text())
         self.msr["addDt"].setText("1.") # GPS frequency: 1 s.
         self.msr["addSigma"].setText("%.6f" % sigVelGPS)
         self.onAddMsrBtnClick() # Adding "v" measurement.
@@ -2057,8 +2059,8 @@ class kalmanFilterPlaneExample:
         # Initialize the measurement list with accelerometer measurements (a).
         self.msr["addType"].setCurrentIndex(2) # Set combo to "a".
         self.msr["addT0"].setText("0.")
-        self.msr["addTf"].setText("3600.")
-        self.msr["addDt"].setText("0.1") # IMU sensors provide more data than GPS.
+        self.msr["addTf"].setText(self.slt["fcdTf"].text())
+        self.msr["addDt"].setText("0.8") # IMU sensors provide more data than GPS.
         self.msr["addSigma"].setText("%.6f" % sigAccSensor)
         self.onAddMsrBtnClick() # Adding "a" measurement.
 
@@ -2135,7 +2137,6 @@ class kalmanFilterPlaneExample:
         self.sim["icdSigVZ0"].setText("%.6f" % sigVelSim)
         self.sim["icdAZ0"].setText("0.")
         self.sim["icdSigAZ0"].setText("%.6f" % sigAccSim)
-
 
     def onUpDownExampleClicked(self, sigPosGPS, sigVelGPS, sigAccSensor):
         """Callback on click: up-down example radio button"""

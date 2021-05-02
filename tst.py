@@ -6,6 +6,9 @@ import unittest
 
 import functools
 
+import h5py
+import numpy as np
+
 from PyQt5 import QtCore
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtTest import QTest
@@ -14,57 +17,50 @@ from kalmanFilterController import kalmanFilterController
 
 app = QApplication([])
 
-class testKalmanFilter(unittest.TestCase):
+class kalmanFilterTestCase(unittest.TestCase):
     """Kalman filter unittest class"""
 
-    @staticmethod
-    def testKalmanFilterPlaneExampleXYZLine():
+    def testKalmanFilterPlaneExampleXYZLine(self):
         """Kalman filter test: plane example - XYZ line"""
 
         # Kalman filter test.
-        testKalmanFilter.kalmanFilterPlaneExample("3L")
+        self.kalmanFilterPlaneExample("3L")
 
-    @staticmethod
-    def testKalmanFilterPlaneExampleXYLine():
+    def testKalmanFilterPlaneExampleXYLine(self):
         """Kalman filter test: plane example - XY line"""
 
         # Kalman filter test.
-        testKalmanFilter.kalmanFilterPlaneExample("2L")
+        self.kalmanFilterPlaneExample("2L")
 
-    @staticmethod
-    def testKalmanFilterPlaneExampleUpDown():
+    def testKalmanFilterPlaneExampleUpDown(self):
         """Kalman filter test: plane example - Up-down"""
 
         # Kalman filter test.
-        testKalmanFilter.kalmanFilterPlaneExample("UD")
+        self.kalmanFilterPlaneExample("UD")
 
-    @staticmethod
-    def testKalmanFilterPlaneExampleZigZag():
+    def testKalmanFilterPlaneExampleZigZag(self):
         """Kalman filter test: plane example - Zig-zag"""
 
         # Kalman filter test.
-        testKalmanFilter.kalmanFilterPlaneExample("ZZ")
+        self.kalmanFilterPlaneExample("ZZ")
 
-    @staticmethod
-    def testKalmanFilterPlaneExampleCircle():
+    def testKalmanFilterPlaneExampleCircle(self):
         """Kalman filter test: plane example - Circle"""
 
         # Kalman filter test.
-        testKalmanFilter.kalmanFilterPlaneExample("Cc")
+        self.kalmanFilterPlaneExample("Cc")
 
-    @staticmethod
-    def testKalmanFilterPlaneExampleRoundTrip():
+    def testKalmanFilterPlaneExampleRoundTrip(self):
         """Kalman filter test: plane example - Round trip"""
 
         # Kalman filter test.
-        testKalmanFilter.kalmanFilterPlaneExample("RT")
+        self.kalmanFilterPlaneExample("RT")
 
-    @staticmethod
-    def testKalmanFilterPlaneExampleLooping():
+    def testKalmanFilterPlaneExampleLooping(self):
         """Kalman filter test: plane example - Looping"""
 
         # Kalman filter test.
-        testKalmanFilter.kalmanFilterPlaneExample("LP")
+        self.kalmanFilterPlaneExample("LP")
 
     @staticmethod
     def onTestEnd(ctrWin):
@@ -73,8 +69,7 @@ class testKalmanFilter(unittest.TestCase):
         # Close controller.
         ctrWin.close()
 
-    @staticmethod
-    def kalmanFilterPlaneExample(expID, timeSec=5):
+    def kalmanFilterPlaneExample(self, expID, timeSec=5):
         """Kalman filter test: plane example"""
 
         # Create application and controls GUI.
@@ -88,11 +83,37 @@ class testKalmanFilter(unittest.TestCase):
         QTest.mouseClick(ctrWin.updateBtn, QtCore.Qt.LeftButton)
 
         # Set timer to close controls GUI.
-        timerCallback = functools.partial(testKalmanFilter.onTestEnd, ctrWin)
+        timerCallback = functools.partial(kalmanFilterTestCase.onTestEnd, ctrWin)
         timer = QtCore.QTimer()
         timer.timeout.connect(timerCallback)
         timer.start(timeSec*1000)
         app.exec()
+
+        # Verify test.
+        self.verifyTest(expID)
+
+    def verifyTest(self, expID):
+        """Verify test"""
+        # Check test results.
+        fdsRef = h5py.File("kalmanFilterModel.%s.h5"%expID, "r")
+        fdsGen = h5py.File("kalmanFilterModel.h5", "r")
+        for name in ["X", "Y", "Z"]:
+            for key in fdsRef[name]:
+                rowRef = fdsRef[name][key][:]
+                rowExp = fdsGen[name][key][:]
+                tstOK = np.isclose(rowRef, rowExp).all()
+                if not tstOK:
+                    tstOK = np.isclose(rowRef, rowExp)
+                    for idx, tst in enumerate(tstOK):
+                        if not tst:
+                            print("Check test KO - %s, %s, idx %s -"%(name, key, idx),
+                                  fdsRef[name]["T"][idx], rowRef[idx], rowExp[idx], flush=True)
+                            self.assertTrue(tst)
+                        else:
+                            print("Check test OK - %s, %s, idx %s -"%(name, key, idx),
+                                  fdsRef[name]["T"][idx], rowRef[idx], rowExp[idx], flush=True)
+        fdsRef.close()
+        fdsGen.close()
 
 # Main program.
 if __name__ == '__main__':

@@ -2,6 +2,9 @@
 
 """Kalman filter model"""
 
+import os
+import itertools
+import h5py
 import numpy as np
 import numpy.linalg as npl
 
@@ -12,7 +15,7 @@ class kalmanFilterModel():
         """Initialize"""
 
         # Initialize members.
-        self.sim = {}
+        self.sim = {"simItNb": 0}
         self.msr = []
         self.mat = {}
         self.example = example
@@ -187,11 +190,13 @@ class kalmanFilterModel():
             self.printMat("X", np.transpose(states))
             self.printMat("Y", np.transpose(outputs))
             self.printMat("P", matP)
+        self.removeH5()
+        self.saveH5("X", time, states, self.example.getStateKeys())
+        self.saveH5("Y", time, outputs, self.example.getOutputKeys())
         self.savePredictor(time, outputs, matP)
 
         # Solve: https://www.kalmanfilter.net/multiSummary.html.
-        prmVrb, self.sim["simItNb"] = self.sim["prmVrb"], 0
-        prmDt, prmTf = self.sim["prmDt"], self.sim["fcdTf"]
+        prmVrb, prmDt, prmTf = self.sim["prmVrb"], self.sim["prmDt"], self.sim["fcdTf"]
         while time < prmTf:
             # Cut off time.
             if time+prmDt > prmTf:
@@ -235,6 +240,7 @@ class kalmanFilterModel():
     def computeCorrection(self, msrData, matP, states):
         """Compute correction"""
 
+        # Get measurement data.
         newTime = msrData[0] # Cut off time to measurement time.
         msrLst = msrData[1]
         if self.sim["prmVrb"] >= 1:
@@ -242,6 +248,7 @@ class kalmanFilterModel():
 
         # Get measurement z_{n}.
         vecZ, matH, msrFlags = self.getMsr(msrLst)
+        self.saveH5("Z", newTime, vecZ, self.example.getStateKeys())
 
         # Compute Kalman gain K_{n}.
         matR, matK = self.computeKalmanGain(msrLst, matP, matH)
@@ -374,6 +381,8 @@ class kalmanFilterModel():
             self.printMat("Y", np.transpose(newOutputs))
 
         # Save simulation results.
+        self.saveH5("X", newTime, newStates, self.example.getStateKeys())
+        self.saveH5("Y", newTime, newOutputs, self.example.getOutputKeys())
         self.savePredictor(newTime, newOutputs, matP)
 
         # Extrapolate uncertainty.
@@ -474,6 +483,40 @@ class kalmanFilterModel():
             self.printMat("P", newMatP)
 
         return newMatP
+
+    @staticmethod
+    def removeH5():
+        """Remove H5 file"""
+
+        # Remove H5 file.
+        fileName = "kalmanFilterModel.h5"
+        if os.path.exists(fileName):
+            os.remove(fileName)
+
+    def saveH5(self, name, time, data, header):
+        """Save data to H5 file"""
+
+        # Initialize file.
+        fileName = "kalmanFilterModel.h5"
+        mode = "a" if os.path.exists(fileName) else "w"
+        fh5 = h5py.File(fileName, mode)
+        for hdr in ["T"] + header:
+            key = "%s/%s"%(name, hdr)
+            if key not in fh5:
+                nbTimeIt = int(self.sim["fcdTf"]/self.sim["prmDt"]) + 1
+                dsSize = nbTimeIt + len(self.msr)
+                fh5.create_dataset(key, data=np.zeros(shape=(dsSize, 1), dtype=float),
+                                   chunks=True, maxshape=(dsSize,1))
+        simIdx = self.sim["simItNb"]
+
+        # Save data.
+        key = "%s/%s"%(name, "T")
+        fh5[key][simIdx] = time
+        lsData = list(itertools.chain(*data))
+        for idx, hdr in enumerate(header):
+            key = "%s/%s"%(name, hdr)
+            fh5[key][simIdx] = lsData[idx]
+        fh5.close()
 
     def savePredictor(self, time, newOutputs, matP):
         """Save predictor results"""
