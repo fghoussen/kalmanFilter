@@ -2003,8 +2003,8 @@ class kalmanFilterPlaneExample:
         sigVelGPS = 0.5 # GPS: sigma v (0.5 m/s).
         sigAccSensor = 0.0001 # IMU accelerometers: sigma a (from 10 mg to 1µg).
         qrb = self.ctrGUI.sender()
-        print("Select", qrb.text(), "example")
         if qrb.isChecked():
+            print("Selected example:", qrb.text())
             self.sim["prmM"].setText("1000.")
             self.sim["prmC"].setText("50.")
             self.sim["ctlThfTkoK"].setText("60")
