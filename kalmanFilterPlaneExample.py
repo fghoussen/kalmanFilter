@@ -797,8 +797,8 @@ class kalmanFilterPlaneExample:
         gdlXi.addWidget(self.slt["fpeTy"], 3, 3)
         gdlXi.addWidget(QLabel("&phi;<sub>y</sub>", sltGUI), 3, 4)
         gdlXi.addWidget(self.slt["fpePhiy"], 3, 5)
-        title = "z<sub>1</sub> = z(t<sub>1</sub>), z<sub>2</sub> = z(t<sub>2</sub>), "
-        title += "z<sub>3</sub> = z(t<sub>3</sub>), ... - "
+        title = "t<sub>1</sub> z<sub>1</sub>=z(t<sub>1</sub>)"
+        title += ", t<sub>2</sub> z<sub>2</sub>=z(t<sub>2</sub>), ... - "
         title += "z(t) = z<sub>1</sub>t+z<sub>2</sub>t<sup>2</sup>+z<sub>3</sub>t<sup>3</sup>+..."
         gdlXi.addWidget(QLabel(title, sltGUI), 4, 0, 1, 6)
         gdlXi.addWidget(QLabel("t<sub>i</sub> z<sub>i</sub>", sltGUI), 5, 0)
