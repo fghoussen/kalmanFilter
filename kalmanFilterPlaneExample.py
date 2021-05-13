@@ -2028,10 +2028,6 @@ class kalmanFilterPlaneExample:
             self.sim["ctlPtcMax"].setText("30.")
             self.sim["ctlYawMax"].setText("45.")
 
-        # Set sigma of process noise as the average of the sigma's of all measurements.
-        sigProNse = (sigPosGPS+sigVelGPS+sigAccSensor)/3.
-        self.sim["prmProNseSig"].setText("%.6f" % sigProNse)
-
         # Set example measurements.
         self.onExampleClickedResetMsr(sigPosGPS, sigVelGPS, sigAccSensor)
 
@@ -2049,20 +2045,10 @@ class kalmanFilterPlaneExample:
         self.msr["addDt"].setText("1.") # GPS frequency: 1 s.
         self.msr["addSigma"].setText("%.6f" % sigPosGPS)
         self.onAddMsrBtnClick() # Adding "x" measurement.
-        self.msr["addType"].setCurrentIndex(1) # Set combo to "v".
-        self.msr["addT0"].setText("0.")
-        self.msr["addTf"].setText(self.slt["fcdTf"].text())
-        self.msr["addDt"].setText("1.") # GPS frequency: 1 s.
-        self.msr["addSigma"].setText("%.6f" % sigVelGPS)
-        self.onAddMsrBtnClick() # Adding "v" measurement.
 
-        # Initialize the measurement list with accelerometer measurements (a).
-        self.msr["addType"].setCurrentIndex(2) # Set combo to "a".
-        self.msr["addT0"].setText("0.")
-        self.msr["addTf"].setText(self.slt["fcdTf"].text())
-        self.msr["addDt"].setText("0.8") # IMU sensors provide more data than GPS.
-        self.msr["addSigma"].setText("%.6f" % sigAccSensor)
-        self.onAddMsrBtnClick() # Adding "a" measurement.
+        # Set sigma of process noise as the average of the sigma's of all measurements.
+        sigProNse = (sigPosGPS+sigVelGPS+sigAccSensor)/3.
+        self.sim["prmProNseSig"].setText("%.6f" % sigProNse)
 
     def onXYZLineExampleClicked(self, sigPosGPS, sigVelGPS, sigAccSensor):
         """Callback on click: XYZ line example radio button"""
