@@ -145,17 +145,7 @@ class kalmanFilterModel():
         """Compute default measurement covariance matrix"""
 
         # Compute default measurement covariance matrix.
-        prmN = self.example.getLTISystemSize()
-        matR = np.zeros((prmN, prmN), dtype=float)
-        matR[0, 0] = np.power(self.sim["icdSigX0"], 2)
-        matR[1, 1] = np.power(self.sim["icdSigVX0"], 2)
-        matR[2, 2] = np.power(self.sim["icdSigAX0"], 2)
-        matR[3, 3] = np.power(self.sim["icdSigY0"], 2)
-        matR[4, 4] = np.power(self.sim["icdSigVY0"], 2)
-        matR[5, 5] = np.power(self.sim["icdSigAY0"], 2)
-        matR[6, 6] = np.power(self.sim["icdSigZ0"], 2)
-        matR[7, 7] = np.power(self.sim["icdSigVZ0"], 2)
-        matR[8, 8] = np.power(self.sim["icdSigAZ0"], 2)
+        matR = self.example.computeDefaultMsrCovariance()
         self.mat["R"] = matR # Save for later use: restart from it to avoid singular matrix.
 
     def setLTI(self, matA, matB, matC, matD):
@@ -330,21 +320,7 @@ class kalmanFilterModel():
 
         # Get measurement covariance.
         matR = self.mat["R"] # Start from default matrix (needed to avoid singular K matrix).
-        for msrItem in msrLst: # Small (accurate) sigma at msrLst tail.
-            msrType = msrItem[0]
-            prmSigma = msrItem[4]
-            if msrType == "x":
-                matR[0, 0] = prmSigma*prmSigma
-                matR[3, 3] = prmSigma*prmSigma
-                matR[6, 6] = prmSigma*prmSigma
-            if msrType == "v":
-                matR[1, 1] = prmSigma*prmSigma
-                matR[4, 4] = prmSigma*prmSigma
-                matR[7, 7] = prmSigma*prmSigma
-            if msrType == "a":
-                matR[2, 2] = prmSigma*prmSigma
-                matR[5, 5] = prmSigma*prmSigma
-                matR[8, 8] = prmSigma*prmSigma
+        matR = self.example.computeMsrCovariance(matR, msrLst)
 
         # Verbose on demand.
         if self.sim["prmVrb"] >= 3:
