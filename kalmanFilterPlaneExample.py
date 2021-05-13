@@ -2031,6 +2031,9 @@ class kalmanFilterPlaneExample:
         # Set example measurements.
         self.onExampleClickedResetMsr(sigPosGPS, sigVelGPS, sigAccSensor)
 
+        # Reset Kalman solver.
+        self.kfm.clear()
+
     def onExampleClickedResetMsr(self, sigPosGPS, sigVelGPS, sigAccSensor):
         """Callback on click: measurement example radio button"""
 

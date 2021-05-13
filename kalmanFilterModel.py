@@ -36,6 +36,7 @@ class kalmanFilterModel():
 
         # Clear previous time.
         self.time = np.array([], dtype=float)
+        self.sim["simItNb"] = 0
 
         # Clear previous results.
         self.outputs.clear()
@@ -74,6 +75,9 @@ class kalmanFilterModel():
             self.save["corrector"]["simInv"][key]["vecI"] = []
             self.save["corrector"]["simInv"][key]["vecZ"] = []
             self.save["corrector"]["simInv"][key]["state"] = []
+
+        # Remove H5 file.
+        self.removeH5()
 
     def isSolved(self):
         """Check if solve has been done"""
