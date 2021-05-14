@@ -1408,7 +1408,7 @@ class kalmanFilterPlaneExample:
 
         # Create simulation GUI: simulation flight control law.
         gdlFCL = QGridLayout(simGUI)
-        gdlFCL.addWidget(QLabel("Variation max:", simGUI), 0, 0, 1, 2)
+        gdlFCL.addWidget(QLabel("Max variation:", simGUI), 0, 0, 1, 2)
         gdlFCL.addWidget(QLabel("Roll:", simGUI), 1, 0)
         gdlFCL.addWidget(self.sim["ctlRolMax"], 1, 1)
         gdlFCL.addWidget(QLabel("Pitch:", simGUI), 2, 0)
