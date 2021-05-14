@@ -21,7 +21,7 @@ class kalmanFilterController(QMainWindow):
         self.setWindowTitle("Kalman filter controller")
         self.examples = []
         self.examples.append(kalmanFilterPlaneExample(self))
-        self.comboEx, self.comboGUI = self.addExampleCombo()
+        self.comboEx, self.comboGUI, self.layEx = self.addExampleCombo()
         self.updateBtn = self.addUpdateVwrBtn()
 
         # Set window as non modal.
@@ -55,7 +55,7 @@ class kalmanFilterController(QMainWindow):
         comboGUI = QWidget(self)
         comboGUI.setLayout(layEx)
 
-        return comboEx, comboGUI
+        return comboEx, comboGUI, layEx
 
     def onExampleChanged(self, txt):
         """Callback on example combo change"""
@@ -67,7 +67,7 @@ class kalmanFilterController(QMainWindow):
         for example in self.examples:
             if example.getName() == txt:
                 prbGUI = example.createPrbGUI()
-                layCtr.addWidget(prbGUI)
+                self.layEx.addWidget(prbGUI)
                 sltGUI = example.createSltGUI()
                 layCtr.addWidget(sltGUI)
                 msrGUI = example.createMsrGUI()
