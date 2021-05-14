@@ -2431,7 +2431,9 @@ class kalmanFilterPlaneExample:
         prmTiZi = self.slt["fpeTiZi"].text()
         for tokTiZi in prmTiZi.split(","):
             if len(tokTiZi.split()) != 2:
-                self.throwError(eId, "each t<sub>i</sub> must match a z<sub>i</sub>")
+                msg = "each t<sub>i</sub> must match a z<sub>i</sub>"
+                msg += " using \"t<sub>0</sub> z<sub>0</sub>, t<sub>1</sub> z<sub>1</sub>, ...\""
+                self.throwError(eId, msg)
                 return False
             tokTi = tokTiZi.split()[0]
             if np.abs(float(tokTi)) < 1.e-6:
