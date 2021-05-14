@@ -681,7 +681,6 @@ class kalmanFilterPlaneExample:
         """Create preambule GUI"""
 
         # Create preambule GUI: specify units.
-
         lbl = QLabel("Units: distance in m, time in s, mass in kg, angle in °", self.ctrGUI)
         lbl.setAlignment(Qt.AlignHCenter)
         return lbl
@@ -1275,12 +1274,12 @@ class kalmanFilterPlaneExample:
 
         # Set group box layout.
         simSubLay1 = QHBoxLayout()
-        simSubLay1.addWidget(gpbPrm)
         simSubLay1.addWidget(gpbX0)
+        simSubLay1.addWidget(gpbVwr)
         simSubLay2 = QHBoxLayout()
+        simSubLay2.addWidget(gpbPrm)
         simSubLay2.addWidget(gpbFCL)
         simSubLay2.addWidget(gpbPpg)
-        simSubLay2.addWidget(gpbVwr)
         simRootLay = QVBoxLayout(simGUI)
         simRootLay.addLayout(simSubLay1)
         simRootLay.addLayout(simSubLay2)
