@@ -10,7 +10,7 @@ services:
 
 install:
   - sudo apt-get install libqt5gui5 libegl1-mesa-dev libxcb*-dev # For xvfb.
-  - pip install numpy scipy
+  - pip install numpy scipy h5py
   - pip install matplotlib
   - pip install PyQt5
   - pip install pylint
