@@ -114,25 +114,15 @@ class kalmanFilterModel():
 
         # Get measurement.
         posX, posY, posZ = None, None, None
-        if msrData["msrType"] == "x":
+        if msrData["msrType"] == "pos":
             posX, posY, posZ = msrData["X"], msrData["Y"], msrData["Z"]
-        eqnVX, eqnVY, eqnVZ = None, None, None
-        if msrData["msrType"] == "v":
-            eqnVX, eqnVY, eqnVZ = msrData["VX"], msrData["VY"], msrData["VZ"]
-        eqnAX, eqnAY, eqnAZ = None, None, None
-        if msrData["msrType"] == "a":
-            eqnAX, eqnAY, eqnAZ = msrData["AX"], msrData["AY"], msrData["AZ"]
 
         # Append measurement.
         for idx, time in enumerate(msrData["T"]):
             if time not in msrDic:
                 msrDic[time] = []
-            if msrData["msrType"] == "x":
-                msrDic[time].append(("x", posX[idx], posY[idx], posZ[idx], prmSigma))
-            if msrData["msrType"] == "v":
-                msrDic[time].append(("v", eqnVX[idx], eqnVY[idx], eqnVZ[idx], prmSigma))
-            if msrData["msrType"] == "a":
-                msrDic[time].append(("a", eqnAX[idx], eqnAY[idx], eqnAZ[idx], prmSigma))
+            if msrData["msrType"] == "pos":
+                msrDic[time].append(("pos", posX[idx], posY[idx], posZ[idx], prmSigma))
 
     def computeDefaultMsrCovariance(self):
         """Compute default measurement covariance matrix"""

@@ -243,12 +243,8 @@ class kalmanFilterPlaneExample:
         # Get data measurements.
         msrType = txt.split(";")[0].split()[1]
         msrData = {"msrType": msrType}
-        if msrType == "x":
+        if msrType == "pos":
             self.getMsrDataX(txt, msrData)
-        if msrType == "v":
-            self.getMsrDataV(txt, msrData)
-        if msrType == "a":
-            self.getMsrDataA(txt, msrData)
 
         return msrData
 
@@ -270,46 +266,6 @@ class kalmanFilterPlaneExample:
         msrData["X"] = eqnX+eqnNoise[:, 0]
         msrData["Y"] = eqnY+eqnNoise[:, 1]
         msrData["Z"] = eqnZ+eqnNoise[:, 2]
-
-    def getMsrDataV(self, txt, msrData):
-        """Get measure data: velocity"""
-
-        # Time.
-        prmT0 = float(txt.split(";")[1].split()[1])
-        prmTf = float(txt.split(";")[2].split()[1])
-        prmDt = float(txt.split(";")[3].split()[1])
-        prmNbPt = int((prmTf-prmT0)/prmDt)
-        eqnT = np.linspace(prmT0, prmTf, prmNbPt)
-        msrData["T"] = eqnT
-
-        # Data.
-        msrData["X"], msrData["Y"], msrData["Z"] = self.getDisplEquations(eqnT)
-        eqnVX, eqnVY, eqnVZ = self.getVelocEquations(eqnT)
-        prmSigma = float(txt.split(";")[4].split()[1])
-        eqnNoise = self.addNoise(prmSigma, eqnVX, eqnVY, eqnVZ)
-        msrData["VX"] = eqnVX+eqnNoise[:, 0]
-        msrData["VY"] = eqnVY+eqnNoise[:, 1]
-        msrData["VZ"] = eqnVZ+eqnNoise[:, 2]
-
-    def getMsrDataA(self, txt, msrData):
-        """Get measure data: acceleration"""
-
-        # Time.
-        prmT0 = float(txt.split(";")[1].split()[1])
-        prmTf = float(txt.split(";")[2].split()[1])
-        prmDt = float(txt.split(";")[3].split()[1])
-        prmNbPt = int((prmTf-prmT0)/prmDt)
-        eqnT = np.linspace(prmT0, prmTf, prmNbPt)
-        msrData["T"] = eqnT
-
-        # Data.
-        msrData["X"], msrData["Y"], msrData["Z"] = self.getDisplEquations(eqnT)
-        eqnAX, eqnAY, eqnAZ = self.getAccelEquations(eqnT)
-        prmSigma = float(txt.split(";")[4].split()[1])
-        eqnNoise = self.addNoise(prmSigma, eqnAX, eqnAY, eqnAZ)
-        msrData["AX"] = eqnAX+eqnNoise[:, 0]
-        msrData["AY"] = eqnAY+eqnNoise[:, 1]
-        msrData["AZ"] = eqnAZ+eqnNoise[:, 2]
 
     @staticmethod
     def addNoise(prmSigma, eqnX, eqnY, eqnZ):
@@ -523,24 +479,10 @@ class kalmanFilterPlaneExample:
         """Update viewer: measurement data"""
 
         # View data measurements.
-        if msrData["msrType"] == "x":
+        if msrData["msrType"] == "pos":
             msrData["vwrPosMks"] = float(self.msr["vwrPosMks"].text())
             clr = "r" # Red.
-            self.vwr["3D"].addScatter("measure: x", msrData, clr)
-        if msrData["msrType"] == "v":
-            msrData["vwrVelLgh"] = float(self.msr["vwrVelLgh"].text())
-            msrData["vwrVelNrm"] = self.msr["vwrVelNrm"].isChecked()
-            msrData["vwrVelALR"] = float(self.msr["vwrVelALR"].text())
-            clr = (1., 0.65, 0.) # Orange.
-            opts = {"clr": clr, "lnr": ["vwrVelLgh", "vwrVelNrm", "vwrVelALR"]}
-            self.vwr["3D"].addQuiver("measure: v", msrData, ["VX", "VY", "VZ"], opts)
-        if msrData["msrType"] == "a":
-            msrData["vwrAccLgh"] = float(self.msr["vwrAccLgh"].text())
-            msrData["vwrAccNrm"] = self.msr["vwrAccNrm"].isChecked()
-            msrData["vwrAccALR"] = float(self.msr["vwrAccALR"].text())
-            clr = (0.6, 0.3, 0.) # Brown.
-            opts = {"clr": clr, "lnr": ["vwrAccLgh", "vwrAccNrm", "vwrAccALR"]}
-            self.vwr["3D"].addQuiver("measure: a", msrData, ["AX", "AY", "AZ"], opts)
+            self.vwr["3D"].addScatter("measure: pos", msrData, clr)
 
     def getMsrId(self):
         """Get measurements identity (track measurement features)"""
@@ -963,10 +905,6 @@ class kalmanFilterPlaneExample:
         # Create measurement parameters.
         self.createMsrGUIPrm()
 
-        # Set default GUI.
-        self.msr["vwrVelNrm"].setChecked(False)
-        self.msr["vwrAccNrm"].setChecked(False)
-
         # Fill measurement GUI.
         self.fillMsrGUI(msrGUI)
 
@@ -977,7 +915,7 @@ class kalmanFilterPlaneExample:
 
         # Create measurement parameters.
         self.msr["addType"] = QComboBox(self.ctrGUI)
-        for msr in ["x", "v", "a"]:
+        for msr in ["GPS"]:
             self.msr["addType"].addItem(msr)
         self.msr["addT0"] = QLineEdit("N.A.", self.ctrGUI)
         self.msr["addTf"] = QLineEdit("N.A.", self.ctrGUI)
@@ -986,12 +924,6 @@ class kalmanFilterPlaneExample:
         self.msr["msrLst"] = QListWidget(self.ctrGUI)
         self.msr["msrDat"] = {}
         self.msr["vwrPosMks"] = QLineEdit("5", self.ctrGUI)
-        self.msr["vwrVelLgh"] = QLineEdit("1.", self.ctrGUI)
-        self.msr["vwrVelALR"] = QLineEdit("0.1", self.ctrGUI)
-        self.msr["vwrVelNrm"] = QCheckBox("Normalize", self.ctrGUI)
-        self.msr["vwrAccLgh"] = QLineEdit("1.", self.ctrGUI)
-        self.msr["vwrAccALR"] = QLineEdit("0.1", self.ctrGUI)
-        self.msr["vwrAccNrm"] = QCheckBox("Normalize", self.ctrGUI)
 
         # Allow only double in QLineEdit.
         for key in self.msr:
@@ -1088,7 +1020,9 @@ class kalmanFilterPlaneExample:
         """Callback on adding measure in list"""
 
         # Create new item.
-        item = "type "+self.msr["addType"].currentText()
+        item = "type "
+        if self.msr["addType"].currentText() == "GPS":
+            item += "pos"
         item += "; T0 "+self.msr["addT0"].text()
         item += "; Tf "+self.msr["addTf"].text()
         item += "; Dt "+self.msr["addDt"].text()
@@ -1150,18 +1084,6 @@ class kalmanFilterPlaneExample:
         gdlVwr.addWidget(QLabel("Position:", msrGUI), 0, 0)
         gdlVwr.addWidget(QLabel("marker size", msrGUI), 0, 1)
         gdlVwr.addWidget(self.msr["vwrPosMks"], 0, 2)
-        gdlVwr.addWidget(QLabel("Velocity:", msrGUI), 1, 0)
-        gdlVwr.addWidget(QLabel("length", msrGUI), 1, 1)
-        gdlVwr.addWidget(self.msr["vwrVelLgh"], 1, 2)
-        gdlVwr.addWidget(QLabel("arrow/length ratio", msrGUI), 1, 3)
-        gdlVwr.addWidget(self.msr["vwrVelALR"], 1, 4)
-        gdlVwr.addWidget(self.msr["vwrVelNrm"], 1, 5)
-        gdlVwr.addWidget(QLabel("Acceleration:", msrGUI), 2, 0)
-        gdlVwr.addWidget(QLabel("length", msrGUI), 2, 1)
-        gdlVwr.addWidget(self.msr["vwrAccLgh"], 2, 2)
-        gdlVwr.addWidget(QLabel("arrow/length ratio", msrGUI), 2, 3)
-        gdlVwr.addWidget(self.msr["vwrAccALR"], 2, 4)
-        gdlVwr.addWidget(self.msr["vwrAccNrm"], 2, 5)
 
         # Set group box layout.
         gpbVwr = QGroupBox(msrGUI)
@@ -1535,7 +1457,7 @@ class kalmanFilterPlaneExample:
         """Plot variables: X"""
 
         # Plot variables.
-        opts = {"pltMsr": pltMsr, "pltSim": pltSim, "msrType": "x"}
+        opts = {"pltMsr": pltMsr, "pltSim": pltSim, "msrType": "pos"}
         self.plotSltMsrSimVariables(key, pltIdx+0, "X", opts)
         self.plotSltMsrSimVariables(key, pltIdx+1, "Y", opts)
         self.plotSltMsrSimVariables(key, pltIdx+2, "Z", opts)
@@ -1544,7 +1466,7 @@ class kalmanFilterPlaneExample:
         """Plot variables: V"""
 
         # Plot variables.
-        opts = {"pltMsr": pltMsr, "pltSim": pltSim, "msrType": "v"}
+        opts = {"pltMsr": pltMsr, "pltSim": pltSim}
         self.plotSltMsrSimVariables(key, pltIdx+0, "VX", opts)
         self.plotSltMsrSimVariables(key, pltIdx+1, "VY", opts)
         self.plotSltMsrSimVariables(key, pltIdx+2, "VZ", opts)
@@ -1553,7 +1475,7 @@ class kalmanFilterPlaneExample:
         """Plot variables: A"""
 
         # Plot variables.
-        opts = {"pltMsr": pltMsr, "pltSim": pltSim, "msrType": "a"}
+        opts = {"pltMsr": pltMsr, "pltSim": pltSim}
         self.plotSltMsrSimVariables(key, pltIdx+0, "AX", opts)
         self.plotSltMsrSimVariables(key, pltIdx+1, "AY", opts)
         self.plotSltMsrSimVariables(key, pltIdx+2, "AZ", opts)
@@ -1673,11 +1595,11 @@ class kalmanFilterPlaneExample:
 
         # Plot simulation process noise.
         opts = {"key": "predictor", "subKey": "simPrN", "start": 1, "twinAxis": "green:red"}
-        opts["msrType"] = "x"
+        opts["msrType"] = "pos"
         self.plotMsrSimVariables(0, "X", "$W_{x}$", opts)
         self.plotMsrSimVariables(1, "Y", "$W_{y}$", opts)
         self.plotMsrSimVariables(2, "Z", "$W_{z}$", opts)
-        opts["msrType"] = "v"
+        del opts["msrType"]
         self.plotMsrSimVariables(3, "VX", "$W_{vx}$", opts)
         self.plotMsrSimVariables(4, "VY", "$W_{vy}$", opts)
         self.plotMsrSimVariables(5, "VZ", "$W_{vz}$", opts)
@@ -1813,11 +1735,11 @@ class kalmanFilterPlaneExample:
 
         # Plot simulation covariance variables.
         opts = {"key": "predictor", "subKey": "simDgP", "start": 0, "twinAxis": "green:red"}
-        opts["msrType"] = "x"
+        opts["msrType"] = "pos"
         self.plotMsrSimVariables(0, "X", "$P_{xx}$", opts)
         self.plotMsrSimVariables(1, "Y", "$P_{yy}$", opts)
         self.plotMsrSimVariables(2, "Z", "$P_{zz}$", opts)
-        opts["msrType"] = "v"
+        del opts["msrType"]
         self.plotMsrSimVariables(3, "VX", "$P_{vxvx}$", opts)
         self.plotMsrSimVariables(4, "VY", "$P_{vyvy}$", opts)
         self.plotMsrSimVariables(5, "VZ", "$P_{vzvz}$", opts)
@@ -1851,11 +1773,11 @@ class kalmanFilterPlaneExample:
 
         # Plot simulation Kalman gain variables.
         opts = {"key": "corrector", "subKey": "simDgK", "start": 0, "twinAxis": "green:red"}
-        opts["msrType"] = "x"
+        opts["msrType"] = "pos"
         self.plotMsrSimVariables(0, "X", "$K_{xx}$", opts)
         self.plotMsrSimVariables(1, "Y", "$K_{yy}$", opts)
         self.plotMsrSimVariables(2, "Z", "$K_{zz}$", opts)
-        opts["msrType"] = "v"
+        del opts["msrType"]
         self.plotMsrSimVariables(3, "VX", "$K_{vxvx}$", opts)
         self.plotMsrSimVariables(4, "VY", "$K_{vyvy}$", opts)
         self.plotMsrSimVariables(5, "VZ", "$K_{vzvz}$", opts)
@@ -1937,7 +1859,7 @@ class kalmanFilterPlaneExample:
 
         # Set parameters according to example.
         sigPosGPS = 2. # GPS: sigma x (5 m but often more precise).
-        sigVelGPS = 0.5 # GPS: sigma v (0.5 m/s).
+        sigVel = 0.5 # Sigma v (0.5 m/s).
         sigAccSensor = 0.0001 # IMU accelerometers: sigma a (from 10 mg to 1µg).
         qrb = self.ctrGUI.sender()
         if qrb.isChecked():
@@ -1945,30 +1867,30 @@ class kalmanFilterPlaneExample:
             self.sim["prmM"].setText("1000.")
             self.sim["prmC"].setText("50.")
             if qrb.text() == "XYZ line":
-                self.onXYZLineExampleClicked(sigPosGPS, sigVelGPS, sigAccSensor)
+                self.onXYZLineExampleClicked(sigPosGPS, sigVel, sigAccSensor)
             if qrb.text() == "XY line":
-                self.onXYLineExampleClicked(sigPosGPS, sigVelGPS, sigAccSensor)
+                self.onXYLineExampleClicked(sigPosGPS, sigVel, sigAccSensor)
             if qrb.text() == "Up-down":
-                self.onUpDownExampleClicked(sigPosGPS, sigVelGPS, sigAccSensor)
+                self.onUpDownExampleClicked(sigPosGPS, sigVel, sigAccSensor)
             if qrb.text() == "Zig-zag":
-                self.onZigZagExampleClicked(sigPosGPS, sigVelGPS, sigAccSensor)
+                self.onZigZagExampleClicked(sigPosGPS, sigVel, sigAccSensor)
             if qrb.text() == "Circle":
-                self.onCircleExampleClicked(sigPosGPS, sigVelGPS, sigAccSensor)
+                self.onCircleExampleClicked(sigPosGPS, sigVel, sigAccSensor)
             if qrb.text() == "Round trip":
-                self.onRoundTripExampleClicked(sigPosGPS, sigVelGPS, sigAccSensor)
+                self.onRoundTripExampleClicked(sigPosGPS, sigVel, sigAccSensor)
             if qrb.text() == "Looping":
-                self.onLoopingExampleClicked(sigPosGPS, sigVelGPS, sigAccSensor)
+                self.onLoopingExampleClicked(sigPosGPS, sigVel, sigAccSensor)
             self.sim["ctlRolMax"].setText("45.")
             self.sim["ctlPtcMax"].setText("30.")
             self.sim["ctlYawMax"].setText("45.")
 
         # Set example measurements.
-        self.onExampleClickedResetMsr(sigPosGPS, sigVelGPS, sigAccSensor)
+        self.onExampleClickedResetMsr(sigPosGPS, sigVel, sigAccSensor)
 
         # Reset Kalman solver.
         self.kfm.clear()
 
-    def onExampleClickedResetMsr(self, sigPosGPS, sigVelGPS, sigAccSensor):
+    def onExampleClickedResetMsr(self, sigPosGPS, sigVel, sigAccSensor):
         """Callback on click: measurement example radio button"""
 
         # Reset all previous measurements.
@@ -1976,18 +1898,18 @@ class kalmanFilterPlaneExample:
             self.msr["msrLst"].item(idx).setText("")
 
         # Initialize the measurement list with GPS measurements (x, v).
-        self.msr["addType"].setCurrentIndex(0) # Set combo to "x".
+        self.msr["addType"].setCurrentIndex(0) # Set combo to "GPS".
         self.msr["addT0"].setText("0.")
         self.msr["addTf"].setText(self.slt["fcdTf"].text())
         self.msr["addDt"].setText("1.") # GPS frequency: 1 s.
         self.msr["addSigma"].setText("%.6f" % sigPosGPS)
-        self.onAddMsrBtnClick() # Adding "x" measurement.
+        self.onAddMsrBtnClick() # Adding "GPS" measurement.
 
         # Set sigma of process noise as the average of the sigma's of all measurements.
-        sigProNse = (sigPosGPS+sigVelGPS+sigAccSensor)/3.
+        sigProNse = (sigPosGPS+sigVel+sigAccSensor)/3.
         self.sim["prmProNseSig"].setText("%.6f" % sigProNse)
 
-    def onXYZLineExampleClicked(self, sigPosGPS, sigVelGPS, sigAccSensor):
+    def onXYZLineExampleClicked(self, sigPosGPS, sigVel, sigAccSensor):
         """Callback on click: XYZ line example radio button"""
 
         # Flight path equation: parameters.
@@ -2005,7 +1927,7 @@ class kalmanFilterPlaneExample:
 
         # Evaluate sigma: simulation sigma (less trusted) > GPS sigma (more trusted).
         sigPosSim = 2.*sigPosGPS
-        sigVelSim = 2.*sigVelGPS
+        sigVelSim = 2.*sigVel
         sigAccSim = 2.*sigAccSensor
 
         # Simulation: parameters.
@@ -2035,18 +1957,17 @@ class kalmanFilterPlaneExample:
                 ("vwrAccLgh", "0"), ("vwrAccALR", "0.3")]
         for key in keys:
             self.slt[key[0]].setText(key[1])
-            self.msr[key[0]].setText(key[1])
             self.sim[key[0]].setText(key[1])
 
-    def onXYLineExampleClicked(self, sigPosGPS, sigVelGPS, sigAccSensor):
+    def onXYLineExampleClicked(self, sigPosGPS, sigVel, sigAccSensor):
         """Callback on click: XY line example radio button"""
 
         # Set XYZ line.
-        self.onXYZLineExampleClicked(sigPosGPS, sigVelGPS, sigAccSensor)
+        self.onXYZLineExampleClicked(sigPosGPS, sigVel, sigAccSensor)
 
         # Evaluate sigma: simulation sigma (less trusted) > GPS sigma (more trusted).
         sigPosSim = 2.*sigPosGPS
-        sigVelSim = 2.*sigVelGPS
+        sigVelSim = 2.*sigVel
         sigAccSim = 2.*sigAccSensor
 
         # Kill Z axis.
@@ -2059,7 +1980,7 @@ class kalmanFilterPlaneExample:
         self.sim["icdAZ0"].setText("0.")
         self.sim["icdSigAZ0"].setText("%.6f" % sigAccSim)
 
-    def onUpDownExampleClicked(self, sigPosGPS, sigVelGPS, sigAccSensor):
+    def onUpDownExampleClicked(self, sigPosGPS, sigVel, sigAccSensor):
         """Callback on click: up-down example radio button"""
 
         # Flight path equation: parameters.
@@ -2077,7 +1998,7 @@ class kalmanFilterPlaneExample:
 
         # Evaluate sigma: simulation sigma (less trusted) > GPS sigma (more trusted).
         sigPosSim = 2.*sigPosGPS
-        sigVelSim = 2.*sigVelGPS
+        sigVelSim = 2.*sigVel
         sigAccSim = 2.*sigAccSensor
 
         # Simulation: parameters.
@@ -2107,10 +2028,9 @@ class kalmanFilterPlaneExample:
                 ("vwrAccLgh", "0"), ("vwrAccALR", "0.3")]
         for key in keys:
             self.slt[key[0]].setText(key[1])
-            self.msr[key[0]].setText(key[1])
             self.sim[key[0]].setText(key[1])
 
-    def onZigZagExampleClicked(self, sigPosGPS, sigVelGPS, sigAccSensor):
+    def onZigZagExampleClicked(self, sigPosGPS, sigVel, sigAccSensor):
         """Callback on click: zig-zag example radio button"""
 
         # Flight path equation: parameters.
@@ -2128,7 +2048,7 @@ class kalmanFilterPlaneExample:
 
         # Evaluate sigma: simulation sigma (less trusted) > GPS sigma (more trusted).
         sigPosSim = 2.*sigPosGPS
-        sigVelSim = 2.*sigVelGPS
+        sigVelSim = 2.*sigVel
         sigAccSim = 2.*sigAccSensor
 
         # Simulation: parameters.
@@ -2158,10 +2078,9 @@ class kalmanFilterPlaneExample:
                 ("vwrAccLgh", "0"), ("vwrAccALR", "0.3")]
         for key in keys:
             self.slt[key[0]].setText(key[1])
-            self.msr[key[0]].setText(key[1])
             self.sim[key[0]].setText(key[1])
 
-    def onCircleExampleClicked(self, sigPosGPS, sigVelGPS, sigAccSensor):
+    def onCircleExampleClicked(self, sigPosGPS, sigVel, sigAccSensor):
         """Callback on click: circle example radio button"""
 
         # Flight path equation: parameters.
@@ -2179,7 +2098,7 @@ class kalmanFilterPlaneExample:
 
         # Evaluate sigma: simulation sigma (less trusted) > GPS sigma (more trusted).
         sigPosSim = 2.*sigPosGPS
-        sigVelSim = 2.*sigVelGPS
+        sigVelSim = 2.*sigVel
         sigAccSim = 2.*sigAccSensor
 
         # Simulation: parameters.
@@ -2209,10 +2128,9 @@ class kalmanFilterPlaneExample:
                 ("vwrAccLgh", "0"), ("vwrAccALR", "0.3")]
         for key in keys:
             self.slt[key[0]].setText(key[1])
-            self.msr[key[0]].setText(key[1])
             self.sim[key[0]].setText(key[1])
 
-    def onRoundTripExampleClicked(self, sigPosGPS, sigVelGPS, sigAccSensor):
+    def onRoundTripExampleClicked(self, sigPosGPS, sigVel, sigAccSensor):
         """Callback on click: round trip example radio button"""
 
         # Flight path equation: parameters.
@@ -2230,7 +2148,7 @@ class kalmanFilterPlaneExample:
 
         # Evaluate sigma: simulation sigma (less trusted) > GPS sigma (more trusted).
         sigPosSim = 2.*sigPosGPS
-        sigVelSim = 2.*sigVelGPS
+        sigVelSim = 2.*sigVel
         sigAccSim = 2.*sigAccSensor
 
         # Simulation: parameters.
@@ -2260,10 +2178,9 @@ class kalmanFilterPlaneExample:
                 ("vwrAccLgh", "0"), ("vwrAccALR", "0.1")]
         for key in keys:
             self.slt[key[0]].setText(key[1])
-            self.msr[key[0]].setText(key[1])
             self.sim[key[0]].setText(key[1])
 
-    def onLoopingExampleClicked(self, sigPosGPS, sigVelGPS, sigAccSensor):
+    def onLoopingExampleClicked(self, sigPosGPS, sigVel, sigAccSensor):
         """Callback on click: looping example radio button"""
 
         # Flight path equation: parameters.
@@ -2281,7 +2198,7 @@ class kalmanFilterPlaneExample:
 
         # Evaluate sigma: simulation sigma (less trusted) > GPS sigma (more trusted).
         sigPosSim = 2.*sigPosGPS
-        sigVelSim = 2.*sigVelGPS
+        sigVelSim = 2.*sigVel
         sigAccSim = 2.*sigAccSensor
 
         # Simulation: parameters.
@@ -2311,7 +2228,6 @@ class kalmanFilterPlaneExample:
                 ("vwrAccLgh", "0"), ("vwrAccALR", "0.3")]
         for key in keys:
             self.slt[key[0]].setText(key[1])
-            self.msr[key[0]].setText(key[1])
             self.sim[key[0]].setText(key[1])
 
     def createVwrGUI(self, gdlVwr):
@@ -2504,7 +2420,7 @@ class kalmanFilterPlaneExample:
         """Get measurement"""
 
         # Get measurement.
-        if msrItem[0] == "x":
+        if msrItem[0] == "pos":
             vecZ[0] = msrItem[1] # X.
             vecZ[2] = msrItem[2] # Y.
             vecZ[4] = msrItem[3] # Z.
@@ -2512,14 +2428,6 @@ class kalmanFilterPlaneExample:
             matH[2, 2] = 1.
             matH[4, 4] = 1.
             msrFlags.extend(["X", "Y", "Z"])
-        elif msrItem[0] == "v":
-            vecZ[1] = msrItem[1] # VX.
-            vecZ[3] = msrItem[2] # VY.
-            vecZ[5] = msrItem[3] # VZ.
-            matH[1, 1] = 1.
-            matH[3, 3] = 1.
-            matH[5, 5] = 1.
-            msrFlags.extend(["VX", "VY", "VZ"])
         else:
             assert True, "Unknown measure type"
 
@@ -2590,14 +2498,10 @@ class kalmanFilterPlaneExample:
         for msrItem in msrLst: # Small (accurate) sigma at msrLst tail.
             msrType = msrItem[0]
             prmSigma = msrItem[4]
-            if msrType == "x":
+            if msrType == "pos":
                 matR[0, 0] = prmSigma*prmSigma
                 matR[2, 2] = prmSigma*prmSigma
                 matR[4, 4] = prmSigma*prmSigma
-            elif msrType == "v":
-                matR[1, 1] = prmSigma*prmSigma
-                matR[3, 3] = prmSigma*prmSigma
-                matR[5, 5] = prmSigma*prmSigma
             else:
                 assert True, "Unknown measure type"
 
