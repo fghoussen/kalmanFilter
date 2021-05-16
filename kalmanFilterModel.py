@@ -17,7 +17,6 @@ class kalmanFilterModel():
         # Initialize members.
         self.sim = {"simItNb": 0}
         self.msr = []
-        self.mat = {}
         self.example = example
         self.time = np.array([], dtype=float)
         self.states = {}
@@ -140,24 +139,24 @@ class kalmanFilterModel():
 
         # Compute default measurement covariance matrix.
         matR = self.example.computeDefaultMsrCovariance()
-        self.mat["R"] = matR # Save for later use: restart from it to avoid singular matrix.
+        self.sim["matR"] = matR # Save for later use: restart from it to avoid singular matrix.
 
     def setLTI(self, matA, matB, matC, matD):
         """Set Linear Time Invariant matrices"""
 
         # Set matrices.
-        self.mat["A"] = matA
-        self.mat["B"] = matB
-        self.mat["C"] = matC
-        self.mat["D"] = matD
+        self.sim["matA"] = matA
+        self.sim["matB"] = matB
+        self.sim["matC"] = matC
+        self.sim["matD"] = matD
         if self.sim["prmVrb"] >= 3:
             print("  "*2+"Linear Time Invariant system:")
-            self.printMat("A", self.mat["A"])
-            if self.mat["B"] is not None:
-                self.printMat("B", self.mat["B"])
-            self.printMat("C", self.mat["C"])
-            if self.mat["D"] is not None:
-                self.printMat("D", self.mat["D"])
+            self.printMat("A", self.sim["matA"])
+            if self.sim["matB"] is not None:
+                self.printMat("B", self.sim["matB"])
+            self.printMat("C", self.sim["matC"])
+            if self.sim["matD"] is not None:
+                self.printMat("D", self.sim["matD"])
 
     def solve(self):
         """Solve based on Kalman filter"""
@@ -311,7 +310,7 @@ class kalmanFilterModel():
         """Compute measurement covariance"""
 
         # Get measurement covariance.
-        matR = self.mat["R"] # Start from default matrix (needed to avoid singular K matrix).
+        matR = self.sim["matR"] # Start from default matrix (needed to avoid singular K matrix).
         matR = self.example.computeMsrCovariance(matR, msrLst)
 
         # Verbose on demand.
@@ -364,9 +363,9 @@ class kalmanFilterModel():
         """Compute outputs"""
 
         # Outputs equation: y_{n+1} = C*x_{n} + D*u_{n}.
-        outputs = np.dot(self.mat["C"], states)
-        if self.mat["D"] is not None:
-            outputs = outputs+np.dot(self.mat["D"], vecU)
+        outputs = np.dot(self.sim["matC"], states)
+        if self.sim["matD"] is not None:
+            outputs = outputs+np.dot(self.sim["matD"], vecU)
 
         return outputs
 
@@ -379,7 +378,7 @@ class kalmanFilterModel():
         taylorExpLTM = 0.
         for idx in range(1, int(self.sim["prmExpOrd"])+1):
             fac = np.math.factorial(idx)
-            taylorExp = npl.matrix_power(timeDt*self.mat["A"], idx)/fac
+            taylorExp = npl.matrix_power(timeDt*self.sim["matA"], idx)/fac
             taylorExpLTM = np.amax(np.abs(taylorExp))
             matF = matF+taylorExp
         if self.sim["prmVrb"] >= 3:
@@ -388,8 +387,8 @@ class kalmanFilterModel():
 
         # Compute G_{n,n}.
         matG = None
-        if self.mat["B"] is not None:
-            matG = np.dot(timeDt*matF, self.mat["B"])
+        if self.sim["matB"] is not None:
+            matG = np.dot(timeDt*matF, self.sim["matB"])
             if self.sim["prmVrb"] >= 3:
                 self.printMat("G", matG)
 
