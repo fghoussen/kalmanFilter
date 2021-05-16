@@ -179,7 +179,9 @@ class kalmanFilterModel():
 
             # Set verbose only for some multiple of iterations.
             self.sim["simItNb"] = self.sim["simItNb"] + 1
-            self.sim["prmVrb"] = prmVrb if self.sim["simItNb"]%self.sim["prmVrbIt"] == 0 else 0
+            self.sim["prmVrb"] = -1*prmVrb
+            if self.sim["simItNb"]%self.sim["prmVrbIt"] == 0:
+                self.sim["prmVrb"] = prmVrb
 
             # Solve (= corrector + predictor) with Kalman filter.
             newTime, timeDt, states, matP = self.corrector(time, prmDt, matP, states)
@@ -217,6 +219,8 @@ class kalmanFilterModel():
 
         # Get measurement data.
         newTime = msrData[0] # Cut off time to measurement time.
+        if newTime >= self.sim["fcdTf"]:
+            self.sim["prmVrb"] = np.abs(self.sim["prmVrb"])
         msrLst = msrData[1]
         if self.sim["prmVrb"] >= 1:
             print("  "*2+"Corrector: time %.3f, iteration %d" % (newTime, self.sim["simItNb"]))
