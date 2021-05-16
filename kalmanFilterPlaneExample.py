@@ -33,10 +33,10 @@ class kalmanFilterPlaneExample:
         self.vwr["2D"]["fpeTZP"] = None
         self.vwr["2D"]["msrDat"] = None
         self.vwr["2D"]["simOVr"] = None
+        self.vwr["2D"]["simSVr"] = None
         self.vwr["2D"]["simTSV"] = None
         self.vwr["2D"]["simCLV"] = None
         self.vwr["2D"]["simPrN"] = None
-        self.vwr["2D"]["simFrc"] = None
         self.vwr["2D"]["simInv"] = None
         self.vwr["2D"]["simDgP"] = None
         self.vwr["2D"]["simDgK"] = None
@@ -91,37 +91,17 @@ class kalmanFilterPlaneExample:
         """Clear plot"""
 
         # Clear the plots.
-        if vwrId in ("all", "fpeTZP"):
-            if self.vwr["2D"]["fpeTZP"]:
-                axis = self.vwr["2D"]["fpeTZP"].getAxis()
-                axis.cla()
-                axis.set_xlabel("t")
-                axis.set_ylabel("z")
-                self.vwr["2D"]["fpeTZP"].draw()
-        for key in ["msrDat", "simOVr", "simCLV", "simPrN", "simInv", "simDgP", "simDgK"]:
+        for key in self.vwr["2D"]:
             if vwrId in ("all", key):
                 if self.vwr["2D"][key]:
-                    for idx in [0, 1, 2, 3, 4, 5, 6, 7, 8]:
+                    nbPlots = self.vwr["2D"][key].nrows*self.vwr["2D"][key].ncols
+                    for idx in range(nbPlots):
                         axis = self.vwr["2D"][key].getAxis(idx)
                         axis.set_xlabel("t")
                         axis.cla()
                         axis = self.vwr["2D"][key].getTwinAxis(idx, visible=False)
                         axis.cla()
                     self.vwr["2D"][key].draw()
-        if vwrId in ("all", "simFrc"):
-            if self.vwr["2D"]["simFrc"]:
-                for idx in [0, 1, 2]:
-                    axis = self.vwr["2D"]["simFrc"].getAxis(idx)
-                    axis.set_xlabel("t")
-                    axis.cla()
-                self.vwr["2D"]["simFrc"].draw()
-        if vwrId in ("all", "simTSV"):
-            if self.vwr["2D"]["simTSV"]:
-                for idx in [0, 1]:
-                    axis = self.vwr["2D"]["simTSV"].getAxis(idx)
-                    axis.set_xlabel("t")
-                    axis.cla()
-                self.vwr["2D"]["simTSV"].draw()
 
     def updateViewerSlt(self):
         """Update viewer: solution"""
@@ -598,6 +578,8 @@ class kalmanFilterPlaneExample:
         # Gather results.
         simData = {}
         simData["T"] = self.kfm.time
+        for key in self.getStateKeys():
+            simData[key] = self.kfm.states[key]
         for key in self.getOutputKeys():
             simData[key] = self.kfm.outputs[key]
         simData["vwrLnWd"] = float(self.sim["vwrLnWd"].text())
@@ -616,10 +598,11 @@ class kalmanFilterPlaneExample:
         clr = (0., 1., 0.) # Lime green.
         opts = {"clr": clr, "lnr": ["vwrVelLgh", "vwrVelNrm", "vwrVelALR"]}
         self.vwr["3D"].addQuiver("simulation: v", simData, ["VX", "VY", "VZ"], opts)
-        # FIXME
-        #clr = (0., 0.2, 0.) # Dark green.
-        #opts = {"clr": clr, "lnr": ["vwrAccLgh", "vwrAccNrm", "vwrAccALR"]}
-        #self.vwr["3D"].addQuiver("simulation: a", simData, ["AX", "AY", "AZ"], opts)
+        clr = (0., 0.2, 0.) # Dark green.
+        opts = {"clr": clr, "lnr": ["vwrAccLgh", "vwrAccNrm", "vwrAccALR"]}
+        self.vwr["3D"].addQuiver("simulation: a", simData, ["AX", "AY", "AZ"], opts)
+        if self.vwr["2D"]["simSVr"] and not self.vwr["2D"]["simSVr"].closed:
+            self.onPltSSVBtnClick()
         if self.vwr["2D"]["simOVr"] and not self.vwr["2D"]["simOVr"].closed:
             self.onPltSOVBtnClick()
         if self.vwr["2D"]["simTSV"] and not self.vwr["2D"]["simTSV"].closed:
@@ -628,8 +611,6 @@ class kalmanFilterPlaneExample:
             self.onPltSCLBtnClick()
         if self.vwr["2D"]["simPrN"] and not self.vwr["2D"]["simPrN"].closed:
             self.onPltSPNBtnClick()
-        if self.vwr["2D"]["simFrc"] and not self.vwr["2D"]["simFrc"].closed:
-            self.onPltSFrBtnClick()
         if self.vwr["2D"]["simInv"] and not self.vwr["2D"]["simInv"].closed:
             self.onPltSKIBtnClick()
         if self.vwr["2D"]["simDgP"] and not self.vwr["2D"]["simDgP"].closed:
@@ -849,6 +830,7 @@ class kalmanFilterPlaneExample:
             vwrPosMks = float(self.slt["vwrPosMks"].text())
             clr = (0., 0., 1.) # Blue.
             axis.plot(eqnT, eqnZ, color=clr, label="z", marker="o", lw=vwrLnWd, ms=vwrPosMks)
+            axis.set_ylabel("z")
         prmTi, prmZi = self.getZPolyPts()
         axis.scatter(prmTi, prmZi, c="r", marker="X", label="interpolation point")
         axis.legend()
@@ -1073,7 +1055,7 @@ class kalmanFilterPlaneExample:
         print("Plot measurement data")
         if not self.vwr["2D"]["msrDat"] or self.vwr["2D"]["msrDat"].closed:
             self.vwr["2D"]["msrDat"] = kalmanFilter2DViewer(self.ctrGUI)
-            self.vwr["2D"]["msrDat"].setUp(self.slt["fcdTf"].text(), nrows=3, ncols=3)
+            self.vwr["2D"]["msrDat"].setUp(self.slt["fcdTf"].text(), nrows=1, ncols=3)
             self.vwr["2D"]["msrDat"].setWindowTitle("Measurements: data")
             self.vwr["2D"]["msrDat"].show()
 
@@ -1100,9 +1082,7 @@ class kalmanFilterPlaneExample:
             self.computeMsr()
 
         # Plot measurement data.
-        self.plotSltMsrSimVariablesX("msrDat", pltMsr=True)
-        self.plotSltMsrSimVariablesV("msrDat", pltMsr=True)
-        self.plotSltMsrSimVariablesA("msrDat", pltMsr=True)
+        self.plotSltMsrSimVariablesX("msrDat", 0, pltMsr=True)
 
     def onAddMsrBtnClick(self):
         """Callback on adding measure in list"""
@@ -1243,11 +1223,6 @@ class kalmanFilterPlaneExample:
         self.sim["ctlRolMax"] = QLineEdit("N.A.", self.ctrGUI)
         self.sim["ctlPtcMax"] = QLineEdit("N.A.", self.ctrGUI)
         self.sim["ctlYawMax"] = QLineEdit("N.A.", self.ctrGUI)
-        self.sim["ctlThfTkoK"] = QLineEdit("N.A.", self.ctrGUI)
-        self.sim["ctlThfTkoDt"] = QLineEdit("N.A.", self.ctrGUI)
-        self.sim["ctlThfFlgK"] = QLineEdit("N.A.", self.ctrGUI)
-        self.sim["ctlThfLdgK"] = QLineEdit("N.A.", self.ctrGUI)
-        self.sim["ctlThfLdgDt"] = QLineEdit("N.A.", self.ctrGUI)
         self.sim["vwrLnWd"] = QLineEdit("0.2", self.ctrGUI)
         self.sim["vwrPosMks"] = QLineEdit("2", self.ctrGUI)
         self.sim["vwrVelLgh"] = QLineEdit("1.", self.ctrGUI)
@@ -1415,17 +1390,6 @@ class kalmanFilterPlaneExample:
         gdlFCL.addWidget(self.sim["ctlPtcMax"], 2, 1)
         gdlFCL.addWidget(QLabel("Yaw:", simGUI), 3, 0)
         gdlFCL.addWidget(self.sim["ctlYawMax"], 3, 1)
-        gdlFCL.addWidget(QLabel("Throttle force: F = (k/m)*V", simGUI), 0, 2, 1, 4)
-        gdlFCL.addWidget(QLabel("Take-off k:", simGUI), 1, 2)
-        gdlFCL.addWidget(self.sim["ctlThfTkoK"], 1, 3)
-        gdlFCL.addWidget(QLabel("<em>&Delta;t</em>:", simGUI), 1, 4)
-        gdlFCL.addWidget(self.sim["ctlThfTkoDt"], 1, 5)
-        gdlFCL.addWidget(QLabel("Flight k:", simGUI), 2, 2)
-        gdlFCL.addWidget(self.sim["ctlThfFlgK"], 2, 3)
-        gdlFCL.addWidget(QLabel("Landing k:", simGUI), 3, 2)
-        gdlFCL.addWidget(self.sim["ctlThfLdgK"], 3, 3)
-        gdlFCL.addWidget(QLabel("<em>&Delta;t</em>:", simGUI), 3, 4)
-        gdlFCL.addWidget(self.sim["ctlThfLdgDt"], 3, 5)
 
         # Set group box layout.
         gpbFCL = QGroupBox(simGUI)
@@ -1470,14 +1434,14 @@ class kalmanFilterPlaneExample:
         """Fill simulation GUI: post processing"""
 
         # Create push buttons.
+        self.expGUI["QPB"]["SSV"] = QPushButton("State variables", simGUI)
+        self.expGUI["QPB"]["SSV"].clicked.connect(self.onPltSSVBtnClick)
         self.expGUI["QPB"]["SOV"] = QPushButton("Output variables", simGUI)
         self.expGUI["QPB"]["SOV"].clicked.connect(self.onPltSOVBtnClick)
         self.expGUI["QPB"]["SCL"] = QPushButton("Control law", simGUI)
         self.expGUI["QPB"]["SCL"].clicked.connect(self.onPltSCLBtnClick)
         self.expGUI["QPB"]["SPN"] = QPushButton("Process noise", simGUI)
         self.expGUI["QPB"]["SPN"].clicked.connect(self.onPltSPNBtnClick)
-        self.expGUI["QPB"]["SFr"] = QPushButton("Forces", simGUI)
-        self.expGUI["QPB"]["SFr"].clicked.connect(self.onPltSFrBtnClick)
         self.expGUI["QPB"]["SKI"] = QPushButton("Innovation", simGUI)
         self.expGUI["QPB"]["SKI"].clicked.connect(self.onPltSKIBtnClick)
         self.expGUI["QPB"]["STS"] = QPushButton("Time scheme", simGUI)
@@ -1489,14 +1453,14 @@ class kalmanFilterPlaneExample:
 
         # Create simulation GUI: simulation post processing.
         gdlPpg = QGridLayout(simGUI)
-        gdlPpg.addWidget(self.expGUI["QPB"]["SOV"], 0, 0)
-        gdlPpg.addWidget(self.expGUI["QPB"]["STS"], 0, 1)
+        gdlPpg.addWidget(self.expGUI["QPB"]["SSV"], 0, 0)
+        gdlPpg.addWidget(self.expGUI["QPB"]["SOV"], 0, 1)
         gdlPpg.addWidget(self.expGUI["QPB"]["SCL"], 1, 0)
         gdlPpg.addWidget(self.expGUI["QPB"]["SPN"], 1, 1)
-        gdlPpg.addWidget(self.expGUI["QPB"]["SFr"], 2, 0)
-        gdlPpg.addWidget(self.expGUI["QPB"]["SKI"], 2, 1)
-        gdlPpg.addWidget(self.expGUI["QPB"]["SCv"], 3, 0)
-        gdlPpg.addWidget(self.expGUI["QPB"]["SKG"], 3, 1)
+        gdlPpg.addWidget(self.expGUI["QPB"]["SKI"], 2, 0)
+        gdlPpg.addWidget(self.expGUI["QPB"]["SCv"], 2, 1)
+        gdlPpg.addWidget(self.expGUI["QPB"]["SKG"], 2, 2)
+        gdlPpg.addWidget(self.expGUI["QPB"]["STS"], 3, 0)
 
         # Set group box layout.
         gpbPpg = QGroupBox(simGUI)
@@ -1506,6 +1470,37 @@ class kalmanFilterPlaneExample:
 
         return gpbPpg
 
+    def onPltSSVBtnClick(self):
+        """Callback on plotting simulation state variables"""
+
+        # Create or retrieve viewer.
+        print("Plot simulation state variables")
+        if not self.vwr["2D"]["simSVr"] or self.vwr["2D"]["simSVr"].closed:
+            self.vwr["2D"]["simSVr"] = kalmanFilter2DViewer(self.ctrGUI)
+            self.vwr["2D"]["simSVr"].setUp(self.slt["fcdTf"].text(), nrows=2, ncols=3)
+            self.vwr["2D"]["simSVr"].setWindowTitle("Simulation: states")
+            self.vwr["2D"]["simSVr"].show()
+
+        # Clear the viewer.
+        self.clearPlot(vwrId="simSVr")
+
+        # Plot simulation output variables.
+        self.plotSimStateVariables()
+
+        # Draw scene.
+        self.vwr["2D"]["simSVr"].draw()
+
+    def plotSimStateVariables(self):
+        """Plot simulation state variables"""
+
+        # Don't plot if there's nothing to plot.
+        if not self.kfm.isSolved():
+            return
+
+        # Plot simulation output variables.
+        self.plotSltMsrSimVariablesX("simSVr", 0, pltSim=True)
+        self.plotSltMsrSimVariablesV("simSVr", 3, pltSim=True)
+
     def onPltSOVBtnClick(self):
         """Callback on plotting simulation output variables"""
 
@@ -1513,7 +1508,7 @@ class kalmanFilterPlaneExample:
         print("Plot simulation output variables")
         if not self.vwr["2D"]["simOVr"] or self.vwr["2D"]["simOVr"].closed:
             self.vwr["2D"]["simOVr"] = kalmanFilter2DViewer(self.ctrGUI)
-            self.vwr["2D"]["simOVr"].setUp(self.slt["fcdTf"].text(), nrows=3, ncols=3)
+            self.vwr["2D"]["simOVr"].setUp(self.slt["fcdTf"].text(), nrows=1, ncols=3)
             self.vwr["2D"]["simOVr"].setWindowTitle("Simulation: outputs")
             self.vwr["2D"]["simOVr"].show()
 
@@ -1534,36 +1529,34 @@ class kalmanFilterPlaneExample:
             return
 
         # Plot simulation output variables.
-        self.plotSltMsrSimVariablesX("simOVr", pltSim=True)
-        self.plotSltMsrSimVariablesV("simOVr", pltSim=True)
-        self.plotSltMsrSimVariablesA("simOVr", pltSim=True)
+        self.plotSltMsrSimVariablesA("simOVr", 0, pltSim=True)
 
-    def plotSltMsrSimVariablesX(self, key, pltMsr=False, pltSim=False):
+    def plotSltMsrSimVariablesX(self, key, pltIdx, pltMsr=False, pltSim=False):
         """Plot variables: X"""
 
         # Plot variables.
         opts = {"pltMsr": pltMsr, "pltSim": pltSim, "msrType": "x"}
-        self.plotSltMsrSimVariables(key, 0, "X", opts)
-        self.plotSltMsrSimVariables(key, 1, "Y", opts)
-        self.plotSltMsrSimVariables(key, 2, "Z", opts)
+        self.plotSltMsrSimVariables(key, pltIdx+0, "X", opts)
+        self.plotSltMsrSimVariables(key, pltIdx+1, "Y", opts)
+        self.plotSltMsrSimVariables(key, pltIdx+2, "Z", opts)
 
-    def plotSltMsrSimVariablesV(self, key, pltMsr=False, pltSim=False):
+    def plotSltMsrSimVariablesV(self, key, pltIdx, pltMsr=False, pltSim=False):
         """Plot variables: V"""
 
         # Plot variables.
         opts = {"pltMsr": pltMsr, "pltSim": pltSim, "msrType": "v"}
-        self.plotSltMsrSimVariables(key, 3, "VX", opts)
-        self.plotSltMsrSimVariables(key, 4, "VY", opts)
-        self.plotSltMsrSimVariables(key, 5, "VZ", opts)
+        self.plotSltMsrSimVariables(key, pltIdx+0, "VX", opts)
+        self.plotSltMsrSimVariables(key, pltIdx+1, "VY", opts)
+        self.plotSltMsrSimVariables(key, pltIdx+2, "VZ", opts)
 
-    def plotSltMsrSimVariablesA(self, key, pltMsr=False, pltSim=False):
+    def plotSltMsrSimVariablesA(self, key, pltIdx, pltMsr=False, pltSim=False):
         """Plot variables: A"""
 
         # Plot variables.
         opts = {"pltMsr": pltMsr, "pltSim": pltSim, "msrType": "a"}
-        self.plotSltMsrSimVariables(key, 6, "AX", opts)
-        self.plotSltMsrSimVariables(key, 7, "AY", opts)
-        self.plotSltMsrSimVariables(key, 8, "AZ", opts)
+        self.plotSltMsrSimVariables(key, pltIdx+0, "AX", opts)
+        self.plotSltMsrSimVariables(key, pltIdx+1, "AY", opts)
+        self.plotSltMsrSimVariables(key, pltIdx+2, "AZ", opts)
 
     def plotSltMsrSimVariables(self, key, axisId, var, opts):
         """Plot solution, measurement and simulation variables"""
@@ -1572,7 +1565,10 @@ class kalmanFilterPlaneExample:
         axis = self.vwr["2D"][key].getAxis(axisId)
         if opts["pltSim"]:
             time = self.kfm.time
-            axis.plot(time, self.kfm.outputs[var], label="sim: "+var, marker="o", ms=3, c="g")
+            if var in self.kfm.states:
+                axis.plot(time, self.kfm.states[var], label="sim: "+var, marker="o", ms=3, c="g")
+            if var in self.kfm.outputs:
+                axis.plot(time, self.kfm.outputs[var], label="sim: "+var, marker="o", ms=3, c="g")
         if opts["pltMsr"] or self.vwr["ckbMsr"].isChecked():
             self.plotMsrVariables(self.vwr["2D"][key], axisId, var, opts)
         if self.vwr["ckbSlt"].isChecked():
@@ -1617,7 +1613,7 @@ class kalmanFilterPlaneExample:
         print("Plot simulation control law variables")
         if not self.vwr["2D"]["simCLV"] or self.vwr["2D"]["simCLV"].closed:
             self.vwr["2D"]["simCLV"] = kalmanFilter2DViewer(self.ctrGUI)
-            self.vwr["2D"]["simCLV"].setUp(self.slt["fcdTf"].text(), nrows=3, ncols=3)
+            self.vwr["2D"]["simCLV"].setUp(self.slt["fcdTf"].text(), nrows=2, ncols=3)
             self.vwr["2D"]["simCLV"].setWindowTitle("Simulation: control law")
             self.vwr["2D"]["simCLV"].show()
 
@@ -1639,19 +1635,14 @@ class kalmanFilterPlaneExample:
 
         # Plot simulation control law variables.
         key = "simCLV"
-        subKey, lbl = "FoM", "F/m"
-        time = self.kfm.time
-        for idx, var in enumerate(["X", "Y", "Z"]):
-            axis = self.vwr["2D"][key].getAxis(idx)
-            axis.plot(time, self.kfm.save["predictor"][key][subKey][var],
-                      label=lbl+" - "+var, marker="o", ms=3, c="g")
-            axis.set_xlabel("t")
-            axis.set_ylabel(lbl+" - "+var)
-            axis.legend()
-        opts = {"key": "predictor", "subKey": key, "start": 0}
-        self.plotSimVariables(6, "roll", "roll", opts)
-        self.plotSimVariables(7, "pitch", "pitch", opts)
-        self.plotSimVariables(8, "yaw", "yaw", opts)
+        opts = {"key": "predictor", "subKey": key, "subSubKey": "deltaAcc", "start": 0}
+        self.plotSimVariables(0, "AX", "delta AX", opts)
+        self.plotSimVariables(1, "AY", "delta AY", opts)
+        self.plotSimVariables(2, "AZ", "delta AZ", opts)
+        del opts["subSubKey"]
+        self.plotSimVariables(3, "roll", "roll", opts)
+        self.plotSimVariables(4, "pitch", "pitch", opts)
+        self.plotSimVariables(5, "yaw", "yaw", opts)
 
     def onPltSPNBtnClick(self):
         """Callback on plotting simulation process noise"""
@@ -1660,7 +1651,7 @@ class kalmanFilterPlaneExample:
         print("Plot simulation process noise")
         if not self.vwr["2D"]["simPrN"] or self.vwr["2D"]["simPrN"].closed:
             self.vwr["2D"]["simPrN"] = kalmanFilter2DViewer(self.ctrGUI)
-            self.vwr["2D"]["simPrN"].setUp(self.slt["fcdTf"].text(), nrows=3, ncols=3)
+            self.vwr["2D"]["simPrN"].setUp(self.slt["fcdTf"].text(), nrows=2, ncols=3)
             self.vwr["2D"]["simPrN"].setWindowTitle("Simulation: process noise")
             self.vwr["2D"]["simPrN"].show()
 
@@ -1690,57 +1681,6 @@ class kalmanFilterPlaneExample:
         self.plotMsrSimVariables(3, "VX", "$W_{vx}$", opts)
         self.plotMsrSimVariables(4, "VY", "$W_{vy}$", opts)
         self.plotMsrSimVariables(5, "VZ", "$W_{vz}$", opts)
-        opts["msrType"] = "a"
-        self.plotMsrSimVariables(6, "AX", "$W_{ax}$", opts)
-        self.plotMsrSimVariables(7, "AY", "$W_{ay}$", opts)
-        self.plotMsrSimVariables(8, "AZ", "$W_{az}$", opts)
-
-    def onPltSFrBtnClick(self):
-        """Callback on plotting simulation forces"""
-
-        # Create or retrieve viewer.
-        print("Plot simulation forces")
-        if not self.vwr["2D"]["simFrc"] or self.vwr["2D"]["simFrc"].closed:
-            self.vwr["2D"]["simFrc"] = kalmanFilter2DViewer(self.ctrGUI)
-            self.vwr["2D"]["simFrc"].setUp(self.slt["fcdTf"].text(), nrows=1, ncols=3)
-            self.vwr["2D"]["simFrc"].setWindowTitle("Simulation: forces")
-            self.vwr["2D"]["simFrc"].show()
-
-        # Clear the viewer.
-        self.clearPlot(vwrId="simFrc")
-
-        # Plot simulation forces.
-        self.plotSimForces()
-
-        # Draw scene.
-        self.vwr["2D"]["simFrc"].draw()
-
-    def plotSimForces(self):
-        """Plot simulation forces"""
-
-        # Don't plot if there's nothing to plot.
-        if not self.kfm.isSolved():
-            return
-
-        # Compute damping.
-        prmM, prmC = float(self.sim["prmM"].text()), float(self.sim["prmC"].text())
-        self.kfm.save["predictor"]["simFrc"]["dpgForce"]["X"] = prmC/prmM*self.kfm.outputs["VX"]
-        self.kfm.save["predictor"]["simFrc"]["dpgForce"]["Y"] = prmC/prmM*self.kfm.outputs["VY"]
-        self.kfm.save["predictor"]["simFrc"]["dpgForce"]["Z"] = prmC/prmM*self.kfm.outputs["VZ"]
-
-        # Plot simulation forces.
-        key = "simFrc"
-        time = self.kfm.time
-        for subKey, lbl, idxBase, lineStyle in zip(["thrForce", "dpgForce"],
-                                                   ["throttle", "damping"],
-                                                   [0, 0], ["dashed", "dotted"]):
-            for idx, var in enumerate(["X", "Y", "Z"]):
-                axis = self.vwr["2D"][key].getAxis(idxBase+idx)
-                axis.plot(time, self.kfm.save["predictor"][key][subKey][var],
-                          label=lbl+" - "+var, marker="o", ms=3, c="g", ls=lineStyle)
-                axis.set_xlabel("t")
-                axis.set_ylabel(var)
-                axis.legend()
 
     def onPltSKIBtnClick(self):
         """Callback on plotting simulation innovation"""
@@ -1749,7 +1689,7 @@ class kalmanFilterPlaneExample:
         print("Plot simulation innovation")
         if not self.vwr["2D"]["simInv"] or self.vwr["2D"]["simInv"].closed:
             self.vwr["2D"]["simInv"] = kalmanFilter2DViewer(self.ctrGUI)
-            self.vwr["2D"]["simInv"].setUp(self.slt["fcdTf"].text(), nrows=3, ncols=3)
+            self.vwr["2D"]["simInv"].setUp(self.slt["fcdTf"].text(), nrows=2, ncols=3)
             self.vwr["2D"]["simInv"].setWindowTitle("Simulation: innovation")
             self.vwr["2D"]["simInv"].show()
 
@@ -1780,7 +1720,7 @@ class kalmanFilterPlaneExample:
             markers.append("^")
             colors.append("r")
         key = "simInv"
-        for idx, var in zip([0, 3, 6, 1, 4, 7, 2, 5, 8], self.getStateKeys()):
+        for idx, var in zip([0, 3, 1, 4, 2, 5], self.getStateKeys()):
             axis = self.vwr["2D"][key].getAxis(idx)
             for subKey, lbl, mkr, clr in zip(subKeys, labels, markers, colors):
                 axis.scatter(self.kfm.save["corrector"][key][var]["T"],
@@ -1823,12 +1763,12 @@ class kalmanFilterPlaneExample:
         cfl = np.array([], dtype=float)
         for idx in range(1, len(self.kfm.time)):
             deltaT = self.kfm.time[idx]-self.kfm.time[idx-1]
-            deltaX = self.kfm.outputs["X"][idx]-self.kfm.outputs["X"][idx-1]
-            deltaY = self.kfm.outputs["Y"][idx]-self.kfm.outputs["Y"][idx-1]
-            deltaZ = self.kfm.outputs["Z"][idx]-self.kfm.outputs["Z"][idx-1]
-            deltaVX = self.kfm.outputs["VX"][idx]-self.kfm.outputs["VX"][idx-1]
-            deltaVY = self.kfm.outputs["VY"][idx]-self.kfm.outputs["VY"][idx-1]
-            deltaVZ = self.kfm.outputs["VZ"][idx]-self.kfm.outputs["VZ"][idx-1]
+            deltaX = self.kfm.states["X"][idx]-self.kfm.states["X"][idx-1]
+            deltaY = self.kfm.states["Y"][idx]-self.kfm.states["Y"][idx-1]
+            deltaZ = self.kfm.states["Z"][idx]-self.kfm.states["Z"][idx-1]
+            deltaVX = self.kfm.states["VX"][idx]-self.kfm.states["VX"][idx-1]
+            deltaVY = self.kfm.states["VY"][idx]-self.kfm.states["VY"][idx-1]
+            deltaVZ = self.kfm.states["VZ"][idx]-self.kfm.states["VZ"][idx-1]
             deltaDist = math.sqrt(deltaX*deltaX+deltaY*deltaY+deltaZ*deltaZ)
             deltaVel = math.sqrt(deltaVX*deltaVX+deltaVY*deltaVY+deltaVZ*deltaVZ)
             cfl = np.append(cfl, deltaVel*deltaT/deltaDist)
@@ -1851,7 +1791,7 @@ class kalmanFilterPlaneExample:
         print("Plot simulation covariance diagonal terms")
         if not self.vwr["2D"]["simDgP"] or self.vwr["2D"]["simDgP"].closed:
             self.vwr["2D"]["simDgP"] = kalmanFilter2DViewer(self.ctrGUI)
-            self.vwr["2D"]["simDgP"].setUp(self.slt["fcdTf"].text(), nrows=3, ncols=3)
+            self.vwr["2D"]["simDgP"].setUp(self.slt["fcdTf"].text(), nrows=2, ncols=3)
             self.vwr["2D"]["simDgP"].setWindowTitle("Simulation: covariance")
             self.vwr["2D"]["simDgP"].show()
 
@@ -1881,10 +1821,6 @@ class kalmanFilterPlaneExample:
         self.plotMsrSimVariables(3, "VX", "$P_{vxvx}$", opts)
         self.plotMsrSimVariables(4, "VY", "$P_{vyvy}$", opts)
         self.plotMsrSimVariables(5, "VZ", "$P_{vzvz}$", opts)
-        opts["msrType"] = "a"
-        self.plotMsrSimVariables(6, "AX", "$P_{axax}$", opts)
-        self.plotMsrSimVariables(7, "AY", "$P_{ayay}$", opts)
-        self.plotMsrSimVariables(8, "AZ", "$P_{azaz}$", opts)
 
     def onPltSKGBtnClick(self):
         """Callback on plotting simulation Kalman gain diagonal terms"""
@@ -1893,7 +1829,7 @@ class kalmanFilterPlaneExample:
         print("Plot simulation Kalman gain diagonal terms")
         if not self.vwr["2D"]["simDgK"] or self.vwr["2D"]["simDgK"].closed:
             self.vwr["2D"]["simDgK"] = kalmanFilter2DViewer(self.ctrGUI)
-            self.vwr["2D"]["simDgK"].setUp(self.slt["fcdTf"].text(), nrows=3, ncols=3)
+            self.vwr["2D"]["simDgK"].setUp(self.slt["fcdTf"].text(), nrows=2, ncols=3)
             self.vwr["2D"]["simDgK"].setWindowTitle("Simulation: Kalman gain")
             self.vwr["2D"]["simDgK"].show()
 
@@ -1923,10 +1859,6 @@ class kalmanFilterPlaneExample:
         self.plotMsrSimVariables(3, "VX", "$K_{vxvx}$", opts)
         self.plotMsrSimVariables(4, "VY", "$K_{vyvy}$", opts)
         self.plotMsrSimVariables(5, "VZ", "$K_{vzvz}$", opts)
-        opts["msrType"] = "a"
-        self.plotMsrSimVariables(6, "AX", "$K_{axax}$", opts)
-        self.plotMsrSimVariables(7, "AY", "$K_{ayay}$", opts)
-        self.plotMsrSimVariables(8, "AZ", "$K_{azaz}$", opts)
 
     def plotMsrSimVariables(self, axisId, var, lbl, opts):
         """Plot measurement and simulation variables"""
@@ -1946,7 +1878,12 @@ class kalmanFilterPlaneExample:
         time = self.kfm.time[start:]
         if "T" in self.kfm.save[key][subKey]:
             time = self.kfm.save[key][subKey]["T"]
-        axis.plot(time, self.kfm.save[key][subKey][var], label=lbl, marker="o", ms=3, c="g")
+        data = np.array([])
+        if "subSubKey" in opts:
+            data = self.kfm.save[key][subKey][opts["subSubKey"]][var]
+        else:
+            data = self.kfm.save[key][subKey][var]
+        axis.plot(time, data, label=lbl, marker="o", ms=3, c="g")
         axis.set_xlabel("t")
         axis.set_ylabel(lbl)
         axis.legend()
@@ -1960,8 +1897,8 @@ class kalmanFilterPlaneExample:
         expGUI.setAlignment(Qt.AlignHCenter)
 
         # Set radio button.
-        self.expGUI["QRB"]["3L"] = QRadioButton("XYZ line", self.ctrGUI)
         self.expGUI["QRB"]["2L"] = QRadioButton("XY line", self.ctrGUI)
+        self.expGUI["QRB"]["3L"] = QRadioButton("XYZ line", self.ctrGUI)
         self.expGUI["QRB"]["UD"] = QRadioButton("Up-down", self.ctrGUI)
         self.expGUI["QRB"]["ZZ"] = QRadioButton("Zig-zag", self.ctrGUI)
         self.expGUI["QRB"]["Cc"] = QRadioButton("Circle", self.ctrGUI)
@@ -1974,12 +1911,12 @@ class kalmanFilterPlaneExample:
         self.expGUI["QRB"]["Cc"].toggled.connect(self.onExampleClicked)
         self.expGUI["QRB"]["RT"].toggled.connect(self.onExampleClicked)
         self.expGUI["QRB"]["LP"].toggled.connect(self.onExampleClicked)
-        self.expGUI["QRB"]["3L"].setChecked(True)
+        self.expGUI["QRB"]["2L"].setChecked(True)
 
         # Set group box layout.
         expLay = QHBoxLayout()
-        expLay.addWidget(self.expGUI["QRB"]["3L"])
         expLay.addWidget(self.expGUI["QRB"]["2L"])
+        expLay.addWidget(self.expGUI["QRB"]["3L"])
         expLay.addWidget(self.expGUI["QRB"]["UD"])
         expLay.addWidget(self.expGUI["QRB"]["ZZ"])
         expLay.addWidget(self.expGUI["QRB"]["Cc"])
@@ -2007,9 +1944,6 @@ class kalmanFilterPlaneExample:
             print("Selected example:", qrb.text())
             self.sim["prmM"].setText("1000.")
             self.sim["prmC"].setText("50.")
-            self.sim["ctlThfTkoK"].setText("60")
-            self.sim["ctlThfFlgK"].setText("55")
-            self.sim["ctlThfLdgK"].setText("40")
             if qrb.text() == "XYZ line":
                 self.onXYZLineExampleClicked(sigPosGPS, sigVelGPS, sigAccSensor)
             if qrb.text() == "XY line":
@@ -2095,8 +2029,6 @@ class kalmanFilterPlaneExample:
         self.sim["icdSigAX0"].setText("%.6f" % sigAccSim)
         self.sim["icdSigAY0"].setText("%.6f" % sigAccSim)
         self.sim["icdSigAZ0"].setText("%.6f" % sigAccSim)
-        self.sim["ctlThfTkoDt"].setText("0.")
-        self.sim["ctlThfLdgDt"].setText("0.")
 
         # Viewer options.
         keys = [("vwrVelLgh", "0"), ("vwrVelALR", "0.3"),
@@ -2169,8 +2101,6 @@ class kalmanFilterPlaneExample:
         self.sim["icdSigAX0"].setText("%.6f" % sigAccSim)
         self.sim["icdSigAY0"].setText("%.6f" % sigAccSim)
         self.sim["icdSigAZ0"].setText("%.6f" % sigAccSim)
-        self.sim["ctlThfTkoDt"].setText("300.")
-        self.sim["ctlThfLdgDt"].setText("300.")
 
         # Viewer options.
         keys = [("vwrVelLgh", "0"), ("vwrVelALR", "0.3"),
@@ -2222,8 +2152,6 @@ class kalmanFilterPlaneExample:
         self.sim["icdSigAX0"].setText("%.6f" % sigAccSim)
         self.sim["icdSigAY0"].setText("%.6f" % sigAccSim)
         self.sim["icdSigAZ0"].setText("%.6f" % sigAccSim)
-        self.sim["ctlThfTkoDt"].setText("0.")
-        self.sim["ctlThfLdgDt"].setText("0.")
 
         # Viewer options.
         keys = [("vwrVelLgh", "0"), ("vwrVelALR", "0.3"),
@@ -2275,8 +2203,6 @@ class kalmanFilterPlaneExample:
         self.sim["icdSigAX0"].setText("%.6f" % sigAccSim)
         self.sim["icdSigAY0"].setText("%.6f" % sigAccSim)
         self.sim["icdSigAZ0"].setText("%.6f" % sigAccSim)
-        self.sim["ctlThfTkoDt"].setText("0.")
-        self.sim["ctlThfLdgDt"].setText("0.")
 
         # Viewer options.
         keys = [("vwrVelLgh", "0"), ("vwrVelALR", "0.3"),
@@ -2328,8 +2254,6 @@ class kalmanFilterPlaneExample:
         self.sim["icdSigAX0"].setText("%.6f" % sigAccSim)
         self.sim["icdSigAY0"].setText("%.6f" % sigAccSim)
         self.sim["icdSigAZ0"].setText("%.6f" % sigAccSim)
-        self.sim["ctlThfTkoDt"].setText("300.")
-        self.sim["ctlThfLdgDt"].setText("300.")
 
         # Viewer options.
         keys = [("vwrVelLgh", "0"), ("vwrVelALR", "0.1"),
@@ -2381,8 +2305,6 @@ class kalmanFilterPlaneExample:
         self.sim["icdSigAX0"].setText("%.6f" % sigAccSim)
         self.sim["icdSigAY0"].setText("%.6f" % sigAccSim)
         self.sim["icdSigAZ0"].setText("%.6f" % sigAccSim)
-        self.sim["ctlThfTkoDt"].setText("0.")
-        self.sim["ctlThfLdgDt"].setText("0.")
 
         # Viewer options.
         keys = [("vwrVelLgh", "0"), ("vwrVelALR", "0.3"),
@@ -2561,29 +2483,6 @@ class kalmanFilterPlaneExample:
             self.throwError(eId, "max yaw must stay between 0° and 90°.")
             return False
 
-        return self.checkValiditySimCtlThf()
-
-    def checkValiditySimCtlThf(self):
-        """Check example validity: simulation control law - throttle force"""
-
-        # Check simulation control law validity: throttle force.
-        eId = "simulation control law (throttle force)"
-        ctlThfTkoK = float(self.sim["ctlThfTkoK"].text())
-        ctlThfFlgK = float(self.sim["ctlThfFlgK"].text())
-        ctlThfLdgK = float(self.sim["ctlThfLdgK"].text())
-        if ctlThfTkoK < 0 or ctlThfFlgK < 0 or ctlThfLdgK < 0:
-            self.throwError(eId, "throttle coefficients must be superior than 0.")
-            return False
-        fcdTf = float(self.slt["fcdTf"].text())
-        ctlThfTkoDt = float(self.sim["ctlThfTkoDt"].text())
-        ctlThfLdgDt = float(self.sim["ctlThfLdgDt"].text())
-        if not 0. <= ctlThfTkoDt < fcdTf or not 0. <= ctlThfLdgDt < fcdTf:
-            self.throwError(eId, "throttle time slot must belong to [0., t<sub>f</sub>].")
-            return False
-        if ctlThfTkoDt+ctlThfLdgDt > fcdTf:
-            self.throwError(eId, "throttle time slots exceed t<sub>f</sub>.")
-            return False
-
         return True
 
     def checkValiditySimVwr(self):
@@ -2636,35 +2535,35 @@ class kalmanFilterPlaneExample:
 
         # Constant acceleration moving body (damped mass).
         #
-        # m*a = -c*v + F (https://www.kalmanfilter.net/modeling.html)
+        # m*a = -c*v (https://www.kalmanfilter.net/modeling.html)
         #
-        # F = throttle force (generated by plane motors)
-        #
-        # |.|   |       |   | |   |    |   |   |
-        # |x|   |0    1 |   |x|   |0  0|   | 0 |
-        # | | = |       | * | | + |    | * |   |
-        # |.|   |       |   | |   |    |   |   |
-        # |v|   |0  -c/m|   |v|   |0  1|   |F/m|
+        # |.|   |       |   | |   | |
+        # |x|   |0    1 |   |x|   |0|
+        # | | = |       | * | | + | | * u where u = deltaAcc
+        # |.|   |       |   | |   | |
+        # |v|   |0  -c/m|   |v|   |1|
         prmM = float(self.sim["prmM"].text())
         prmC = float(self.sim["prmC"].text())
         prmN = self.getLTISystemSize()
         matA = np.zeros((prmN, prmN), dtype=float)
-        matB = np.zeros((prmN, prmN), dtype=float)
         for idx in [0, 1, 2]: # X, Y, Z
             matA[2*idx+0, 2*idx+1] = 1.
             matA[2*idx+1, 2*idx+1] = -1.*prmC/prmM
-            matB[2*idx+1, 2*idx+1] = 1.
+        matB = np.zeros((prmN, prmN//2), dtype=float)
+        for idx in [0, 1, 2]: # X, Y, Z
+            matB[2*idx+1, idx] = 1.
 
         # Outputs.
         #
-        # |x|   |1    0|   |x|       | 0 |
-        # | | = |      | * | | + 0 * |   |
-        # |v|   |0    1|   |v|       |F/m|
-        matC = np.zeros((prmN, prmN), dtype=float)
-        matD = None
+        #                  |x|
+        # |y| = |0    1| * | | + |1| * u where u = deltaAcc and y = a
+        #                  |v|
+        matC = np.zeros((prmN//2, prmN), dtype=float)
         for idx in [0, 1, 2]: # X, Y, Z
-            matC[2*idx+0, 2*idx+0] = 1.
-            matC[2*idx+1, 2*idx+1] = 1.
+            matC[idx, 2*idx+1] = 1.
+        matD = np.zeros((prmN//2, prmN//2), dtype=float)
+        for idx in [0, 1, 2]: # X, Y, Z
+            matD[idx, idx] = 1.
 
         return matA, matB, matC, matD
 
@@ -2683,7 +2582,8 @@ class kalmanFilterPlaneExample:
 
         return matR
 
-    def computeMsrCovariance(self, matR, msrLst):
+    @staticmethod
+    def computeMsrCovariance(matR, msrLst):
         """Compute measurement covariance"""
 
         # Get measurement covariance.
@@ -2736,64 +2636,35 @@ class kalmanFilterPlaneExample:
     def computeControlLaw(self, states, time, save=None):
         """Compute control law"""
 
-        # Compute throttle force.
+        # Get current velocity and acceleration.
         velNow = np.array([states[1], states[3], states[5]]) # Velocity.
-        thfX, thfY, thfZ = self.computeThrottleForce(velNow, time, save)
+        matA, _, _, _ = self.getLTISystem() # .
+        accNow = np.dot(matA, states)[1::2] # X = A.X
 
-        # Compute control law: get roll, pitch, yaw corrections.
-        accNow = np.array([[0.], [0.], [0.]]) # Acceleration.
-        accNxt = self.computeRoll(velNow, accNow, save)
-        accNxt = self.computePitch(velNow, accNxt, save)
-        accNxt = self.computeYaw(velNow, accNxt, save)
+        # Compute control law, then apply roll-pitch-yaw corrections.
+        accX = self.getAXEquation(time)
+        accY = self.getAYEquation(time)
+        accZ = self.getAZEquation(time)
+        accExp = np.array([[accX], [accY], [accZ]]) # Expected acceleration.
+        accExp = self.computeRoll(velNow, accExp, save)
+        accExp = self.computePitch(velNow, accExp, save)
+        accExp = self.computeYaw(velNow, accExp, save)
 
-        # Compute control law.
-        fomX = accNxt[0]-accNow[0]
-        fomY = accNxt[1]-accNow[1]
-        fomZ = accNxt[2]-accNow[2]
-        vecU = self.computeControl((thfX+fomX, thfY+fomY, thfZ+fomZ), save)
-
-        # Save F/m.
+        # Compute command (= acceleration correction).
+        vecU = accExp-accNow
         if save is not None:
-            save["ctlOldFoMX"] = fomX
-            save["ctlOldFoMY"] = fomY
-            save["ctlOldFoMZ"] = fomZ
+            save["simCLV"]["deltaAcc"]["AX"].append(vecU[0])
+            save["simCLV"]["deltaAcc"]["AY"].append(vecU[1])
+            save["simCLV"]["deltaAcc"]["AZ"].append(vecU[2])
 
-        assert vecU.shape == states.shape, "U - bad dimension"
         return vecU
 
-    def computeThrottleForce(self, velNow, time, save=None):
-        """Compute throttle force"""
-
-        # Get throttle parameters.
-        ctlThfK = 0.
-        fcdTf = float(self.slt["fcdTf"].text())
-        ctlThfTkoDt = float(self.sim["ctlThfTkoDt"].text())
-        ctlThfLdgDt = float(self.sim["ctlThfLdgDt"].text())
-        if 0. < time <= ctlThfTkoDt:
-            ctlThfK = float(self.sim["ctlThfTkoK"].text())
-        elif fcdTf-ctlThfLdgDt < time <= fcdTf:
-            ctlThfK = float(self.sim["ctlThfLdgK"].text())
-        else:
-            ctlThfK = float(self.sim["ctlThfFlgK"].text())
-
-        # Compute throttle force F = (k/m)*V.
-        prmM = float(self.sim["prmM"].text())
-        thrForce = ctlThfK/prmM*velNow
-
-        # Save force.
-        if save is not None:
-            save["simFrc"]["thrForce"]["X"].append(thrForce[0])
-            save["simFrc"]["thrForce"]["Y"].append(thrForce[1])
-            save["simFrc"]["thrForce"]["Z"].append(thrForce[2])
-
-        return thrForce[0], thrForce[1], thrForce[2]
-
-    def computeRoll(self, velNow, accNow, save=None):
+    def computeRoll(self, velNow, accExp, save=None):
         """Compute control law: roll"""
 
         # Compute roll around X axis.
         prmDt = float(self.sim["prmDt"].text())
-        velNxt = velNow+accNow*prmDt # New velocity.
+        velNxt = velNow+accExp*prmDt # New velocity.
         proj = np.array([[0.], [1.], [1.]]) # Projection in YZ plane.
         roll = self.getAngle(velNow, velNxt, proj)
 
@@ -2803,7 +2674,7 @@ class kalmanFilterPlaneExample:
 
         # Control roll.
         ctlRolMax, rollTgt = float(self.sim["ctlRolMax"].text()), roll
-        accNxt = accNow
+        accNxt = accExp
         while np.abs(rollTgt) > ctlRolMax:
             accNxt = accNxt*0.95 # Decrease acceleration by 5%.
             velNxt = velNow+accNxt*prmDt # New velocity.
@@ -2811,12 +2682,12 @@ class kalmanFilterPlaneExample:
 
         return accNxt
 
-    def computePitch(self, velNow, accNow, save=None):
+    def computePitch(self, velNow, accExp, save=None):
         """Compute control law: pitch"""
 
         # Compute pitch around Y axis.
         prmDt = float(self.sim["prmDt"].text())
-        velNxt = velNow+accNow*prmDt # New velocity.
+        velNxt = velNow+accExp*prmDt # New velocity.
         proj = np.array([[1.], [0.], [1.]]) # Projection in XZ plane.
         pitch = self.getAngle(velNow, velNxt, proj)
 
@@ -2826,7 +2697,7 @@ class kalmanFilterPlaneExample:
 
         # Control pitch.
         ctlPtcMax, pitchTgt = float(self.sim["ctlPtcMax"].text()), pitch
-        accNxt = accNow
+        accNxt = accExp
         while np.abs(pitchTgt) > ctlPtcMax:
             accNxt = accNxt*0.95 # Decrease acceleration by 5%.
             velNxt = velNow+accNxt*prmDt # New velocity.
@@ -2834,12 +2705,12 @@ class kalmanFilterPlaneExample:
 
         return accNxt
 
-    def computeYaw(self, velNow, accNow, save=None):
+    def computeYaw(self, velNow, accExp, save=None):
         """Compute control law: yaw"""
 
         # Compute yaw around Z axis.
         prmDt = float(self.sim["prmDt"].text())
-        velNxt = velNow+accNow*prmDt # New velocity.
+        velNxt = velNow+accExp*prmDt # New velocity.
         proj = np.array([[1.], [1.], [0.]]) # Projection in XY plane.
         yaw = self.getAngle(velNow, velNxt, proj)
 
@@ -2849,7 +2720,7 @@ class kalmanFilterPlaneExample:
 
         # Control yaw.
         ctlYawMax, yawTgt = float(self.sim["ctlYawMax"].text()), yaw
-        accNxt = accNow
+        accNxt = accExp
         while np.abs(yawTgt) > ctlYawMax:
             accNxt = accNxt*0.95 # Decrease acceleration by 5%.
             velNxt = velNow+accNxt*prmDt # New velocity.
@@ -2881,24 +2752,6 @@ class kalmanFilterPlaneExample:
 
         return float(theta)
 
-    def computeControl(self, fom, save=None):
-        """Compute control"""
-
-        # Compute control law: modify plane throttle (F/m == acceleration).
-        prmN = self.getLTISystemSize()
-        vecU = np.zeros((prmN, 1), dtype=float)
-        vecU[1] = fom[0]
-        vecU[3] = fom[1]
-        vecU[5] = fom[2]
-
-        # Save control law hidden variables.
-        if save is not None:
-            save["simCLV"]["FoM"]["X"].append(vecU[1])
-            save["simCLV"]["FoM"]["Y"].append(vecU[3])
-            save["simCLV"]["FoM"]["Z"].append(vecU[5])
-
-        return vecU
-
     @staticmethod
     def getStateKeys():
         """Get states keys"""
@@ -2906,11 +2759,12 @@ class kalmanFilterPlaneExample:
         # Get states keys.
         return ["X", "VX", "Y", "VY", "Z", "VZ"]
 
-    def getOutputKeys(self):
+    @staticmethod
+    def getOutputKeys():
         """Get outputs keys"""
 
         # Get outputs keys.
-        return self.getStateKeys()
+        return ["AX", "AY", "AZ"]
 
     def closeEvent(self):
         """Callback on close"""

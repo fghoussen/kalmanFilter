@@ -20,9 +20,10 @@ class kalmanFilterModel():
         self.mat = {}
         self.example = example
         self.time = np.array([], dtype=float)
+        self.states = {}
         self.outputs = {}
         self.save = {"predictor": {}, "corrector": {}}
-        for key in ["simCLV", "simFrc", "simPrN", "simDgP"]:
+        for key in ["simCLV", "simPrN", "simDgP"]:
             self.save["predictor"][key] = {}
         for key in ["simDgK", "simInv"]:
             self.save["corrector"][key] = {}
@@ -39,29 +40,22 @@ class kalmanFilterModel():
         self.sim["simItNb"] = 0
 
         # Clear previous results.
+        self.states.clear()
+        for key in self.example.getStateKeys():
+            self.states[key] = np.array([], dtype=float)
         self.outputs.clear()
-        keys = self.example.getOutputKeys()
-        for key in keys:
+        for key in self.example.getOutputKeys():
             self.outputs[key] = np.array([], dtype=float)
 
         # Clear previous predictor variables.
-        self.save["predictor"]["simCLV"]["FoM"] = {}
-        self.save["predictor"]["simCLV"]["FoM"]["X"] = []
-        self.save["predictor"]["simCLV"]["FoM"]["Y"] = []
-        self.save["predictor"]["simCLV"]["FoM"]["Z"] = []
-        self.save["predictor"]["simCLV"]["d(FoM)/dt"] = {}
-        self.save["predictor"]["simCLV"]["d(FoM)/dt"]["X"] = []
-        self.save["predictor"]["simCLV"]["d(FoM)/dt"]["Y"] = []
-        self.save["predictor"]["simCLV"]["d(FoM)/dt"]["Z"] = []
+        self.save["predictor"]["simCLV"]["deltaAcc"] = {}
+        self.save["predictor"]["simCLV"]["deltaAcc"]["AX"] = []
+        self.save["predictor"]["simCLV"]["deltaAcc"]["AY"] = []
+        self.save["predictor"]["simCLV"]["deltaAcc"]["AZ"] = []
         self.save["predictor"]["simCLV"]["roll"] = []
         self.save["predictor"]["simCLV"]["pitch"] = []
         self.save["predictor"]["simCLV"]["yaw"] = []
         self.save["predictor"]["simTEM"] = np.array([])
-        for key in ["thrForce", "dpgForce"]:
-            self.save["predictor"]["simFrc"][key] = {}
-            self.save["predictor"]["simFrc"][key]["X"] = []
-            self.save["predictor"]["simFrc"][key]["Y"] = []
-            self.save["predictor"]["simFrc"][key]["Z"] = []
         for key in ["simPrN", "simDgP"]:
             for subKey in self.example.getStateKeys():
                 self.save["predictor"][key][subKey] = []
@@ -173,6 +167,7 @@ class kalmanFilterModel():
             return
 
         # Initialize states.
+        self.removeH5()
         if self.sim["prmVrb"] >= 1:
             print("  "*2+"Initialisation:")
         time = 0.
@@ -184,10 +179,7 @@ class kalmanFilterModel():
             self.printMat("X", np.transpose(states))
             self.printMat("Y", np.transpose(outputs))
             self.printMat("P", matP)
-        self.removeH5()
-        self.saveH5("X", time, states, self.example.getStateKeys())
-        self.saveH5("Y", time, outputs, self.example.getOutputKeys())
-        self.savePredictor(time, outputs, matP)
+        self.savePredictor(time, states, outputs, matP)
 
         # Solve: https://www.kalmanfilter.net/multiSummary.html.
         prmVrb, prmDt, prmTf = self.sim["prmVrb"], self.sim["prmDt"], self.sim["fcdTf"]
@@ -361,9 +353,7 @@ class kalmanFilterModel():
             self.printMat("Y", np.transpose(newOutputs))
 
         # Save simulation results.
-        self.saveH5("X", newTime, newStates, self.example.getStateKeys())
-        self.saveH5("Y", newTime, newOutputs, self.example.getOutputKeys())
-        self.savePredictor(newTime, newOutputs, matP)
+        self.savePredictor(newTime, newStates, newOutputs, matP)
 
         # Extrapolate uncertainty.
         newMatP = self.predictCovariance(matP, matF, matQ)
@@ -378,7 +368,6 @@ class kalmanFilterModel():
         if self.mat["D"] is not None:
             outputs = outputs+np.dot(self.mat["D"], vecU)
 
-        assert outputs.shape == states.shape, "outputs - bad dimension"
         return outputs
 
     def predictStates(self, timeDt, newTime, states):
@@ -433,7 +422,7 @@ class kalmanFilterModel():
 
         # Compute process noise matrix: Q_{n,n} = G_{n,n}*sigma^2*G_{n,n}t.
         varQ = self.sim["prmProNseSig"]*self.sim["prmProNseSig"]
-        matQ = matG*varQ*np.transpose(matG) # https://www.kalmanfilter.net/covextrap.html.
+        matQ = varQ*np.dot(matG, np.transpose(matG)) # https://www.kalmanfilter.net/covextrap.html.
         if self.sim["prmVrb"] >= 3:
             self.printMat("Q", matQ)
 
@@ -498,13 +487,16 @@ class kalmanFilterModel():
             fh5[key][simIdx] = lsData[idx]
         fh5.close()
 
-    def savePredictor(self, time, newOutputs, matP):
+    def savePredictor(self, time, newStates, newOutputs, matP):
         """Save predictor results"""
 
         # Save time.
         self.time = np.append(self.time, time)
 
         # Save states and outputs.
+        keys = self.example.getStateKeys()
+        for idx, key in enumerate(keys):
+            self.states[key] = np.append(self.states[key], newStates[idx])
         keys = self.example.getOutputKeys()
         for idx, key in enumerate(keys):
             self.outputs[key] = np.append(self.outputs[key], newOutputs[idx])
@@ -513,6 +505,10 @@ class kalmanFilterModel():
         keys = self.example.getStateKeys()
         for idx, key in enumerate(keys):
             self.save["predictor"]["simDgP"][key].append(matP[idx, idx])
+
+        # Save data in H5 file.
+        self.saveH5("X", time, newStates, self.example.getStateKeys())
+        self.saveH5("Y", time, newOutputs, self.example.getOutputKeys())
 
     def saveCorrector(self, time, msrFlags, vecKIZX):
         """Save corrector results"""

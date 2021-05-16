@@ -89,6 +89,10 @@ class kalmanFilterTestCase(unittest.TestCase):
         timer.start(timeSec*1000)
         app.exec()
 
+        # Uncomment when reference files need to be regenerated.
+        #import shutil
+        #shutil.copy("kalmanFilterModel.h5", "kalmanFilterModel.%s.h5"%expID)
+
         # Verify test.
         self.verifyTest(expID)
 
