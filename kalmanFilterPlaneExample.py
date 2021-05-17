@@ -18,6 +18,8 @@ from kalmanFilter2DViewer import kalmanFilter2DViewer
 from kalmanFilter3DViewer import kalmanFilter3DViewer
 from kalmanFilterModel import kalmanFilterModel
 
+kfType = np.double
+
 class kalmanFilterPlaneExample:
     """Plane tracking example"""
 
@@ -290,7 +292,7 @@ class kalmanFilterPlaneExample:
                 addedNoise = normNoise-norm
 
             # Spread noise accross axis.
-            eqnXYZ = np.array([eqnX[idx], eqnY[idx], eqnZ[idx]])
+            eqnXYZ = np.array([eqnX[idx], eqnY[idx], eqnZ[idx]], dtype=kfType)
             noise = (eqnXYZ/norm)*addedNoise
             for axis, coord in zip([0, 1, 2], [eqnX, eqnY, eqnZ]): # X, Y, Z
                 # Spread noise.
@@ -466,8 +468,8 @@ class kalmanFilterPlaneExample:
         # Get polynomial points.
         prmZ0 = float(self.slt["icdZ0"].text())
         prmTiZi = self.slt["fpeTiZi"].text()
-        prmTi = np.array([0.], dtype=float)
-        prmZi = np.array([prmZ0], dtype=float)
+        prmTi = np.array([0.], dtype=kfType)
+        prmZi = np.array([prmZ0], dtype=kfType)
         for tokTiZi in prmTiZi.split(","):
             tokTi, tokZi = tokTiZi.split()
             prmTi = np.append(prmTi, float(tokTi))
@@ -1514,7 +1516,7 @@ class kalmanFilterPlaneExample:
         # Plot variables.
         vwrPosMks = float(self.msr["vwrPosMks"].text())
         if vwrPosMks > 0:
-            eqnT, posX = np.array([]), np.array([])
+            eqnT, posX = np.array([], dtype=kfType), np.array([], dtype=kfType)
             for txt in self.msr["msrDat"]:
                 msrData = self.msr["msrDat"][txt]
                 if var not in msrData:
@@ -1683,7 +1685,7 @@ class kalmanFilterPlaneExample:
         # Plot simulation time scheme variables.
         key = "simTSV"
         axis = self.vwr["2D"][key].getAxis(0)
-        cfl = np.array([], dtype=float)
+        cfl = np.array([], dtype=kfType)
         for idx in range(1, len(self.kfm.time)):
             deltaT = self.kfm.time[idx]-self.kfm.time[idx-1]
             deltaX = self.kfm.states["X"][idx]-self.kfm.states["X"][idx-1]
@@ -1802,7 +1804,7 @@ class kalmanFilterPlaneExample:
         time = self.kfm.time[start:]
         if "T" in self.kfm.save[key][subKey]:
             time = self.kfm.save[key][subKey]["T"]
-        data = np.array([])
+        data = np.array([], dtype=kfType)
         if "subSubKey" in opts:
             data = self.kfm.save[key][subKey][opts["subSubKey"]][var]
         else:
@@ -2543,7 +2545,7 @@ class kalmanFilterPlaneExample:
         """Compute control law"""
 
         # Get current velocity and acceleration.
-        velNow = np.array([states[1], states[3], states[5]]) # Velocity.
+        velNow = np.array([states[1], states[3], states[5]], dtype=kfType) # Velocity.
         matA, _, _, _ = self.getLTISystem() # .
         accNow = np.dot(matA, states)[1::2] # X = A.X
 
@@ -2551,7 +2553,7 @@ class kalmanFilterPlaneExample:
         accX = self.getAXEquation(time)
         accY = self.getAYEquation(time)
         accZ = self.getAZEquation(time)
-        accExp = np.array([[accX], [accY], [accZ]]) # Expected acceleration.
+        accExp = np.array([[accX], [accY], [accZ]], dtype=kfType) # Expected acceleration.
         accExp = self.computeRoll(velNow, accExp, save)
         accExp = self.computePitch(velNow, accExp, save)
         accExp = self.computeYaw(velNow, accExp, save)
@@ -2571,7 +2573,7 @@ class kalmanFilterPlaneExample:
         # Compute roll around X axis.
         prmDt = float(self.sim["prmDt"].text())
         velNxt = velNow+accExp*prmDt # New velocity.
-        proj = np.array([[0.], [1.], [1.]]) # Projection in YZ plane.
+        proj = np.array([[0.], [1.], [1.]], dtype=kfType) # Projection in YZ plane.
         roll = self.getAngle(velNow, velNxt, proj)
 
         # Save control law hidden variables.
@@ -2594,7 +2596,7 @@ class kalmanFilterPlaneExample:
         # Compute pitch around Y axis.
         prmDt = float(self.sim["prmDt"].text())
         velNxt = velNow+accExp*prmDt # New velocity.
-        proj = np.array([[1.], [0.], [1.]]) # Projection in XZ plane.
+        proj = np.array([[1.], [0.], [1.]], dtype=kfType) # Projection in XZ plane.
         pitch = self.getAngle(velNow, velNxt, proj)
 
         # Save control law hidden variables.
@@ -2617,7 +2619,7 @@ class kalmanFilterPlaneExample:
         # Compute yaw around Z axis.
         prmDt = float(self.sim["prmDt"].text())
         velNxt = velNow+accExp*prmDt # New velocity.
-        proj = np.array([[1.], [1.], [0.]]) # Projection in XY plane.
+        proj = np.array([[1.], [1.], [0.]], dtype=kfType) # Projection in XY plane.
         yaw = self.getAngle(velNow, velNxt, proj)
 
         # Save control law hidden variables.

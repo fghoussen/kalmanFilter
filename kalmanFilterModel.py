@@ -8,6 +8,8 @@ import h5py
 import numpy as np
 import numpy.linalg as npl
 
+kfType = np.double
+
 class kalmanFilterModel():
     """Kalman filter model"""
 
@@ -18,7 +20,7 @@ class kalmanFilterModel():
         self.sim = {"simItNb": 0}
         self.msr = []
         self.example = example
-        self.time = np.array([], dtype=float)
+        self.time = np.array([], dtype=kfType)
         self.states = {}
         self.outputs = {}
         self.save = {"predictor": {}, "corrector": {}}
@@ -35,16 +37,16 @@ class kalmanFilterModel():
         self.msr = []
 
         # Clear previous time.
-        self.time = np.array([], dtype=float)
+        self.time = np.array([], dtype=kfType)
         self.sim["simItNb"] = 0
 
         # Clear previous results.
         self.states.clear()
         for key in self.example.getStateKeys():
-            self.states[key] = np.array([], dtype=float)
+            self.states[key] = np.array([], dtype=kfType)
         self.outputs.clear()
         for key in self.example.getOutputKeys():
-            self.outputs[key] = np.array([], dtype=float)
+            self.outputs[key] = np.array([], dtype=kfType)
 
         # Clear previous predictor variables.
         self.save["predictor"]["simCLV"]["deltaAcc"] = {}
@@ -54,7 +56,7 @@ class kalmanFilterModel():
         self.save["predictor"]["simCLV"]["roll"] = []
         self.save["predictor"]["simCLV"]["pitch"] = []
         self.save["predictor"]["simCLV"]["yaw"] = []
-        self.save["predictor"]["simTEM"] = np.array([])
+        self.save["predictor"]["simTEM"] = np.array([], dtype=kfType)
         for key in ["simPrN", "simDgP"]:
             for subKey in self.example.getStateKeys():
                 self.save["predictor"][key][subKey] = []
