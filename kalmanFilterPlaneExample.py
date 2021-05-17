@@ -12,7 +12,7 @@ from PyQt5.QtWidgets import QGroupBox, QGridLayout, QLineEdit
 from PyQt5.QtWidgets import QMessageBox
 from PyQt5.QtWidgets import QListWidget, QCheckBox, QRadioButton
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QDoubleValidator
+from PyQt5.QtGui import QDoubleValidator, QPixmap
 
 from kalmanFilter2DViewer import kalmanFilter2DViewer
 from kalmanFilter3DViewer import kalmanFilter3DViewer
@@ -1171,6 +1171,11 @@ class kalmanFilterPlaneExample:
         gpbVwr = self.fillSimGUIVwr(simGUI)
         gpbPpg = self.fillSimGUIPostPro(simGUI)
 
+        # Add image (equations) to GUI.
+        img = QLabel(simGUI)
+        png = QPixmap("kalmanFilterModel.png")
+        img.setPixmap(png)
+
         # Set group box layout.
         simSubLay1 = QHBoxLayout()
         simSubLay1.addWidget(gpbX0)
@@ -1179,6 +1184,7 @@ class kalmanFilterPlaneExample:
         simSubLay2.addWidget(gpbPrm)
         simSubLay2.addWidget(gpbFCL)
         simSubLay2.addWidget(gpbPpg)
+        simSubLay2.addWidget(img)
         simRootLay = QVBoxLayout(simGUI)
         simRootLay.addLayout(simSubLay1)
         simRootLay.addLayout(simSubLay2)
