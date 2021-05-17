@@ -1420,8 +1420,8 @@ class kalmanFilterPlaneExample:
             return
 
         # Plot simulation output variables.
-        self.plotSltMsrSimVariablesX("simSVr", 0, pltSim=True)
-        self.plotSltMsrSimVariablesV("simSVr", 3, pltSim=True)
+        self.plotSltMsrSimVariablesX("simSVr", 0, pltMsr=True, pltSim=True)
+        self.plotSltMsrSimVariablesV("simSVr", 3, pltMsr=False, pltSim=True)
 
     def onPltSOVBtnClick(self):
         """Callback on plotting simulation output variables"""
@@ -1451,7 +1451,7 @@ class kalmanFilterPlaneExample:
             return
 
         # Plot simulation output variables.
-        self.plotSltMsrSimVariablesA("simOVr", 0, pltSim=True)
+        self.plotSltMsrSimVariablesA("simOVr", 0, pltMsr=False, pltSim=True)
 
     def plotSltMsrSimVariablesX(self, key, pltIdx, pltMsr=False, pltSim=False):
         """Plot variables: X"""
@@ -1491,8 +1491,9 @@ class kalmanFilterPlaneExample:
                 axis.plot(time, self.kfm.states[var], label="sim: "+var, marker="o", ms=3, c="g")
             if var in self.kfm.outputs:
                 axis.plot(time, self.kfm.outputs[var], label="sim: "+var, marker="o", ms=3, c="g")
-        if opts["pltMsr"] or self.vwr["ckbMsr"].isChecked():
-            self.plotMsrVariables(self.vwr["2D"][key], axisId, var, opts)
+        if opts["pltMsr"]:
+            if self.vwr["ckbMsr"].isChecked():
+                self.plotMsrVariables(self.vwr["2D"][key], axisId, var, opts)
         if self.vwr["ckbSlt"].isChecked():
             axis.plot(self.slt["T"], self.slt[var], label="slt: "+var, marker="o", ms=3, c="b")
         axis.set_xlabel("t")
@@ -1787,8 +1788,9 @@ class kalmanFilterPlaneExample:
 
         # Plot variables.
         subKey = opts["subKey"]
-        if self.vwr["ckbMsr"].isChecked():
-            self.plotMsrVariables(self.vwr["2D"][subKey], axisId, var, opts)
+        if "msrType" in opts:
+            if self.vwr["ckbMsr"].isChecked():
+                self.plotMsrVariables(self.vwr["2D"][subKey], axisId, var, opts)
         self.plotSimVariables(axisId, var, lbl, opts)
 
     def plotSimVariables(self, axisId, var, lbl, opts):
