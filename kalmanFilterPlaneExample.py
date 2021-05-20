@@ -278,7 +278,7 @@ class kalmanFilterPlaneExample:
         eqnNoise = np.zeros((len(eqnNorm), 3), dtype=float)
         for idx, norm in enumerate(eqnNorm):
             # Skip values too close from zero.
-            if np.abs(norm) < 1.e-03:
+            if np.abs(norm) < 1.e-06 or np.abs(prmSigma) < 1.e-06:
                 continue
 
             # Generate noise.
@@ -2329,7 +2329,7 @@ class kalmanFilterPlaneExample:
                 self.throwError(eId, "list item "+str(idx+1)+", "+msg)
                 return False
             prmSigma = float(txt.split(";")[4].split()[1])
-            if prmSigma <= 0.:
+            if prmSigma < 0.:
                 msg = "<em>&sigma;</em> must be superior than 0."
                 self.throwError(eId, "list item "+str(idx+1)+", "+msg)
                 return False
