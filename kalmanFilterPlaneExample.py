@@ -2426,11 +2426,11 @@ class kalmanFilterPlaneExample:
         # Get measurement.
         if msrItem[0] == "pos":
             vecZ[0] = msrItem[1] # X.
-            vecZ[2] = msrItem[2] # Y.
-            vecZ[4] = msrItem[3] # Z.
+            vecZ[1] = msrItem[2] # Y.
+            vecZ[2] = msrItem[3] # Z.
             matH[0, 0] = 1.
+            matH[1, 1] = 1.
             matH[2, 2] = 1.
-            matH[4, 4] = 1.
             msrFlags.extend(["X", "Y", "Z"])
         else:
             assert True, "Unknown measure type"
@@ -2459,11 +2459,11 @@ class kalmanFilterPlaneExample:
         prmN = self.getLTISystemSize()
         matA = np.zeros((prmN, prmN), dtype=float)
         for idx in [0, 1, 2]: # X, Y, Z
-            matA[2*idx+0, 2*idx+1] = 1.
-            matA[2*idx+1, 2*idx+1] = -1.*prmC/prmM
+            matA[idx+0, idx+0] = 1.
+            matA[idx+3, idx+3] = -1.*prmC/prmM
         matB = np.zeros((prmN, prmN//2), dtype=float)
         for idx in [0, 1, 2]: # X, Y, Z
-            matB[2*idx+1, idx] = 1.
+            matB[idx+3, idx] = 1.
 
         # Outputs.
         #
@@ -2486,11 +2486,11 @@ class kalmanFilterPlaneExample:
         prmN = self.getLTISystemSize()
         matR = np.zeros((prmN, prmN), dtype=float)
         matR[0, 0] = np.power(float(self.sim["icdSigX0"].text()), 2)
-        matR[1, 1] = np.power(float(self.sim["icdSigVX0"].text()), 2)
-        matR[2, 2] = np.power(float(self.sim["icdSigAX0"].text()), 2)
-        matR[3, 3] = np.power(float(self.sim["icdSigY0"].text()), 2)
+        matR[1, 1] = np.power(float(self.sim["icdSigY0"].text()), 2)
+        matR[2, 2] = np.power(float(self.sim["icdSigZ0"].text()), 2)
+        matR[3, 3] = np.power(float(self.sim["icdSigVX0"].text()), 2)
         matR[4, 4] = np.power(float(self.sim["icdSigVY0"].text()), 2)
-        matR[5, 5] = np.power(float(self.sim["icdSigAY0"].text()), 2)
+        matR[5, 5] = np.power(float(self.sim["icdSigVZ0"].text()), 2)
 
         return matR
 
@@ -2504,8 +2504,8 @@ class kalmanFilterPlaneExample:
             prmSigma = msrItem[4]
             if msrType == "pos":
                 matR[0, 0] = prmSigma*prmSigma
+                matR[1, 1] = prmSigma*prmSigma
                 matR[2, 2] = prmSigma*prmSigma
-                matR[4, 4] = prmSigma*prmSigma
             else:
                 assert True, "Unknown measure type"
 
@@ -2518,11 +2518,11 @@ class kalmanFilterPlaneExample:
         prmN = self.getLTISystemSize()
         states = np.zeros((prmN, 1), dtype=float)
         states[0] = sim["icdX0"]
-        states[1] = sim["icdVX0"]
-        states[2] = sim["icdAX0"]
-        states[3] = sim["icdY0"]
+        states[1] = sim["icdY0"]
+        states[2] = sim["icdZ0"]
+        states[3] = sim["icdVX0"]
         states[4] = sim["icdVY0"]
-        states[5] = sim["icdAY0"]
+        states[5] = sim["icdVZ0"]
 
         return states
 
@@ -2533,11 +2533,11 @@ class kalmanFilterPlaneExample:
         prmN = self.getLTISystemSize()
         matP = np.zeros((prmN, prmN), dtype=float)
         matP[0, 0] = np.power(sim["icdSigX0"], 2)
-        matP[1, 1] = np.power(sim["icdSigVX0"], 2)
-        matP[2, 2] = np.power(sim["icdSigAX0"], 2)
-        matP[3, 3] = np.power(sim["icdSigY0"], 2)
+        matP[1, 1] = np.power(sim["icdSigY0"], 2)
+        matP[2, 2] = np.power(sim["icdSigZ0"], 2)
+        matP[3, 3] = np.power(sim["icdSigVX0"], 2)
         matP[4, 4] = np.power(sim["icdSigVY0"], 2)
-        matP[5, 5] = np.power(sim["icdSigAY0"], 2)
+        matP[5, 5] = np.power(sim["icdSigVZ0"], 2)
 
         return matP
 
@@ -2545,9 +2545,9 @@ class kalmanFilterPlaneExample:
         """Compute control law"""
 
         # Get current velocity and acceleration.
-        velNow = np.array([states[1], states[3], states[5]], dtype=kfType) # Velocity.
+        velNow = np.array([states[3], states[4], states[5]], dtype=kfType) # Velocity.
         matA, _, _, _ = self.getLTISystem() # .
-        accNow = np.dot(matA, states)[1::2] # X = A.X
+        accNow = np.dot(matA, states)[3:] # X = A.X
 
         # Compute control law, then apply roll-pitch-yaw corrections.
         accX = self.getAXEquation(time)
@@ -2665,7 +2665,7 @@ class kalmanFilterPlaneExample:
         """Get states keys"""
 
         # Get states keys.
-        return ["X", "VX", "Y", "VY", "Z", "VZ"]
+        return ["X", "Y", "Z", "VX", "VY", "VZ"]
 
     @staticmethod
     def getOutputKeys():
