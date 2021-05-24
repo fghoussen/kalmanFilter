@@ -41,7 +41,7 @@ class kalmanFilterPlaneExample:
         self.vwr["2D"]["simPrN"] = None
         self.vwr["2D"]["simInv"] = None
         self.vwr["2D"]["simDgP"] = None
-        self.vwr["2D"]["simDgK"] = None
+        self.vwr["2D"]["simKGn"] = None
         self.kfm = kalmanFilterModel(self)
         self.expGUI = {"QRB": {}, "QPB": {}}
         np.random.seed(0) # Make sure measures can be reproduced (in particular for tests).
@@ -275,7 +275,7 @@ class kalmanFilterPlaneExample:
 
         # Add noise to data: v_{n} such that z_{n} = H*x_{n} + v_{n}.
         eqnNorm = np.sqrt(eqnX*eqnX+eqnY*eqnY+eqnZ*eqnZ)
-        eqnNoise = np.zeros((len(eqnNorm), 3), dtype=float)
+        eqnNoise = np.zeros((len(eqnNorm), 3), dtype=kfType)
         for idx, norm in enumerate(eqnNorm):
             # Skip values too close from zero.
             if np.abs(norm) < 1.e-06 or np.abs(prmSigma) < 1.e-06:
@@ -542,9 +542,6 @@ class kalmanFilterPlaneExample:
         clr = (0., 1., 0.) # Lime green.
         opts = {"clr": clr, "lnr": ["vwrVelLgh", "vwrVelNrm", "vwrVelALR"]}
         self.vwr["3D"].addQuiver("simulation: v", simData, ["VX", "VY", "VZ"], opts)
-        clr = (0., 0.2, 0.) # Dark green.
-        opts = {"clr": clr, "lnr": ["vwrAccLgh", "vwrAccNrm", "vwrAccALR"]}
-        self.vwr["3D"].addQuiver("simulation: a", simData, ["AX", "AY", "AZ"], opts)
         if self.vwr["2D"]["simSVr"] and not self.vwr["2D"]["simSVr"].closed:
             self.onPltSSVBtnClick()
         if self.vwr["2D"]["simOVr"] and not self.vwr["2D"]["simOVr"].closed:
@@ -559,7 +556,7 @@ class kalmanFilterPlaneExample:
             self.onPltSKIBtnClick()
         if self.vwr["2D"]["simDgP"] and not self.vwr["2D"]["simDgP"].closed:
             self.onPltSCvBtnClick()
-        if self.vwr["2D"]["simDgK"] and not self.vwr["2D"]["simDgK"].closed:
+        if self.vwr["2D"]["simKGn"] and not self.vwr["2D"]["simKGn"].closed:
             self.onPltSKGBtnClick()
 
     def computeSim(self):
@@ -1635,17 +1632,17 @@ class kalmanFilterPlaneExample:
             return
 
         # Plot innovation.
-        subKeys = ["vecI", "state"]
-        labels = ["innovation", "state"]
-        markers = ["o", "s"]
-        colors = ["g", "k"]
+        subKeys = ["vecI"]
+        labels = ["innovation"]
+        markers = ["o"]
+        colors = ["g"]
         if self.vwr["ckbMsr"].isChecked():
             subKeys.append("vecZ")
             labels.append("measurement")
             markers.append("^")
             colors.append("r")
         key = "simInv"
-        for idx, var in zip([0, 3, 1, 4, 2, 5], self.getStateKeys()):
+        for idx, var in enumerate(self.getOutputKeys()):
             axis = self.vwr["2D"][key].getAxis(idx)
             for subKey, lbl, mkr, clr in zip(subKeys, labels, markers, colors):
                 axis.scatter(self.kfm.save["corrector"][key][var]["T"],
@@ -1752,20 +1749,20 @@ class kalmanFilterPlaneExample:
 
         # Create or retrieve viewer.
         print("Plot simulation Kalman gain diagonal terms")
-        if not self.vwr["2D"]["simDgK"] or self.vwr["2D"]["simDgK"].closed:
-            self.vwr["2D"]["simDgK"] = kalmanFilter2DViewer(self.ctrGUI)
-            self.vwr["2D"]["simDgK"].setUp(self.slt["fcdTf"].text(), nrows=2, ncols=3)
-            self.vwr["2D"]["simDgK"].setWindowTitle("Simulation: Kalman gain")
-            self.vwr["2D"]["simDgK"].show()
+        if not self.vwr["2D"]["simKGn"] or self.vwr["2D"]["simKGn"].closed:
+            self.vwr["2D"]["simKGn"] = kalmanFilter2DViewer(self.ctrGUI)
+            self.vwr["2D"]["simKGn"].setUp(self.slt["fcdTf"].text(), nrows=1, ncols=3)
+            self.vwr["2D"]["simKGn"].setWindowTitle("Simulation: Kalman gain")
+            self.vwr["2D"]["simKGn"].show()
 
         # Clear the viewer.
-        self.clearPlot(vwrId="simDgK")
+        self.clearPlot(vwrId="simKGn")
 
         # Plot Kalman gain variables.
         self.plotSimKalmanGainVariables()
 
         # Draw scene.
-        self.vwr["2D"]["simDgK"].draw()
+        self.vwr["2D"]["simKGn"].draw()
 
     def plotSimKalmanGainVariables(self):
         """Plot Kalman gain diagonal terms"""
@@ -1775,15 +1772,11 @@ class kalmanFilterPlaneExample:
             return
 
         # Plot simulation Kalman gain variables.
-        opts = {"key": "corrector", "subKey": "simDgK", "start": 0, "twinAxis": "green:red"}
+        opts = {"key": "corrector", "subKey": "simKGn", "start": 0, "twinAxis": "green:red"}
         opts["msrType"] = "pos"
         self.plotMsrSimVariables(0, "X", "$K_{xx}$", opts)
         self.plotMsrSimVariables(1, "Y", "$K_{yy}$", opts)
         self.plotMsrSimVariables(2, "Z", "$K_{zz}$", opts)
-        del opts["msrType"]
-        self.plotMsrSimVariables(3, "VX", "$K_{vxvx}$", opts)
-        self.plotMsrSimVariables(4, "VY", "$K_{vyvy}$", opts)
-        self.plotMsrSimVariables(5, "VZ", "$K_{vzvz}$", opts)
 
     def plotMsrSimVariables(self, axisId, var, lbl, opts):
         """Plot measurement and simulation variables"""
@@ -2419,28 +2412,55 @@ class kalmanFilterPlaneExample:
 
         return True
 
-    @staticmethod
-    def getMsr(msrItem, vecZ, matH, msrFlags):
+    def getMsr(self, msrLst):
         """Get measurement"""
 
         # Get measurement.
-        if msrItem[0] == "pos":
-            vecZ[0] = msrItem[1] # X.
-            vecZ[1] = msrItem[2] # Y.
-            vecZ[2] = msrItem[3] # Z.
-            matH[0, 0] = 1.
-            matH[1, 1] = 1.
-            matH[2, 2] = 1.
-            msrFlags.extend(["X", "Y", "Z"])
-        else:
+        vecZ, matH, matR = None, None, None
+        for msrItem in msrLst:
+            msrType = msrItem[0]
+            if msrType == "pos":
+                nbOfMsr = self.getNbOfMsr()
+                vecZ = np.zeros((nbOfMsr, 1), dtype=kfType)
+                vecZ[0] = msrItem[1] # X.
+                vecZ[1] = msrItem[2] # Y.
+                vecZ[2] = msrItem[3] # Z.
+                nbOfSts = self.getNbOfStates()
+                matH = np.zeros((nbOfMsr, nbOfSts), dtype=kfType)
+                matH[0, 0] = 1. # X.
+                matH[1, 1] = 1. # Y.
+                matH[2, 2] = 1. # Z.
+                matR = np.zeros((nbOfMsr, nbOfMsr), dtype=kfType)
+                prmSigma = msrItem[4]
+                matR[0, 0] = prmSigma*prmSigma # X.
+                matR[1, 1] = prmSigma*prmSigma # Y.
+                matR[2, 2] = prmSigma*prmSigma # Z.
+
+        if vecZ is None or matH is None or matR is None:
             assert True, "Unknown measure type"
 
-    @staticmethod
-    def getLTISystemSize():
-        """Get size of the Linear Time Invariant system"""
+        return vecZ, matH, matR
 
-        # Return system size.
-        return 2*3 # x, v in 3D.
+    def getNbOfStates(self):
+        """Get size of the state vector"""
+
+        # Return state vector size.
+        keys = self.getStateKeys()
+        return len(keys)
+
+    def getNbOfMsr(self):
+        """Get size of measure vector"""
+
+        # Return measure vector size.
+        keys = self.getOutputKeys()
+        return len(keys)
+
+    @staticmethod
+    def getNbOfCmd():
+        """Get size of command vector"""
+
+        # Return command vector size.
+        return 3 # Delta acceleration in X, Y, Z.
 
     def getLTISystem(self):
         """Get matrices of the Linear Time Invariant system"""
@@ -2456,67 +2476,35 @@ class kalmanFilterPlaneExample:
         # |v|   |0  -c/m|   |v|   |1|
         prmM = float(self.sim["prmM"].text())
         prmC = float(self.sim["prmC"].text())
-        prmN = self.getLTISystemSize()
-        matA = np.zeros((prmN, prmN), dtype=float)
+        nbOfSts = self.getNbOfStates()
+        matA = np.zeros((nbOfSts, nbOfSts), dtype=kfType)
         for idx in [0, 1, 2]: # X, Y, Z
-            matA[idx+0, idx+0] = 1.
+            matA[idx+0, idx+3] = 1.
             matA[idx+3, idx+3] = -1.*prmC/prmM
-        matB = np.zeros((prmN, prmN//2), dtype=float)
+        matB = np.zeros((nbOfSts, nbOfSts//2), dtype=kfType)
         for idx in [0, 1, 2]: # X, Y, Z
             matB[idx+3, idx] = 1.
 
         # Outputs.
         #
         #                  |x|
-        # |y| = |0    1| * | | + |1| * u where u = deltaAcc and y = a
+        # |x| = |1    0| * | | + |0| * u where u = deltaAcc and y = a
         #                  |v|
-        matC = np.zeros((prmN//2, prmN), dtype=float)
+        nbOfMsr = self.getNbOfMsr()
+        matC = np.zeros((nbOfMsr, nbOfSts), dtype=kfType)
         for idx in [0, 1, 2]: # X, Y, Z
-            matC[idx, 2*idx+1] = 1.
-        matD = np.zeros((prmN//2, prmN//2), dtype=float)
-        for idx in [0, 1, 2]: # X, Y, Z
-            matD[idx, idx] = 1.
+            matC[idx, idx] = 1.
+        nbOfCmd = self.getNbOfCmd()
+        matD = np.zeros((nbOfMsr, nbOfCmd), dtype=kfType)
 
         return matA, matB, matC, matD
-
-    def computeDefaultMsrCovariance(self):
-        """Compute default measurement covariance matrix"""
-
-        # Compute default measurement covariance matrix.
-        prmN = self.getLTISystemSize()
-        matR = np.zeros((prmN, prmN), dtype=float)
-        matR[0, 0] = np.power(float(self.sim["icdSigX0"].text()), 2)
-        matR[1, 1] = np.power(float(self.sim["icdSigY0"].text()), 2)
-        matR[2, 2] = np.power(float(self.sim["icdSigZ0"].text()), 2)
-        matR[3, 3] = np.power(float(self.sim["icdSigVX0"].text()), 2)
-        matR[4, 4] = np.power(float(self.sim["icdSigVY0"].text()), 2)
-        matR[5, 5] = np.power(float(self.sim["icdSigVZ0"].text()), 2)
-
-        return matR
-
-    @staticmethod
-    def computeMsrCovariance(matR, msrLst):
-        """Compute measurement covariance"""
-
-        # Get measurement covariance.
-        for msrItem in msrLst: # Small (accurate) sigma at msrLst tail.
-            msrType = msrItem[0]
-            prmSigma = msrItem[4]
-            if msrType == "pos":
-                matR[0, 0] = prmSigma*prmSigma
-                matR[1, 1] = prmSigma*prmSigma
-                matR[2, 2] = prmSigma*prmSigma
-            else:
-                assert True, "Unknown measure type"
-
-        return matR
 
     def initStates(self, sim):
         """Initialize states"""
 
         # Initialize states.
-        prmN = self.getLTISystemSize()
-        states = np.zeros((prmN, 1), dtype=float)
+        nbOfSts = self.getNbOfStates()
+        states = np.zeros((nbOfSts, 1), dtype=kfType)
         states[0] = sim["icdX0"]
         states[1] = sim["icdY0"]
         states[2] = sim["icdZ0"]
@@ -2530,8 +2518,8 @@ class kalmanFilterPlaneExample:
         """Initialize state covariance"""
 
         # Initialize state covariance.
-        prmN = self.getLTISystemSize()
-        matP = np.zeros((prmN, prmN), dtype=float)
+        nbOfSts = self.getNbOfStates()
+        matP = np.zeros((nbOfSts, nbOfSts), dtype=kfType)
         matP[0, 0] = np.power(sim["icdSigX0"], 2)
         matP[1, 1] = np.power(sim["icdSigY0"], 2)
         matP[2, 2] = np.power(sim["icdSigZ0"], 2)
@@ -2559,6 +2547,8 @@ class kalmanFilterPlaneExample:
         accExp = self.computeYaw(velNow, accExp, save)
 
         # Compute command (= acceleration correction).
+        nbOfCmd = self.getNbOfCmd()
+        vecU = np.zeros((nbOfCmd, 1), dtype=kfType)
         vecU = accExp-accNow
         if save is not None:
             save["simCLV"]["deltaAcc"]["AX"].append(vecU[0])
@@ -2672,7 +2662,7 @@ class kalmanFilterPlaneExample:
         """Get outputs keys"""
 
         # Get outputs keys.
-        return ["AX", "AY", "AZ"]
+        return ["X", "Y", "Z"]
 
     def closeEvent(self):
         """Callback on close"""

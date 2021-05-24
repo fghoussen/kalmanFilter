@@ -26,7 +26,7 @@ class kalmanFilterModel():
         self.save = {"predictor": {}, "corrector": {}}
         for key in ["simCLV", "simPrN", "simDgP"]:
             self.save["predictor"][key] = {}
-        for key in ["simDgK", "simInv"]:
+        for key in ["simKGn", "simInv"]:
             self.save["corrector"][key] = {}
         self.clear()
 
@@ -62,14 +62,13 @@ class kalmanFilterModel():
                 self.save["predictor"][key][subKey] = []
 
         # Clear previous corrector variables.
-        for key in self.example.getStateKeys():
-            self.save["corrector"]["simDgK"]["T"] = []
-            self.save["corrector"]["simDgK"][key] = []
+        for key in self.example.getOutputKeys():
+            self.save["corrector"]["simKGn"]["T"] = []
+            self.save["corrector"]["simKGn"][key] = []
             self.save["corrector"]["simInv"][key] = {}
             self.save["corrector"]["simInv"][key]["T"] = []
             self.save["corrector"]["simInv"][key]["vecI"] = []
             self.save["corrector"]["simInv"][key]["vecZ"] = []
-            self.save["corrector"]["simInv"][key]["state"] = []
 
         # Remove H5 file.
         self.removeH5()
@@ -90,9 +89,6 @@ class kalmanFilterModel():
             if key.find("prm") == 0 or key.find("icd") == 0:
                 self.sim[key] = float(sim[key].text())
         self.sim["fcdTf"] = float(fcdTf)
-
-        # Compute default measurement covariance matrix (needed to avoid singular K matrix).
-        self.computeDefaultMsrCovariance()
 
     def setUpMsrPrm(self, msr):
         """Setup solver: measurement parameters"""
@@ -125,13 +121,6 @@ class kalmanFilterModel():
                 msrDic[time] = []
             if msrData["msrType"] == "pos":
                 msrDic[time].append(("pos", posX[idx], posY[idx], posZ[idx], prmSigma))
-
-    def computeDefaultMsrCovariance(self):
-        """Compute default measurement covariance matrix"""
-
-        # Compute default measurement covariance matrix.
-        matR = self.example.computeDefaultMsrCovariance()
-        self.sim["matR"] = matR # Save for later use: restart from it to avoid singular matrix.
 
     def setLTI(self, matA, matB, matC, matD):
         """Set Linear Time Invariant matrices"""
@@ -228,11 +217,11 @@ class kalmanFilterModel():
             print("  "*2+"Corrector: time %.3f, iteration %d" % (newTime, self.sim["simItNb"]))
 
         # Get measurement z_{n}.
-        vecZ, matH, msrFlags = self.getMsr(msrLst)
-        self.saveH5("Z", newTime, vecZ, self.example.getStateKeys())
+        vecZ, matH, matR = self.getMsr(msrLst)
+        self.saveH5("Z", newTime, vecZ, self.example.getOutputKeys())
 
         # Compute Kalman gain K_{n}.
-        matR, matK = self.computeKalmanGain(msrLst, matP, matH)
+        matR, matK = self.computeKalmanGain(matP, matH, matR)
 
         # Update estimate with measurement: x_{n,n} = x_{n,n-1} + K_{n}*(z_{n} - H*x_{n,n-1}).
         #
@@ -249,23 +238,17 @@ class kalmanFilterModel():
         newMatP = self.updateCovariance(matK, matH, matP, matR)
 
         # Save corrector results.
-        self.saveCorrector(newTime, msrFlags, (matK, vecI, vecZ, states))
+        self.saveCorrector(newTime, (matK, vecI, vecZ))
 
         return newTime, newStates, newMatP
 
     def getMsr(self, msrLst):
         """Get measurement"""
 
-        # Get measurement: z_{n} = H*x_{n} + v_{n}.
-        prmN = self.example.getLTISystemSize()
-        vecZ = np.zeros((prmN, 1), dtype=float)
-        matH = np.zeros((prmN, prmN), dtype=float)
-        msrFlags = []
+        # Verbose on demand.
         if self.sim["prmVrb"] >= 2:
             print("  "*3+"Measurements:")
-        for msrItem in msrLst: # Small (accurate) sigma at msrLst tail.
-            # Print out current measurement.
-            if self.sim["prmVrb"] >= 2:
+            for msrItem in msrLst: # Small (accurate) sigma at msrLst tail.
                 print("  "*4+msrItem[0]+":", end="")
                 print(" %.6f" % msrItem[1], end="")
                 print(" %.6f" % msrItem[2], end="")
@@ -273,22 +256,20 @@ class kalmanFilterModel():
                 print(", sigma %.6f" % msrItem[4], end="")
                 print("")
 
-            # Recover most accurate measurement: inaccurate sigma (msrLst head) are rewritten.
-            self.example.getMsr(msrItem, vecZ, matH, msrFlags)
+        # Get measurement: z_{n} = H*x_{n} + v_{n}.
+        vecZ, matH, matR = self.example.getMsr(msrLst)
 
         # Verbose on demand.
         if self.sim["prmVrb"] >= 2:
             self.printMat("Z", np.transpose(vecZ))
         if self.sim["prmVrb"] >= 3:
             self.printMat("H", matH)
+            self.printMat("R", matR)
 
-        return vecZ, matH, msrFlags
+        return vecZ, matH, matR
 
-    def computeKalmanGain(self, msrLst, matP, matH):
+    def computeKalmanGain(self, matP, matH, matR):
         """Compute Kalman gain"""
-
-        # Compute measurement covariance.
-        matR = self.computeMsrCovariance(msrLst)
 
         # Compute Kalman gain: K_{n} = P_{n,n-1}*Ht*(H*P_{n,n-1}*Ht + R_{n})^-1.
         matK = np.dot(matH, np.dot(matP, np.transpose(matH)))+matR
@@ -302,26 +283,13 @@ class kalmanFilterModel():
 
         return matR, matK # https://www.kalmanfilter.net/kalmanGain.html.
 
-    def computeMsrCovariance(self, msrLst):
-        """Compute measurement covariance"""
-
-        # Get measurement covariance.
-        matR = self.sim["matR"] # Start from default matrix (needed to avoid singular K matrix).
-        matR = self.example.computeMsrCovariance(matR, msrLst)
-
-        # Verbose on demand.
-        if self.sim["prmVrb"] >= 3:
-            self.printMat("R", matR)
-
-        return matR
-
     def updateCovariance(self, matK, matH, matP, matR):
         """Update covariance"""
 
         # Update covariance using Joseph's formula (better numerical stability):
         # P_{n,n} = (I-K_{n}*H)*P_{n,n-1}*(I-K_{n}*H)t + K_{n}*R*K_{n}t.
-        prmN = self.example.getLTISystemSize()
-        matImKH = np.identity(prmN, dtype=float)-np.dot(matK, matH)
+        nbOfSts = self.example.getNbOfStates()
+        matImKH = np.identity(nbOfSts, dtype=kfType)-np.dot(matK, matH)
         if self.sim["prmVrb"] >= 4:
             self.printMat("I-KH", matImKH)
         newMatP = np.dot(matImKH, np.dot(matP, np.transpose(matImKH)))
@@ -368,9 +336,9 @@ class kalmanFilterModel():
     def predictStates(self, timeDt, newTime, states):
         """Predict states"""
 
-        # Compute F_{n,n}.
-        prmN = self.example.getLTISystemSize()
-        matF = np.identity(prmN, dtype=float)
+        # Compute F_{n,n}: see https://www.kalmanfilter.net/modeling.html.
+        nbOfSts = self.example.getNbOfStates()
+        matF = np.identity(nbOfSts, dtype=kfType)
         taylorExpLTM = 0.
         for idx in range(1, int(self.sim["prmExpOrd"])+1):
             fac = np.math.factorial(idx)
@@ -381,7 +349,7 @@ class kalmanFilterModel():
             self.printMat("F", matF)
         self.save["predictor"]["simTEM"] = np.append(self.save["predictor"]["simTEM"], taylorExpLTM)
 
-        # Compute G_{n,n}.
+        # Compute G_{n,n}: see https://www.kalmanfilter.net/modeling.html.
         matG = None
         if self.sim["matB"] is not None:
             matG = np.dot(timeDt*matF, self.sim["matB"])
@@ -405,7 +373,7 @@ class kalmanFilterModel():
         if self.sim["prmVrb"] >= 2:
             self.printMat("X", np.transpose(newStates))
 
-        assert newStates.shape == (prmN, 1), "states - bad dimension"
+        assert newStates.shape == (nbOfSts, 1), "states - bad dimension"
         return newStates, matF, matQ
 
     def getProcessNoise(self, matG):
@@ -422,9 +390,9 @@ class kalmanFilterModel():
             self.printMat("Q", matQ)
 
         # Get random noise: w_{n,n} must be such that w_{n,n}*w_{n,n}t = Q_{n,n}.
-        prmN = self.example.getLTISystemSize()
-        vecW = np.zeros((prmN, 1), dtype=float)
-        for idx in range(prmN):
+        nbOfSts = self.example.getNbOfStates()
+        vecW = np.zeros((nbOfSts, 1), dtype=kfType)
+        for idx in range(nbOfSts):
             vecW[idx] = np.sqrt(matQ[idx, idx])
 
         # Verbose on demand.
@@ -469,7 +437,7 @@ class kalmanFilterModel():
             if key not in fh5:
                 nbTimeIt = int(self.sim["fcdTf"]/self.sim["prmDt"]) + 1
                 dsSize = nbTimeIt + len(self.msr)
-                fh5.create_dataset(key, data=np.zeros(shape=(dsSize, 1), dtype=float),
+                fh5.create_dataset(key, data=np.zeros(shape=(dsSize, 1), dtype=kfType),
                                    chunks=True, maxshape=(dsSize,1))
         simIdx = self.sim["simItNb"]
 
@@ -505,24 +473,22 @@ class kalmanFilterModel():
         self.saveH5("X", time, newStates, self.example.getStateKeys())
         self.saveH5("Y", time, newOutputs, self.example.getOutputKeys())
 
-    def saveCorrector(self, time, msrFlags, vecKIZX):
+    def saveCorrector(self, time, vecKIZ):
         """Save corrector results"""
 
         # Save time.
-        self.save["corrector"]["simDgK"]["T"].append(time)
-        keys = self.example.getStateKeys()
+        self.save["corrector"]["simKGn"]["T"].append(time)
+        keys = self.example.getOutputKeys()
         for key in keys:
-            if key in msrFlags:
-                self.save["corrector"]["simInv"][key]["T"].append(time)
+            self.save["corrector"]["simInv"][key]["T"].append(time)
 
         # Save Kalman gain, innovation, measurement and states.
-        matK, vecI, vecZ, states = vecKIZX[0], vecKIZX[1], vecKIZX[2], vecKIZX[3]
+        matK, vecI, vecZ = vecKIZ[0], vecKIZ[1], vecKIZ[2]
+        colK = matK.sum(axis=0) # Sum of each column of matK.
         for idx, key in enumerate(keys):
-            self.save["corrector"]["simDgK"][key].append(matK[idx, idx])
-            if key in msrFlags:
-                self.save["corrector"]["simInv"][key]["vecI"].append(vecI[idx])
-                self.save["corrector"]["simInv"][key]["vecZ"].append(vecZ[idx])
-                self.save["corrector"]["simInv"][key]["state"].append(states[idx])
+            self.save["corrector"]["simKGn"][key].append(colK[idx])
+            self.save["corrector"]["simInv"][key]["vecI"].append(vecI[idx])
+            self.save["corrector"]["simInv"][key]["vecZ"].append(vecZ[idx])
 
     def saveProcessNoise(self, vecW):
         """Save process noise"""
