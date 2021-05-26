@@ -1895,9 +1895,10 @@ class kalmanFilterPlaneExample:
             self.msr["msrLst"].item(idx).setText("")
 
         # Initialize the measurement list with GPS measurements (x, v).
+        lastMsrTime = float(self.slt["fcdTf"].text()) - 1.
         self.msr["addType"].setCurrentIndex(0) # Set combo to "GPS".
-        self.msr["addT0"].setText("0.")
-        self.msr["addTf"].setText(self.slt["fcdTf"].text())
+        self.msr["addT0"].setText("1.") # Start measures after flight start.
+        self.msr["addTf"].setText("%.6f" % lastMsrTime) # Stop measures before flight stop.
         self.msr["addDt"].setText("1.") # GPS frequency: 1 s.
         self.msr["addSigma"].setText("%.6f" % sigPosGPS)
         self.onAddMsrBtnClick() # Adding "GPS" measurement.

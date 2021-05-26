@@ -3,6 +3,7 @@
 """Kalman filter model"""
 
 import os
+import sys
 import itertools
 import h5py
 import numpy as np
@@ -176,6 +177,8 @@ class kalmanFilterModel():
 
             # Solve (= corrector + predictor) with Kalman filter.
             newTime, timeDt, states, matP = self.corrector(time, prmDt, matP, states)
+            if np.abs(timeDt) < 1.e-06:
+                sys.exit("Error - kalmanFilterModel: abs(deltaT) < 1.e-06")
             states, matP = self.predictor(newTime, timeDt, states, matP)
 
             # Increase time.
