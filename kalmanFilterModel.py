@@ -221,7 +221,7 @@ class kalmanFilterModel():
         self.saveH5("Z", newTime, vecZ, self.example.getOutputKeys())
 
         # Compute Kalman gain K_{n}.
-        matR, matK = self.computeKalmanGain(matP, matH, matR)
+        matK = self.computeKalmanGain(matP, matH, matR)
 
         # Update estimate with measurement: x_{n,n} = x_{n,n-1} + K_{n}*(z_{n} - H*x_{n,n-1}).
         #
@@ -281,7 +281,7 @@ class kalmanFilterModel():
         if self.sim["prmVrb"] >= 3:
             self.printMat("K", matK)
 
-        return matR, matK # https://www.kalmanfilter.net/kalmanGain.html.
+        return matK # https://www.kalmanfilter.net/kalmanGain.html.
 
     def updateCovariance(self, matK, matH, matP, matR):
         """Update covariance"""
