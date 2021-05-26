@@ -339,12 +339,16 @@ class kalmanFilterModel():
         # Compute F_{n,n}: see https://www.kalmanfilter.net/modeling.html.
         nbOfSts = self.example.getNbOfStates()
         matF = np.identity(nbOfSts, dtype=kfType)
+        if self.sim["prmVrb"] >= 4:
+            self.printMat("F order 0", matF)
         taylorExpLTM = 0.
         for idx in range(1, int(self.sim["prmExpOrd"])+1):
             fac = np.math.factorial(idx)
             taylorExp = npl.matrix_power(timeDt*self.sim["matA"], idx)/fac
             taylorExpLTM = np.amax(np.abs(taylorExp))
             matF = matF+taylorExp
+            if self.sim["prmVrb"] >= 4:
+                self.printMat("F order %d"%idx, matF)
         if self.sim["prmVrb"] >= 3:
             self.printMat("F", matF)
         self.save["predictor"]["simTEM"] = np.append(self.save["predictor"]["simTEM"], taylorExpLTM)
