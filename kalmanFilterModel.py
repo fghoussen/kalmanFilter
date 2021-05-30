@@ -3,7 +3,6 @@
 """Kalman filter model"""
 
 import os
-import sys
 import itertools
 import h5py
 import numpy as np
@@ -175,11 +174,12 @@ class kalmanFilterModel():
             if self.sim["simItNb"]%self.sim["prmVrbIt"] == 0:
                 self.sim["prmVrb"] = prmVrb
 
-            # Solve (= corrector + predictor) with Kalman filter.
-            newTime, timeDt, states, matP = self.corrector(time, prmDt, matP, states)
-            if np.abs(timeDt) < 1.e-06:
-                sys.exit("Error - kalmanFilterModel: abs(deltaT) < 1.e-06")
-            states, matP = self.predictor(newTime, timeDt, states, matP)
+            # Solve (predictor/corrector) with Kalman filter.
+            timeDt, msrInDeltaT = self.isMsrInDeltaT(time, prmDt)
+            if timeDt > 0.:
+                states, matP = self.predictor(time, timeDt, states, matP)
+            if msrInDeltaT:
+                states, matP = self.corrector(matP, states)
 
             # Increase time.
             time = time+timeDt
@@ -189,24 +189,28 @@ class kalmanFilterModel():
         if self.sim["prmVrb"] >= 1:
             print("  "*2+"End: time %.3f, iteration %d" % (time, self.sim["simItNb"]))
 
-    def corrector(self, time, prmDt, matP, states):
+    def isMsrInDeltaT(self, time, prmDt):
+        """Check if a measure is about to happen in deltaT"""
+
+        # Look for next measurement.
+        timeDt, msrInDeltaT = prmDt, False
+        nbMsr = len(self.msr)
+        if nbMsr > 0:
+            timeMsr = self.msr[nbMsr-1][0]
+            if time <= timeMsr <= time+prmDt:
+                timeDt = timeMsr-time
+                msrInDeltaT = True
+
+        return timeDt, msrInDeltaT
+
+    def corrector(self, matP, states):
         """Solve corrector step"""
 
-        # Check if no more measurement: nothing to do.
-        newTime = time+prmDt
-        newStates = states
-        newMatP = matP
-        nbMsr = len(self.msr)
-        if nbMsr == 0:
-            return newTime, newTime-time, newStates, newMatP
-
         # Look for measurement.
-        timeMsr = self.msr[nbMsr-1][0]
-        if time <= timeMsr <= newTime:
-            msrData = self.msr.pop() # Get measurement out of the list.
-            newTime, newStates, newMatP = self.computeCorrection(msrData, matP, states)
+        msrData = self.msr.pop() # Get measurement out of the list.
+        newStates, newMatP = self.computeCorrection(msrData, matP, states)
 
-        return newTime, newTime-time, newStates, newMatP
+        return newStates, newMatP
 
     def computeCorrection(self, msrData, matP, states):
         """Compute correction"""
@@ -243,7 +247,7 @@ class kalmanFilterModel():
         # Save corrector results.
         self.saveCorrector(newTime, (matK, vecI, vecZ))
 
-        return newTime, newStates, newMatP
+        return newStates, newMatP
 
     def getMsr(self, msrLst):
         """Get measurement"""
