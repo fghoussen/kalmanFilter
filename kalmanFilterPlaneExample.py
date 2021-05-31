@@ -1013,7 +1013,8 @@ class kalmanFilterPlaneExample:
             self.computeMsr()
 
         # Plot measurement data.
-        self.plotSltMsrSimVariablesX("msrDat", 0, pltMsr=True)
+        opts = {"pltMsr": True, "pltSim": False}
+        self.plotSltMsrSimVariablesX("msrDat", 0, opts)
 
     def onAddMsrBtnClick(self):
         """Callback on adding measure in list"""
@@ -1419,8 +1420,9 @@ class kalmanFilterPlaneExample:
             return
 
         # Plot simulation output variables.
-        self.plotSltMsrSimVariablesX("simSVr", 0, pltMsr=True, pltSim=True)
-        self.plotSltMsrSimVariablesV("simSVr", 3, pltMsr=False, pltSim=True)
+        opts = {"pltMsr": True, "pltSim": True, "pltSimSts": True, "pltSimOut": False}
+        self.plotSltMsrSimVariablesX("simSVr", 0, opts)
+        self.plotSltMsrSimVariablesV("simSVr", 3, opts)
 
     def onPltSOVBtnClick(self):
         """Callback on plotting simulation output variables"""
@@ -1450,31 +1452,30 @@ class kalmanFilterPlaneExample:
             return
 
         # Plot simulation output variables.
-        self.plotSltMsrSimVariablesA("simOVr", 0, pltMsr=False, pltSim=True)
+        opts = {"pltMsr": True, "pltSim": True, "pltSimSts": False, "pltSimOut": True}
+        self.plotSltMsrSimVariablesX("simOVr", 0, opts)
 
-    def plotSltMsrSimVariablesX(self, key, pltIdx, pltMsr=False, pltSim=False):
+    def plotSltMsrSimVariablesX(self, key, pltIdx, opts):
         """Plot variables: X"""
 
         # Plot variables.
-        opts = {"pltMsr": pltMsr, "pltSim": pltSim, "msrType": "pos"}
+        opts["msrType"] = "pos"
         self.plotSltMsrSimVariables(key, pltIdx+0, "X", opts)
         self.plotSltMsrSimVariables(key, pltIdx+1, "Y", opts)
         self.plotSltMsrSimVariables(key, pltIdx+2, "Z", opts)
 
-    def plotSltMsrSimVariablesV(self, key, pltIdx, pltMsr=False, pltSim=False):
+    def plotSltMsrSimVariablesV(self, key, pltIdx, opts):
         """Plot variables: V"""
 
         # Plot variables.
-        opts = {"pltMsr": pltMsr, "pltSim": pltSim}
         self.plotSltMsrSimVariables(key, pltIdx+0, "VX", opts)
         self.plotSltMsrSimVariables(key, pltIdx+1, "VY", opts)
         self.plotSltMsrSimVariables(key, pltIdx+2, "VZ", opts)
 
-    def plotSltMsrSimVariablesA(self, key, pltIdx, pltMsr=False, pltSim=False):
+    def plotSltMsrSimVariablesA(self, key, pltIdx, opts):
         """Plot variables: A"""
 
         # Plot variables.
-        opts = {"pltMsr": pltMsr, "pltSim": pltSim}
         self.plotSltMsrSimVariables(key, pltIdx+0, "AX", opts)
         self.plotSltMsrSimVariables(key, pltIdx+1, "AY", opts)
         self.plotSltMsrSimVariables(key, pltIdx+2, "AZ", opts)
@@ -1486,9 +1487,9 @@ class kalmanFilterPlaneExample:
         axis = self.vwr["2D"][key].getAxis(axisId)
         if opts["pltSim"]:
             time = self.kfm.time
-            if var in self.kfm.states:
+            if opts["pltSimSts"] and var in self.kfm.states:
                 axis.plot(time, self.kfm.states[var], label="sim: "+var, marker="o", ms=3, c="g")
-            if var in self.kfm.outputs:
+            if opts["pltSimOut"] and var in self.kfm.outputs:
                 axis.plot(time, self.kfm.outputs[var], label="sim: "+var, marker="o", ms=3, c="g")
         if opts["pltMsr"]:
             if self.vwr["ckbMsr"].isChecked():
@@ -1522,7 +1523,9 @@ class kalmanFilterPlaneExample:
                     continue
                 eqnT = np.append(eqnT, msrData["T"])
                 posX = np.append(posX, msrData[var])
-            msrAxis.scatter(eqnT, posX, c="r", marker="^", alpha=1, s=vwrPosMks, label="msr: "+var)
+            if len(eqnT) > 0 and len(posX) > 0:
+                lbl = "msr: "+var
+                msrAxis.scatter(eqnT, posX, c="r", marker="^", alpha=1, s=vwrPosMks, label=lbl)
 
         # Add legend to the second axes.
         if "twinAxis" in opts:
@@ -1611,7 +1614,7 @@ class kalmanFilterPlaneExample:
         print("Plot simulation innovation")
         if not self.vwr["2D"]["simInv"] or self.vwr["2D"]["simInv"].closed:
             self.vwr["2D"]["simInv"] = kalmanFilter2DViewer(self.ctrGUI)
-            self.vwr["2D"]["simInv"].setUp(self.slt["fcdTf"].text(), nrows=2, ncols=3)
+            self.vwr["2D"]["simInv"].setUp(self.slt["fcdTf"].text(), nrows=1, ncols=3)
             self.vwr["2D"]["simInv"].setWindowTitle("Simulation: innovation")
             self.vwr["2D"]["simInv"].show()
 
